@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production / Build outputs
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Environment and Secrets (CRITICAL: Never commit real env/secret files)
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
+!.env.example
+
+# Credentials, Private Keys, Certificates & Tokens
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+credentials.json
+service-account*.json
+*.token
+
+# Local QA, Security & Test Audit Artifacts
+.qa-worker-token
+.qa-inspect.py
+.qa-screenshots/
+gitleaks*
+gitleaks-report.json
+
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# IDE & Editor files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# OS Artifacts
+.turbo/
+.cache/
+tmp/
+scratch/

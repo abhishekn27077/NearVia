@@ -1,0 +1,33 @@
+{
+  "name": "nearvia-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NEARVIA - Work Within Reach | Hyperlocal Quick-Work Marketplace",
+  "author": "NEARVIA Core Team",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:all",
+    "dev:all": "npx -y concurrently -n api,web -c cyan,emerald \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=@nearvia/api",
+    "dev:web": "npm run dev --workspace=@nearvia/web",
+    "build": "npm run build --workspaces --if-present",
+    "build:packages": "npm run build --workspace=@nearvia/types --workspace=@nearvia/validation --workspace=@nearvia/shared --workspace=@nearvia/config",
+    "seed:demo": "npm run seed:demo --workspace=@nearvia/api",
+    "reset:demo": "npm run reset:demo --workspace=@nearvia/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  }
+}

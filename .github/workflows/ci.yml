@@ -1,0 +1,47 @@
+name: NEARVIA Continuous Integration
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Build, Test & Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Workspace Typecheck
+        run: npm run typecheck
+
+      - name: Automated Unit, Integration & Security Tests
+        run: npm test
+
+      - name: Production Monorepo Build
+        run: npm run build
+
+      - name: Security Dependency Vulnerability Audit
+        run: npm audit --audit-level=high
+
+      - name: Client Artifact Secret Leakage Audit
+        run: |
+          echo "Auditing client build bundle for accidental secrets..."
+          if grep -rn "SUPABASE_SERVICE_ROLE_KEY" apps/web/dist; then
+            echo "ERROR: Service role key discovered in frontend bundle!"
+            exit 1
+          fi
+          echo "Client artifact secret audit passed."

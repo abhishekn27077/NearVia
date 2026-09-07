@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "CommonJS",
+    "rootDir": "src",
+    "moduleResolution": "Node",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@nearvia/*": ["modules/*"],
+      "@components/*": ["components/*"],
+      "@config": ["config"],
+      "@middleware/*": ["middleware/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}

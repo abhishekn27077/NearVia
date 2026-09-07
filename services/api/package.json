@@ -1,0 +1,44 @@
+{
+  "name": "@nearvia/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NEARVIA Modular Monolith REST Backend Service",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "seed:demo": "tsx src/scripts/seed-demo.ts",
+    "reset:demo": "tsx src/scripts/reset-demo.ts",
+    "test:e2e:workflow": "tsx src/scripts/e2e-workflow-verify.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@nearvia/config": "*",
+    "@nearvia/shared": "*",
+    "@nearvia/types": "*",
+    "@nearvia/validation": "*",
+    "@supabase/supabase-js": "^2.49.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "pg": "^8.13.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.9",
+    "@types/pg": "^8.11.11",
+    "@types/supertest": "^6.0.2",
+    "rimraf": "^6.0.1",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
