@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { AssignmentDetail } from "@nearvia/types";
 import { ReportModal } from "../safety/ReportModal";
+import { RaiseDisputeModal } from "../safety/RaiseDisputeModal";
 
 interface SafetyToolkitModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const SafetyToolkitModal: React.FC<SafetyToolkitModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isDisputeOpen, setIsDisputeOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -131,19 +133,19 @@ export const SafetyToolkitModal: React.FC<SafetyToolkitModalProps> = ({
               </div>
             </div>
 
-            {/* In-Shift Communication & Support */}
-            <div className="grid grid-cols-2 gap-2.5">
+            {/* In-Shift Communication, Reports & Dispute Resolution */}
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   onClose();
                   onOpenChat();
                 }}
-                className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 text-left transition-all group"
+                className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 text-left transition-all group"
               >
                 <MessageSquare className="w-4 h-4 text-blue-600 mb-1" />
-                <div className="text-xs font-black text-slate-900">Message Employer</div>
-                <div className="text-[10px] text-slate-500">In-app documented chat</div>
+                <div className="text-[11px] font-black text-slate-900 leading-tight">Chat</div>
+                <div className="text-[9px] text-slate-500 mt-0.5">In-app log</div>
               </button>
 
               <button
@@ -151,11 +153,23 @@ export const SafetyToolkitModal: React.FC<SafetyToolkitModalProps> = ({
                 onClick={() => {
                   setIsReportOpen(true);
                 }}
-                className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50/50 text-left transition-all group"
+                className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50/50 text-left transition-all group"
               >
                 <AlertTriangle className="w-4 h-4 text-amber-600 mb-1" />
-                <div className="text-xs font-black text-slate-900">Report Safety Issue</div>
-                <div className="text-[10px] text-slate-500">Flag to Trust & Safety</div>
+                <div className="text-[11px] font-black text-slate-900 leading-tight">Report</div>
+                <div className="text-[9px] text-slate-500 mt-0.5">Safety & conduct</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDisputeOpen(true);
+                }}
+                className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-purple-400 hover:bg-purple-50/50 text-left transition-all group"
+              >
+                <ShieldAlert className="w-4 h-4 text-purple-600 mb-1" />
+                <div className="text-[11px] font-black text-slate-900 leading-tight">Dispute</div>
+                <div className="text-[9px] text-slate-500 mt-0.5">Wage & task</div>
               </button>
             </div>
           </div>
@@ -178,6 +192,15 @@ export const SafetyToolkitModal: React.FC<SafetyToolkitModalProps> = ({
         targetType="ASSIGNMENT"
         targetId={assignment.id}
         targetTitle={`Shift: ${assignment.opportunityTitle}`}
+      />
+
+      {/* Raise Dispute Modal Integration */}
+      <RaiseDisputeModal
+        isOpen={isDisputeOpen}
+        onClose={() => setIsDisputeOpen(false)}
+        assignmentId={assignment.id}
+        opportunityTitle={assignment.opportunityTitle}
+        agreedWage={assignment.agreedWage}
       />
     </>
   );

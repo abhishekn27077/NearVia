@@ -39,6 +39,8 @@ interface DbWorkerRow {
   total_ratings_count: number;
   completed_tasks_count: number;
   assisted_by_agent_id: string | null;
+  availability_updated_at?: string | null;
+  last_seen_at?: string | null;
   created_at: string;
   updated_at: string;
   full_name: string;
@@ -245,18 +247,23 @@ export class WorkersService {
       // Fetch skills
       const skills = await this.getWorkerSkills(userId);
 
-      // Evaluate expired Available-Now status dynamically
+      // Evaluate expired or stale Available-Now status dynamically
       let isAvailableNow = row.is_available_now;
       let availabilityStatus = row.availability_status;
 
-      if (isAvailableNow && row.available_until) {
-        const expiry = new Date(row.available_until).getTime();
-        if (expiry <= Date.now()) {
+      if (isAvailableNow) {
+        const isExpired = row.available_until && new Date(row.available_until).getTime() <= Date.now();
+        const updatedAtMs = row.availability_updated_at
+          ? new Date(row.availability_updated_at).getTime()
+          : new Date(row.updated_at).getTime();
+        const isStale = (Date.now() - updatedAtMs) > (12 * 60 * 60 * 1000);
+
+        if (isExpired || isStale) {
           isAvailableNow = false;
           availabilityStatus = AvailabilityStatus.OFFLINE;
           // Background sync to database
           await query(
-            "UPDATE worker_profiles SET is_available_now = FALSE, availability_status = 'OFFLINE', available_until = NULL WHERE id = $1",
+            "UPDATE worker_profiles SET is_available_now = FALSE, availability_status = 'OFFLINE', available_until = NULL, last_seen_at = NOW(), updated_at = NOW() WHERE id = $1",
             [row.id],
           );
         }
@@ -592,6 +599,8 @@ export class WorkersService {
            SET is_available_now = TRUE,
                available_until = $2,
                availability_status = 'AVAILABLE_NOW',
+               availability_updated_at = NOW(),
+               last_seen_at = NOW(),
                updated_at = NOW()
            WHERE id = $1`,
         [workerId, expiryDate.toISOString()],
@@ -608,6 +617,8 @@ export class WorkersService {
            SET is_available_now = FALSE,
                available_until = NULL,
                availability_status = 'OFFLINE',
+               availability_updated_at = NOW(),
+               last_seen_at = NOW(),
                updated_at = NOW()
            WHERE id = $1`,
         [workerId],

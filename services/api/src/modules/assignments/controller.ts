@@ -6,12 +6,14 @@
 
 import { Request, Response, NextFunction } from "express";
 import { assignmentsService } from "./service";
+import { jobLifecycleService } from "../lifecycle/jobLifecycle.service";
 import { ApiResponse, ErrorCode } from "@nearvia/config";
 import { AppError } from "../../middleware/errorHandler";
 import {
   AssignmentDetail,
   UserRole,
   CheckInInput,
+  CheckOutInput,
   StartWorkInput,
   CompleteWorkInput,
   ConfirmCompletionInput,
@@ -20,6 +22,8 @@ import {
 } from "@nearvia/types";
 import {
   checkInSchema,
+  checkOutSchema,
+  verifyPinSchema,
   startWorkSchema,
   completeWorkSchema,
   confirmCompletionSchema,
@@ -478,14 +482,23 @@ export class AssignmentsController {
       }
 
       const id = this.getAssignmentId(req);
-      const pin = req.body.jobPin || req.body.pin;
-      if (!pin) {
-        throw new AppError("Job PIN is required.", 400, ErrorCode.VALIDATION_ERROR);
+      const parseResult = verifyPinSchema.safeParse({
+        jobPin: req.body.jobPin || req.body.pin,
+      });
+      if (!parseResult.success) {
+        throw new AppError(
+          "Job PIN must be a 4-digit number.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          parseResult.error.flatten().fieldErrors,
+        );
       }
 
-      const assignment = await assignmentsService.verifyJobPin(req.user.id, id, {
-        jobPin: String(pin),
-      });
+      const assignment = await assignmentsService.verifyJobPin(
+        req.user.id,
+        id,
+        parseResult.data,
+      );
 
       res.status(200).json({
         success: true,
@@ -512,11 +525,22 @@ export class AssignmentsController {
       }
 
       const id = this.getAssignmentId(req);
-      const assignment = await assignmentsService.checkOut(req.user.id, id, {
-        completionNotes: req.body.completionNotes,
-        latitude: req.body.latitude,
-        longitude: req.body.longitude,
-      });
+      const parseResult = checkOutSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        throw new AppError(
+          "Invalid check-out parameters.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          parseResult.error.flatten().fieldErrors,
+        );
+      }
+
+      const input: CheckOutInput = parseResult.data;
+      const assignment = await assignmentsService.checkOut(
+        req.user.id,
+        id,
+        input,
+      );
 
       res.status(200).json({
         success: true,
@@ -611,6 +635,37 @@ export class AssignmentsController {
       res.status(200).json({
         success: true,
         data: snapshot,
+        meta: { timestamp: new Date().toISOString() },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/assignments/:id/lifecycle
+   * Authoritative lifecycle state, synchronized milestones timeline, and next actions.
+   */
+  public async getLifecycle(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
+      }
+
+      const id = this.getAssignmentId(req);
+      const lifecycle = await jobLifecycleService.getAssignmentAuthoritativeLifecycle(
+        id,
+        req.user.id,
+        req.user.role,
+      );
+
+      res.status(200).json({
+        success: true,
+        data: lifecycle,
         meta: { timestamp: new Date().toISOString() },
       });
     } catch (error) {

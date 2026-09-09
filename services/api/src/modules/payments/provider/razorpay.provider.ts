@@ -123,6 +123,37 @@ export class RazorpayPaymentProvider implements PaymentProvider {
       amountPaise,
     };
   }
+
+  /**
+   * Verify frontend checkout payment signature:
+   * HMAC-SHA256(orderId + "|" + paymentId, secret) === signature
+   */
+  verifyPaymentSignature(params: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+    secret?: string;
+  }): boolean {
+    const keySecret = params.secret || process.env.RAZORPAY_KEY_SECRET || this.defaultSecret;
+    if (!keySecret) return false;
+
+    const data = `${params.orderId}|${params.paymentId}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", keySecret)
+      .update(data)
+      .digest("hex");
+
+    try {
+      const sigBuf = Buffer.from(params.signature, "utf-8");
+      const expectedBuf = Buffer.from(expectedSignature, "utf-8");
+      return (
+        sigBuf.length === expectedBuf.length &&
+        crypto.timingSafeEqual(sigBuf, expectedBuf)
+      );
+    } catch {
+      return false;
+    }
+  }
 }
 
 export const defaultRazorpayProvider: PaymentProvider = new RazorpayPaymentProvider();

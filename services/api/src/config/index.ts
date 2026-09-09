@@ -62,13 +62,6 @@ const envSchema = z
           message: "PAYMENT_MODE cannot be set to 'demo' in a production environment.",
         });
       }
-      if (data.OTP_PROVIDER === "mock" && data.ALLOW_MOCK_OTP_IN_PRODUCTION !== "true") {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["OTP_PROVIDER"],
-          message: "OTP_PROVIDER cannot be set to 'mock' in a production environment without explicit ALLOW_MOCK_OTP_IN_PRODUCTION=true.",
-        });
-      }
     }
   });
 

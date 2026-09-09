@@ -298,6 +298,14 @@ export const WorkOpportunityDetailPage: React.FC = () => {
                       <span>Review Applicants ({opportunity.workersNeeded} Needed)</span>
                     </Link>
 
+                    <Link
+                      to={`/provider/work/${opportunity.id}/applicants`}
+                      className="px-5 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-black transition-all shadow-xs flex items-center space-x-2"
+                    >
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <span>Smart Matches</span>
+                    </Link>
+
                     <button
                       onClick={handleCancel}
                       className="px-4 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors flex items-center space-x-1.5"

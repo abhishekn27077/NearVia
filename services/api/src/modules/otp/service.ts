@@ -20,14 +20,14 @@ const OTP_SALT = process.env.OTP_SALT || "nearvia_otp_secure_salt_2026";
 
 export class OTPService {
   private getProvider(): IOTPProvider {
-    const providerName = (process.env.OTP_PROVIDER || env.OTP_PROVIDER || "mock").toLowerCase();
+    const providerName = (process.env.OTP_PROVIDER || env.OTP_PROVIDER || (process.env.NODE_ENV === "production" ? "msg91" : "mock")).toLowerCase();
     if (providerName === "msg91") {
       return msg91OtpProvider;
     }
-    // Hardening: Prevent accidental mock OTP in production environment
-    if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_OTP_IN_PRODUCTION !== "true") {
+    // Hardening: Strictly forbid mock OTP in production environment
+    if (process.env.NODE_ENV === "production") {
       throw new AppError(
-        "Mock OTP provider is disabled in production. Configure a verified SMS provider (OTP_PROVIDER=msg91).",
+        "Mock OTP provider is strictly prohibited in production. Configure a verified SMS provider (OTP_PROVIDER=msg91).",
         500,
         ErrorCode.INTERNAL_SERVER_ERROR,
       );
@@ -398,6 +398,19 @@ export class OTPService {
       `UPDATE otp_challenges SET consumed_at = NOW() WHERE id = $1`,
       [challenge.id],
     );
+
+    // Check for phone duplicate collision across other accounts
+    const dupCheck = await query<{ id: string }>(
+      "SELECT id FROM users WHERE phone = $1 AND id != $2 LIMIT 1",
+      [normalizedPhone, userId],
+    );
+    if (dupCheck.rows.length > 0) {
+      throw new AppError(
+        "This phone number is already verified on another account.",
+        409,
+        ErrorCode.CONFLICT,
+      );
+    }
 
     // 7. Update User Record: phone, mobile_verified = TRUE, mobile_verified_at = NOW()
     const updateRes = await query<any>(

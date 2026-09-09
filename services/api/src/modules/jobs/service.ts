@@ -799,6 +799,73 @@ export class WorkOpportunitiesService {
       );
     }
 
+    // Comprehensive field validation before publishing
+    if (!opp.title || opp.title.trim().length < 3) {
+      throw new AppError(
+        "A valid title (at least 3 characters) is required to publish.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (!opp.description || opp.description.trim().length < 10) {
+      throw new AppError(
+        "A valid description (at least 10 characters) is required to publish.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (!opp.categoryId) {
+      throw new AppError(
+        "A valid category is required to publish.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (!opp.paymentAmount || opp.paymentAmount <= 0) {
+      throw new AppError(
+        "A positive payment amount is required to publish.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (!opp.workersNeeded || opp.workersNeeded < 1) {
+      throw new AppError(
+        "At least 1 worker is required to publish.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (
+      !opp.location ||
+      typeof opp.location.latitude !== "number" ||
+      typeof opp.location.longitude !== "number" ||
+      opp.location.latitude < -90 ||
+      opp.location.latitude > 90 ||
+      opp.location.longitude < -180 ||
+      opp.location.longitude > 180
+    ) {
+      throw new AppError(
+        "Valid location coordinates are required to publish.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (!opp.workDate) {
+      throw new AppError(
+        "Work date is required to publish.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    const todayStr = new Date().toISOString().split("T")[0] ?? "";
+    if (opp.workDate < todayStr) {
+      throw new AppError(
+        "Cannot publish a work opportunity with a past date.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
     const sql = `
       UPDATE work_opportunities
       SET status = 'PUBLISHED', published_at = NOW(), updated_at = NOW()

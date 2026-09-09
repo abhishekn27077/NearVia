@@ -20,11 +20,12 @@ import {
   Banknote,
   FileText,
 } from "lucide-react";
-import { AssignmentDetail, AssignmentStatus } from "@nearvia/types";
+import { AssignmentDetail, AssignmentStatus, GeoCoordinates } from "@nearvia/types";
 import { AssignmentStatusTimeline } from "./AssignmentStatusTimeline";
 import { ReviewForm } from "../../components/trust/ReviewForm";
 import { formatCurrencyINR, formatScheduleRange, playMechanicalTick, playPaymentSuccessChime } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { webConfig } from "../../config";
 import { MessageModal } from "../messages/MessageModal";
 import { JobEvidenceGallery } from "./JobEvidenceGallery";
@@ -32,10 +33,12 @@ import { SafetyToolkitModal } from "./SafetyToolkitModal";
 import { CashPaymentModal } from "../payments/CashPaymentModal";
 import { PaymentReceiptModal } from "../payments/PaymentReceiptModal";
 import { DirectionsModal } from "../discovery/DirectionsModal";
+import { ReadAloudButton } from "../../components/common/ReadAloudButton";
 
 export const WorkerAssignmentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
+  const { t } = useLanguage();
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -55,28 +58,33 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
 
   // Real-World Delivery Navigation Modal
   const [showDirectionsModal, setShowDirectionsModal] = useState<boolean>(false);
-  const [workerLocation, setWorkerLocation] = useState<{ latitude: number; longitude: number }>({
+  const [directionsOrigin, setDirectionsOrigin] = useState<GeoCoordinates>({
     latitude: 12.9716,
     longitude: 77.5946,
   });
 
-  // Check-Out / Completion Form State
-  const [completionNotes, setCompletionNotes] = useState("");
-
-  useEffect(() => {
-    if ("geolocation" in navigator) {
+  const handleGetDirections = () => {
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setWorkerLocation({
-            latitude: Number(pos.coords.latitude.toFixed(6)),
-            longitude: Number(pos.coords.longitude.toFixed(6)),
+          setDirectionsOrigin({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
           });
+          setShowDirectionsModal(true);
         },
-        () => {},
-        { timeout: 5000 },
+        () => {
+          setShowDirectionsModal(true);
+        },
+        { timeout: 5000, enableHighAccuracy: false }
       );
+    } else {
+      setShowDirectionsModal(true);
     }
-  }, []);
+  };
+
+  // Check-Out / Completion Form State
+  const [completionNotes, setCompletionNotes] = useState("");
 
   const fetchAssignment = useCallback(async () => {
     if (!id) return;
@@ -179,6 +187,9 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
           payload.latitude = lat;
           payload.longitude = lng;
         }
+        if (pinInput.trim()) {
+          payload.jobPin = pinInput.trim();
+        }
 
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -193,6 +204,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
           throw new Error(data.error?.message || "Attendance check-in failed.");
         }
         alert("✓ Checked in successfully! Shift is ready to start.");
+        setPinInput("");
         await fetchAssignment();
       } catch (err: any) {
         alert(err.message);
@@ -205,6 +217,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
       navigator.geolocation.getCurrentPosition(
         (pos) => performCheckIn(pos.coords.latitude, pos.coords.longitude),
         () => performCheckIn(undefined, undefined),
+        { timeout: 8000 },
       );
     } else {
       performCheckIn(undefined, undefined);
@@ -236,26 +249,47 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
 
   const handleCheckOut = async () => {
     if (!id) return;
-    try {
-      setActionLoading(true);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+    setActionLoading(true);
 
-      const res = await fetch(`${webConfig.apiBaseUrl}/assignments/${id}/check-out`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ completionNotes: completionNotes || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to check out.");
+    const performCheckOut = async (lat?: number, lng?: number) => {
+      try {
+        const payload: any = {
+          completionNotes: completionNotes || undefined,
+        };
+        if (lat !== undefined && lng !== undefined) {
+          payload.latitude = lat;
+          payload.longitude = lng;
+        }
+
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(`${webConfig.apiBaseUrl}/assignments/${id}/check-out`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error?.message || "Failed to check out.");
+        }
+        alert("🎉 Shift checked out! Completion submitted for settlement.");
+        await fetchAssignment();
+      } catch (err: any) {
+        alert(err.message);
+      } finally {
+        setActionLoading(false);
       }
-      alert("🎉 Shift checked out! Completion submitted for settlement.");
-      await fetchAssignment();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => performCheckOut(pos.coords.latitude, pos.coords.longitude),
+        () => performCheckOut(undefined, undefined),
+        { timeout: 8000 },
+      );
+    } else {
+      performCheckOut(undefined, undefined);
     }
   };
 
@@ -387,20 +421,35 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+              {/* 🔊 Voice Narration for Low-Literacy / Hands-Free */}
+              <ReadAloudButton
+                job={{
+                  title: assignment.opportunityTitle || "Shift",
+                  category: assignment.workType || "Work",
+                  paymentAmount: assignment.agreedWage || 0,
+                  startTime: assignment.startTime,
+                  endTime: assignment.endTime,
+                  address: assignment.addressApproximate,
+                }}
+                className="shadow-xs"
+              />
+
               {/* 🛡️ Floating / Header Safety Toolkit Trigger */}
               <button
                 type="button"
                 onClick={() => setIsSafetyOpen(true)}
-                className="px-4 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black transition-all flex items-center space-x-1.5 shadow-xs"
+                aria-label="Open Safety Toolkit"
+                className="px-4 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black transition-all flex items-center space-x-1.5 shadow-xs focus-visible:ring-2 focus-visible:ring-rose-500 min-h-[44px]"
               >
                 <ShieldAlert className="w-4 h-4 text-rose-600" />
-                <span>🛡️ Safety Toolkit</span>
+                <span>🛡️ {t.safetyCenter}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsChatOpen(true)}
-                className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center space-x-2 shadow-xs"
+                aria-label="Message Employer"
+                className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center space-x-2 shadow-xs focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Message Employer</span>
@@ -409,7 +458,8 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
               {assignment.providerContactPhone && (
                 <a
                   href={`tel:${assignment.providerContactPhone}`}
-                  className="px-4 py-2.5 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-200 text-xs font-bold transition-all flex items-center space-x-2 shadow-xs"
+                  aria-label={`Call Employer at ${assignment.providerContactPhone}`}
+                  className="px-4 py-2.5 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-200 text-xs font-bold transition-all flex items-center space-x-2 shadow-xs focus-visible:ring-2 focus-visible:ring-orange-500 min-h-[44px]"
                 >
                   <Phone className="w-4 h-4 text-orange-600" />
                   <span>Call: {assignment.providerContactPhone}</span>
@@ -461,7 +511,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowDirectionsModal(true)}
+                  onClick={handleGetDirections}
                   className="flex-1 py-2 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black transition-all flex items-center justify-center space-x-1.5 shadow-xs btn-tactile"
                 >
                   <Navigation className="w-3.5 h-3.5" />
@@ -496,7 +546,9 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
                 {assignment.status === AssignmentStatus.CONFIRMED && "Step 2: Head to location and tap Check-In when you arrive"}
                 {assignment.status === AssignmentStatus.CHECKED_IN && "Step 3: Arrival verified! Tap Start Work when beginning tasks"}
                 {assignment.status === AssignmentStatus.IN_PROGRESS && "Step 4: Shift in progress. Complete tasks and check-out to get paid"}
-                {assignment.status === AssignmentStatus.COMPLETED && "Step 5: Shift complete! View receipt and submit rating"}
+                {assignment.status === AssignmentStatus.COMPLETED && "Step 5: Shift complete! Awaiting employer sign-off & wage settlement"}
+                {assignment.status === AssignmentStatus.SETTLEMENT_PENDING && "Step 6: Employer confirmed completion! Wage settlement pending"}
+                {assignment.status === AssignmentStatus.CLOSED && "Shift concluded & closed"}
               </div>
             </div>
 
@@ -543,13 +595,15 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
               </a>
             )}
 
-            {assignment.status === AssignmentStatus.COMPLETED && (
+            {(assignment.status === AssignmentStatus.COMPLETED ||
+              assignment.status === AssignmentStatus.SETTLEMENT_PENDING ||
+              assignment.status === AssignmentStatus.CLOSED) && (
               <button
                 onClick={() => setIsReceiptModalOpen(true)}
                 className="px-6 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-xs font-black shadow-md transition-all shrink-0 flex items-center space-x-1.5 btn-tactile"
               >
                 <FileText className="w-4 h-4 text-emerald-600" />
-                <span>View Receipt</span>
+                <span>View Receipt / Wage Summary</span>
               </button>
             )}
           </div>
@@ -690,13 +744,27 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
                 When you arrive at {assignment.addressApproximate || "the work location"}, tap Check-In to record your GPS arrival.
               </p>
 
+              <div className="space-y-3 p-4 rounded-2xl bg-orange-50/60 border border-orange-100">
+                <label className="block text-xs font-bold text-slate-700">
+                  4-Digit Job PIN (Ask provider on arrival)
+                </label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ""))}
+                  placeholder="e.g. 7419"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 font-mono text-center text-base tracking-widest font-black focus:border-orange-500 focus:outline-hidden"
+                />
+              </div>
+
               <button
                 onClick={handleCheckIn}
                 disabled={actionLoading}
                 className="w-full py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs transition-all shadow-md shadow-orange-600/20 flex items-center justify-center space-x-2 disabled:opacity-50"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>{actionLoading ? "Verifying GPS..." : "📍 Check-In On Site (GPS Verified)"}</span>
+                <span>{actionLoading ? "Verifying Check-In..." : "📍 Check-In On Site (GPS + PIN)"}</span>
               </button>
             </div>
           )}
@@ -827,6 +895,39 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
               {/* Read-Only Photo Evidence */}
               <JobEvidenceGallery assignmentId={assignment.id} isReadOnly />
 
+              {/* Trust, Safety & Dispute Assistance */}
+              <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-600" />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                      Need Help With This Shift?
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-500">Platform Safety & Support</span>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Facing safety risks, harassment, unsafe conditions, or wage disagreements? Open the safety toolkit to report an issue or raise a dispute for formal administrative review.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsSafetyOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>Open Safety & Dispute Toolkit</span>
+                  </button>
+                  <a
+                    href="tel:112"
+                    className="px-4 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Emergency SOS (112)</span>
+                  </a>
+                </div>
+              </div>
+
               {/* Review Section */}
               <div className="pt-2 border-t border-slate-100">
                 <ReviewForm assignmentId={assignment.id} />
@@ -878,7 +979,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
           <DirectionsModal
             isOpen={showDirectionsModal}
             onClose={() => setShowDirectionsModal(false)}
-            origin={workerLocation}
+            origin={directionsOrigin}
             destination={{
               latitude: assignment.opportunityLatitude || 12.9784,
               longitude: assignment.opportunityLongitude || 77.6408,

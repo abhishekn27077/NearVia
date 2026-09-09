@@ -11,7 +11,11 @@ import {
 import { env } from "../config";
 
 let supabaseServerClient: SupabaseClient | null = null;
+let supabaseAdminClient: SupabaseClient | null = null;
 
+/**
+ * Server-side client for public auth calls (e.g. verifying tokens).
+ */
 export function getSupabaseServerClient(): SupabaseClient | null {
   if (supabaseServerClient) {
     return supabaseServerClient;
@@ -36,10 +40,45 @@ export function getSupabaseServerClient(): SupabaseClient | null {
   return null;
 }
 
+/**
+ * Privileged administrative client strictly requiring SUPABASE_SERVICE_ROLE_KEY.
+ * Security: NEVER falls back to SUPABASE_ANON_KEY.
+ */
+export function getSupabaseAdminClient(): SupabaseClient | null {
+  if (supabaseAdminClient) {
+    return supabaseAdminClient;
+  }
+
+  const supabaseUrl = env.SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceRoleKey =
+    env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (supabaseUrl && serviceRoleKey) {
+    supabaseAdminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+    return supabaseAdminClient;
+  }
+
+  return null;
+}
+
+/**
+ * Resets cached clients (for testing environment variable changes).
+ */
+export function _resetClientsForTest(): void {
+  supabaseServerClient = null;
+  supabaseAdminClient = null;
+}
+
 export interface VerifiedAuthResult {
   authId: string;
   email?: string;
   phone?: string;
+  emailVerified?: boolean;
 }
 
 /**
@@ -56,6 +95,7 @@ export async function verifySupabaseToken(
       authId,
       email: `${authId}@example.com`,
       phone: "+919876543200",
+      emailVerified: true,
     };
   }
 
@@ -75,10 +115,17 @@ export async function verifySupabaseToken(
     }
 
     const user: SupabaseAuthUser = data.user;
+    const isConfirmed = Boolean(
+      (user as any).email_confirmed_at ||
+      (user as any).confirmed_at ||
+      (user as any).email_verified
+    );
+
     return {
       authId: user.id,
       email: user.email,
       phone: user.phone,
+      emailVerified: isConfirmed,
     };
   } catch (err) {
     console.error("[Supabase Service] Failed to verify token:", err);

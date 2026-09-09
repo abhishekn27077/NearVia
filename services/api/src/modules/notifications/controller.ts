@@ -38,6 +38,33 @@ export class NotificationsController {
   }
 
   /**
+   * GET /api/v1/notifications/unread-count
+   */
+  public async getUnreadCount(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
+      }
+
+      const unreadCount = await notificationsService.getUnreadCount(req.user.id);
+
+      const response: ApiResponse<{ unreadCount: number }> = {
+        success: true,
+        data: { unreadCount },
+        meta: { timestamp: new Date().toISOString() },
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * PATCH /api/v1/notifications/:id/read
    */
   public async markAsRead(

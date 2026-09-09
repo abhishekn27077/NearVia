@@ -247,33 +247,54 @@ export class ReportsService {
   private async validateTargetExistence(
     targetType: ReportTargetType,
     targetId: string,
-    _reporterId: string
+    reporterId: string
   ): Promise<void> {
-    let tableName = "";
     switch (targetType) {
-      case "USER":
-        tableName = "users";
+      case "USER": {
+        const check = await query(`SELECT id FROM users WHERE id = $1`, [targetId]);
+        if (!check.rowCount || check.rowCount === 0) {
+          throw new AppError(`Target USER with ID ${targetId} was not found`, 404, ErrorCode.NOT_FOUND);
+        }
         break;
-      case "WORK_OPPORTUNITY":
-        tableName = "work_opportunities";
+      }
+      case "WORK_OPPORTUNITY": {
+        const check = await query(`SELECT id FROM work_opportunities WHERE id = $1`, [targetId]);
+        if (!check.rowCount || check.rowCount === 0) {
+          throw new AppError(`Target WORK_OPPORTUNITY with ID ${targetId} was not found`, 404, ErrorCode.NOT_FOUND);
+        }
         break;
-      case "ASSIGNMENT":
-        tableName = "assignments";
+      }
+      case "ASSIGNMENT": {
+        const asgRes = await query(
+          `SELECT asn.id, wp.user_id AS worker_user_id, pp.user_id AS provider_user_id
+           FROM assignments asn
+           JOIN worker_profiles wp ON asn.worker_id = wp.id
+           JOIN provider_profiles pp ON asn.provider_id = pp.id
+           WHERE asn.id = $1`,
+          [targetId]
+        );
+        if (!asgRes.rows.length) {
+          throw new AppError(`Target ASSIGNMENT with ID ${targetId} was not found`, 404, ErrorCode.NOT_FOUND);
+        }
+        const asg = asgRes.rows[0];
+        if (!asg || (asg.worker_user_id !== reporterId && asg.provider_user_id !== reporterId)) {
+          throw new AppError(
+            "You are not a participant in this assignment and cannot file an assignment report",
+            403,
+            ErrorCode.FORBIDDEN
+          );
+        }
         break;
-      case "REVIEW":
-        tableName = "reviews";
+      }
+      case "REVIEW": {
+        const check = await query(`SELECT id FROM reviews WHERE id = $1`, [targetId]);
+        if (!check.rowCount || check.rowCount === 0) {
+          throw new AppError(`Target REVIEW with ID ${targetId} was not found`, 404, ErrorCode.NOT_FOUND);
+        }
         break;
+      }
       default:
         throw new AppError("Invalid target type", 400, ErrorCode.VALIDATION_ERROR);
-    }
-
-    const check = await query(`SELECT id FROM ${tableName} WHERE id = $1`, [targetId]);
-    if (!check.rowCount || check.rowCount === 0) {
-      throw new AppError(
-        `Target ${targetType} with ID ${targetId} was not found`,
-        404,
-        ErrorCode.NOT_FOUND
-      );
     }
   }
 

@@ -18,6 +18,7 @@ import {
   Banknote,
   CreditCard,
   FileText,
+  ShieldAlert,
 } from "lucide-react";
 import { AssignmentDetail, AssignmentStatus } from "@nearvia/types";
 import { AssignmentStatusTimeline } from "./AssignmentStatusTimeline";
@@ -28,8 +29,10 @@ import { webConfig } from "../../config";
 import { MessageModal } from "../messages/MessageModal";
 import { JobEvidenceGallery } from "./JobEvidenceGallery";
 import { ReportModal } from "../safety/ReportModal";
+import { RaiseDisputeModal } from "../safety/RaiseDisputeModal";
 import { CashPaymentModal } from "../payments/CashPaymentModal";
 import { PaymentReceiptModal } from "../payments/PaymentReceiptModal";
+import { RazorpaySandboxModal } from "../payments/RazorpaySandboxModal";
 
 export const ProviderAssignmentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,13 +44,13 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
+  const [isDisputeOpen, setIsDisputeOpen] = useState<boolean>(false);
   const [copiedPin, setCopiedPin] = useState(false);
 
-  // Phase 7 Payment Modals
+  // Phase 7/14 Payment Modals
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [onlinePaying, setOnlinePaying] = useState(false);
-  const [payError, setPayError] = useState<string | null>(null);
+  const [isRazorpayModalOpen, setIsRazorpayModalOpen] = useState(false);
 
   const fetchAssignment = useCallback(async () => {
     if (!id) return;
@@ -115,50 +118,6 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
       alert(err.message);
     } finally {
       setActionLoading(false);
-    }
-  };
-
-  const handlePayOnlineDirect = async () => {
-    if (!id || !assignment) return;
-    try {
-      setOnlinePaying(true);
-      setPayError(null);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      // 1. Initiate Online Order
-      const initRes = await fetch(`${webConfig.apiBaseUrl}/payments/assignments/${id}/pay`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ paymentMethod: "UPI" }),
-      });
-      const initData = await initRes.json();
-      if (!initRes.ok || !initData.success) {
-        throw new Error(initData.error?.message || "Failed to initiate online payment.");
-      }
-
-      const paymentId = initData.data.payment.id;
-
-      // 2. Direct Confirm in Sandbox Mode
-      const confRes = await fetch(`${webConfig.apiBaseUrl}/payments/${paymentId}/confirm`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          transactionRef: `tx_sbx_${Date.now()}`,
-          paymentMethod: "UPI",
-        }),
-      });
-      const confData = await confRes.json();
-      if (!confRes.ok || !confData.success) {
-        throw new Error(confData.error?.message || "Online confirmation failed.");
-      }
-
-      await fetchAssignment();
-      setIsReceiptModalOpen(true);
-    } catch (err: any) {
-      setPayError(err.message || "Payment processing failed");
-    } finally {
-      setOnlinePaying(false);
     }
   };
 
@@ -279,6 +238,15 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => setIsDisputeOpen(true)}
+                  className="px-3.5 py-2.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold transition-all flex items-center space-x-1.5 shadow-xs"
+                >
+                  <AlertCircle className="w-4 h-4 text-purple-600" />
+                  <span>Dispute</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setIsChatOpen(true)}
                   className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center space-x-2 shadow-xs"
                 >
@@ -375,6 +343,47 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
             </span>
           </div>
 
+          {/* Attendance Timestamps Summary */}
+          {(assignment.checkedInAt || assignment.checkedOutAt) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Checked In</div>
+                  <div className="text-xs font-black text-slate-800">
+                    {assignment.checkedInAt
+                      ? new Date(assignment.checkedInAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Pending"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Checked Out</div>
+                  <div className="text-xs font-black text-slate-800">
+                    {assignment.checkedOutAt
+                      ? new Date(assignment.checkedOutAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : assignment.status === AssignmentStatus.IN_PROGRESS
+                      ? "Active Shift"
+                      : "Pending"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Photo Evidence Section */}
           <div className="pt-2">
             <JobEvidenceGallery assignmentId={assignment.id} />
@@ -399,15 +408,10 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
           )}
 
           {/* Completed Work State -> Post-Work Payment Flow */}
-          {assignment.status === AssignmentStatus.COMPLETED && (
+          {(assignment.status === AssignmentStatus.COMPLETED ||
+            assignment.status === AssignmentStatus.SETTLEMENT_PENDING ||
+            assignment.status === AssignmentStatus.CLOSED) && (
             <div className="space-y-6 pt-4 border-t border-slate-100">
-              {payError && (
-                <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                  <span>{payError}</span>
-                </div>
-              )}
-
               {isPaymentConfirmed ? (
                 // 1. Payment Confirmed Banner & Receipt Button
                 <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -460,16 +464,56 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={handlePayOnlineDirect}
-                      disabled={onlinePaying}
-                      className="p-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition-all flex items-center justify-center space-x-2 shadow-md disabled:opacity-50"
+                      onClick={() => setIsRazorpayModalOpen(true)}
+                      className="p-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition-all flex items-center justify-center space-x-2 shadow-md"
                     >
                       <CreditCard className="w-5 h-5 text-amber-300" />
-                      <span>{onlinePaying ? "Processing Gateway..." : "💳 Pay Online (Instant UPI)"}</span>
+                      <span>💳 Pay Online (Razorpay Sandbox)</span>
                     </button>
                   </div>
                 </div>
               )}
+
+              {/* Trust, Safety & Dispute Assistance */}
+              <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-600" />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                      Need Help With This Assignment?
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-500">Platform Safety & Arbitration</span>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Worker did not show up, engaged in misconduct, or is there an unresolvable scope/billing disagreement? File an authoritative report or raise a dispute for administrative arbitration.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsReportOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Report No-Show / Conduct</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsDisputeOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>Raise Wage/Task Dispute</span>
+                  </button>
+                  <a
+                    href="tel:112"
+                    className="px-4 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Emergency (112)</span>
+                  </a>
+                </div>
+              </div>
 
               {/* Review Form */}
               <div className="pt-2">
@@ -496,6 +540,14 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
           targetTitle={`Worker: ${assignment.workerFullName}`}
         />
 
+        <RaiseDisputeModal
+          isOpen={isDisputeOpen}
+          onClose={() => setIsDisputeOpen(false)}
+          assignmentId={assignment.id}
+          opportunityTitle={assignment.opportunityTitle}
+          agreedWage={assignment.agreedWage}
+        />
+
         {/* Phase 7 Cash Payment Modal */}
         <CashPaymentModal
           isOpen={isCashModalOpen}
@@ -515,6 +567,20 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
           isOpen={isReceiptModalOpen}
           onClose={() => setIsReceiptModalOpen(false)}
           assignmentId={assignment.id}
+        />
+
+        {/* Phase 14 Razorpay Sandbox Modal */}
+        <RazorpaySandboxModal
+          isOpen={isRazorpayModalOpen}
+          onClose={() => setIsRazorpayModalOpen(false)}
+          assignmentId={assignment.id}
+          agreedWage={assignment.agreedWage}
+          workerName={assignment.workerFullName}
+          opportunityTitle={assignment.opportunityTitle}
+          onSuccess={async () => {
+            await fetchAssignment();
+            setIsReceiptModalOpen(true);
+          }}
         />
       </div>
     </div>

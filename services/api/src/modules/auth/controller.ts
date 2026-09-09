@@ -5,9 +5,10 @@
 
 import { Request, Response, NextFunction } from "express";
 import { ApiResponse, ErrorCode } from "@nearvia/config";
-import { AuthUserContext } from "@nearvia/types";
+import { AuthUserContext, UserRole } from "@nearvia/types";
 import { authService } from "./service";
 import { AppError } from "../../middleware/errorHandler";
+import { verifySupabaseToken } from "../../services/supabase.service";
 
 export class AuthController {
   /**
@@ -35,6 +36,30 @@ export class AuthController {
   }
 
   /**
+   * POST /api/v1/auth/login
+   * Unified email/password authentication
+   */
+  public async login(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await authService.login(req.body);
+      const response: ApiResponse<{ token: string; user: AuthUserContext }> = {
+        success: true,
+        data: result,
+        meta: {
+          timestamp: new Date().toISOString(),
+        },
+      };
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/v1/auth/confirm-email
    */
   public async confirmEmail(
@@ -44,10 +69,50 @@ export class AuthController {
   ): Promise<void> {
     try {
       const email = req.body.email;
-      if (email) {
-        await authService.confirmUserEmail(email);
+      if (!email) {
+        throw new AppError("Email is required.", 400, ErrorCode.VALIDATION_ERROR);
       }
+
+      let authenticatedEmail: string | undefined;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.match(/^Bearer\s+/i)) {
+        const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+        if (token) {
+          const verified = await verifySupabaseToken(token);
+          if (verified?.email) {
+            authenticatedEmail = verified.email;
+          }
+        }
+      }
+
+      await authService.confirmUserEmail(email, authenticatedEmail);
       res.json({ success: true, message: "Email confirmed" });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/resend-verification-email
+   * Resends Supabase account verification email
+   */
+  public async resendVerificationEmail(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const email = req.body.email;
+      if (!email) {
+        throw new AppError("Email is required.", 400, ErrorCode.VALIDATION_ERROR);
+      }
+
+      const result = await authService.resendVerificationEmail(email);
+      res.status(200).json({
+        success: true,
+        data: result,
+        meta: { timestamp: new Date().toISOString() },
+      });
     } catch (error) {
       next(error);
     }
@@ -62,6 +127,40 @@ export class AuthController {
     next: NextFunction,
   ): Promise<void> {
     try {
+      // If a Bearer token is provided, verify it and ensure authId and email cannot be forged
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.match(/^Bearer\s+/i)) {
+        const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+        if (token) {
+          const verified = await verifySupabaseToken(token);
+          if (!verified) {
+            throw new AppError(
+              "Invalid or expired authentication token.",
+              401,
+              ErrorCode.UNAUTHORIZED,
+            );
+          }
+          if (req.body.authId && req.body.authId !== verified.authId) {
+            throw new AppError(
+              "Identity mismatch. Provided authId does not match verified token.",
+              403,
+              ErrorCode.FORBIDDEN,
+            );
+          }
+          if (
+            req.body.email &&
+            verified.email &&
+            req.body.email.trim().toLowerCase() !== verified.email.trim().toLowerCase()
+          ) {
+            throw new AppError(
+              "Identity mismatch. Provided email does not match verified token.",
+              403,
+              ErrorCode.FORBIDDEN,
+            );
+          }
+        }
+      }
+
       const user = await authService.registerUser(req.body);
       const response: ApiResponse<AuthUserContext> = {
         success: true,
@@ -112,6 +211,10 @@ export class AuthController {
   /**
    * POST /api/v1/auth/sync-google-profile
    * Synchronizes user authenticated via Google OAuth with local PostgreSQL profile.
+   * Security Hardening:
+   * - Strictly requires and validates Bearer token from Supabase Auth
+   * - Derives authId from verified token, rejecting client authId forgery
+   * - Strictly rejects any attempt to self-assign ADMIN role
    */
   public async syncGoogleProfile(
     req: Request,
@@ -119,17 +222,94 @@ export class AuthController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { authId, email, fullName, avatarUrl, role } = req.body;
-      if (!authId || !email) {
-        throw new AppError("authId and email are required for profile synchronization.", 400, ErrorCode.VALIDATION_ERROR);
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.match(/^Bearer\s+/i)) {
+        throw new AppError(
+          "Authentication required. Missing Supabase Bearer token.",
+          401,
+          ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      if (!token) {
+        throw new AppError(
+          "Authentication required. Invalid token format.",
+          401,
+          ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      const verified = await verifySupabaseToken(token);
+      if (!verified) {
+        throw new AppError(
+          "Invalid or expired Supabase authentication token.",
+          401,
+          ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      // If client supplied authId, verify it matches verified identity (prevent IDOR)
+      const clientAuthId = req.body.authId;
+      if (clientAuthId && clientAuthId !== verified.authId) {
+        throw new AppError(
+          "Identity mismatch. Provided authId does not match verified token.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
+      // If client supplied email, verify it matches verified token email (prevent email spoofing / account hijacking)
+      const clientEmail = req.body.email;
+      if (
+        clientEmail &&
+        verified.email &&
+        clientEmail.trim().toLowerCase() !== verified.email.trim().toLowerCase()
+      ) {
+        throw new AppError(
+          "Identity mismatch. Provided email does not match verified token.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
+      const { fullName, avatarUrl, role } = req.body;
+
+      // Reject attempts to request ADMIN role
+      if (role === UserRole.ADMIN) {
+        throw new AppError(
+          "Public registration or OAuth profile sync as ADMIN is strictly prohibited.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
+      // Authoritative email derived directly from verified token
+      const email = verified.email || req.body.email;
+      if (!email) {
+        throw new AppError(
+          "Verified email is required for OAuth profile synchronization.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
+      // Check if user is already deactivated/suspended
+      const existingUser = await authService.getUserByAuthId(verified.authId);
+      if (existingUser && !existingUser.isActive) {
+        throw new AppError(
+          "Your NEARVIA account has been suspended or deactivated. Contact support.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
       }
 
       const user = await authService.syncGoogleUser({
-        authId,
+        authId: verified.authId,
         email,
-        fullName,
+        fullName: fullName || verified.email?.split("@")[0],
         avatarUrl,
-        role,
+        role: role as UserRole,
       });
 
       res.status(200).json({
@@ -260,7 +440,7 @@ export class AuthController {
       }
 
       if (otp) {
-        const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip;
+        const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip;
         const { otpService } = await import("../otp/service");
         const user = await otpService.verifyOtp(req.user.id, phone, otp, clientIp);
         res.status(200).json({
@@ -269,6 +449,14 @@ export class AuthController {
           meta: { timestamp: new Date().toISOString() },
         });
         return;
+      }
+
+      if (process.env.NODE_ENV === "production") {
+        throw new AppError(
+          "OTP verification code is required to verify mobile number.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
       }
 
       const user = await authService.verifyMobile(req.user.id, phone);

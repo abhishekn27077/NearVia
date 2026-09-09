@@ -12,11 +12,13 @@ export const urgencyLevelSchema = z.nativeEnum(UrgencyLevel);
 export const paymentTypeSchema = z.nativeEnum(PaymentType);
 export const workOpportunityStatusSchema = z.nativeEnum(WorkOpportunityStatus);
 
-export const requiredSkillItemSchema = z.object({
-  skillId: z.string().min(1, "Skill ID is required"),
-  isRequired: z.boolean().default(true),
-  minExperienceYears: z.number().min(0).default(0),
-});
+export const requiredSkillItemSchema = z
+  .object({
+    skillId: z.string().min(1, "Skill ID is required"),
+    isRequired: z.boolean().default(true),
+    minExperienceYears: z.number().min(0).default(0),
+  })
+  .strict();
 
 export const createWorkOpportunitySchema = z
   .object({
@@ -33,7 +35,7 @@ export const createWorkOpportunitySchema = z
     urgency: urgencyLevelSchema.default(UrgencyLevel.NORMAL),
     workersNeeded: z
       .number()
-      .int()
+      .int("Workers needed must be an integer")
       .min(1, "At least 1 worker is required")
       .max(100, "Cannot exceed 100 workers")
       .default(1),
@@ -48,7 +50,10 @@ export const createWorkOpportunitySchema = z
       .number()
       .positive("Duration must be greater than 0")
       .max(24, "Single work duration cannot exceed 24 hours"),
-    paymentAmount: z.number().positive("Payment amount must be greater than 0"),
+    paymentAmount: z
+      .number()
+      .positive("Payment amount must be greater than 0")
+      .max(1000000, "Payment amount cannot exceed 1,000,000"),
     paymentType: paymentTypeSchema,
     currency: z.string().length(3).default("INR"),
     minExperienceYears: z.number().min(0).default(0),
@@ -57,10 +62,12 @@ export const createWorkOpportunitySchema = z
     toolsProvided: z.boolean().default(false),
     orientationProvided: z.boolean().default(false),
     skills: z.array(requiredSkillItemSchema).optional().default([]),
-    status: workOpportunityStatusSchema
+    status: z
+      .enum([WorkOpportunityStatus.DRAFT, WorkOpportunityStatus.PUBLISHED])
       .optional()
       .default(WorkOpportunityStatus.DRAFT),
   })
+  .strict()
   .refine(
     (data) => {
       // If ISO strings, compare timestamps; if simple HH:mm strings on same day, compare lexical
@@ -94,7 +101,7 @@ export const updateWorkOpportunitySchema = z
     startTime: z.string().min(1).optional(),
     endTime: z.string().min(1).optional(),
     durationHours: z.number().positive().max(24).optional(),
-    paymentAmount: z.number().positive().optional(),
+    paymentAmount: z.number().positive().max(1000000).optional(),
     paymentType: paymentTypeSchema.optional(),
     currency: z.string().length(3).optional(),
     minExperienceYears: z.number().min(0).optional(),
@@ -104,6 +111,7 @@ export const updateWorkOpportunitySchema = z
     orientationProvided: z.boolean().optional(),
     skills: z.array(requiredSkillItemSchema).optional(),
   })
+  .strict()
   .refine(
     (data) => {
       if (data.startTime && data.endTime) {

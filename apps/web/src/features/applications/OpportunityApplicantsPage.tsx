@@ -22,12 +22,12 @@ import { formatDistanceKm } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
 import { webConfig } from "../../config";
 import { MessageModal } from "../messages/MessageModal";
-import { RecommendedCandidatesTab } from "../intelligence";
+import { SmartMatchesTab } from "../matching";
 
 export const OpportunityApplicantsPage: React.FC = () => {
   const { id: opportunityId } = useParams<{ id: string }>();
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState<"APPLICANTS" | "RECOMMENDED">("APPLICANTS");
+  const [activeTab, setActiveTab] = useState<"APPLICANTS" | "MATCHES">("APPLICANTS");
   const [opportunity, setOpportunity] = useState<WorkOpportunityDetail | null>(null);
   const [applicants, setApplicants] = useState<ApplicantListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,15 +252,15 @@ export const OpportunityApplicantsPage: React.FC = () => {
           </div>
         )}
 
-        {/* Dual Tab Switcher: Direct Applicants vs AI Recommended Workers */}
-        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 max-w-md">
+        {/* Dual Tab Switcher: Direct Applicants vs Smart Matches */}
+        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 max-w-md">
           <button
             type="button"
             onClick={() => setActiveTab("APPLICANTS")}
             className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
               activeTab === "APPLICANTS"
-                ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -268,21 +268,29 @@ export const OpportunityApplicantsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("RECOMMENDED")}
+            onClick={() => setActiveTab("MATCHES")}
             className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-              activeTab === "RECOMMENDED"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              activeTab === "MATCHES"
+                ? "bg-orange-600 text-white shadow-sm shadow-orange-600/20"
+                : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>AI Recommended</span>
+            <span>Smart Matches</span>
           </button>
         </div>
 
         {/* Tab Content */}
-        {activeTab === "RECOMMENDED" ? (
-          <RecommendedCandidatesTab workOpportunityId={opportunityId || ""} />
+        {activeTab === "MATCHES" ? (
+          <SmartMatchesTab
+            workOpportunityId={opportunityId || ""}
+            onContactWorker={(worker) => {
+              setActiveChatCandidate({
+                workerUserId: worker.workerId,
+                workerFullName: worker.fullName,
+              });
+            }}
+          />
         ) : loading ? (
           <div className="py-20 text-center space-y-3">
             <div className="w-8 h-8 border-3 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -295,16 +303,15 @@ export const OpportunityApplicantsPage: React.FC = () => {
             </div>
             <h3 className="font-black text-lg text-slate-900 font-display">No applicants yet</h3>
             <p className="text-xs text-slate-500 font-medium leading-relaxed">
-              Your opportunity is broadcast to verified workers within 5 km. You will see candidate profiles and AI match scores here as soon as workers apply.
+              Your opportunity is broadcast to verified workers within 5 km. You will see candidate profiles here as soon as workers apply, or you can browse suitable local workers in the Smart Matches tab.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center justify-between text-xs text-slate-500 font-bold uppercase tracking-wider px-2">
               <span>{applicants.length} Candidates (Sorted by Match Score)</span>
-              <span className="flex items-center space-x-1 text-orange-600">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Explainable AI Match</span>
+              <span className="flex items-center space-x-1 text-orange-600 font-bold">
+                <span>Compatibility Ranked</span>
               </span>
             </div>
 
@@ -348,6 +355,11 @@ export const OpportunityApplicantsPage: React.FC = () => {
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
                             Email ✓
+                          </span>
+                        )}
+                        {cand.isAgentAssisted && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200">
+                            🤝 Agent-Assisted
                           </span>
                         )}
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">

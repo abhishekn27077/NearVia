@@ -21,16 +21,24 @@ export const initiateCashPaymentSchema = z.object({
 
 export type InitiateCashPaymentInput = z.infer<typeof initiateCashPaymentSchema>;
 
-export const confirmCashPaymentSchema = z.object({
-  paymentPin: z.string().min(4).max(6),
-  notes: z.string().max(500).optional(),
-});
+export const confirmCashPaymentSchema = z
+  .object({
+    paymentPin: z.string().min(4).max(6).optional(),
+    pin: z.string().min(4).max(6).optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .refine((d) => d.paymentPin !== undefined || d.pin !== undefined, {
+    message: "Invalid confirmation PIN. Must provide 4-digit PIN.",
+  });
 
 export type ConfirmCashPaymentInput = z.infer<typeof confirmCashPaymentSchema>;
 
 export const confirmPaymentSchema = z.object({
   paymentMethod: z.string().max(50).optional().default("UPI"),
   transactionRef: z.string().max(255).optional(),
+  razorpayPaymentId: z.string().max(255).optional(),
+  razorpayOrderId: z.string().max(255).optional(),
+  razorpaySignature: z.string().max(255).optional(),
 });
 
 export type ConfirmPaymentInput = z.infer<typeof confirmPaymentSchema>;
@@ -106,6 +114,7 @@ export interface PaymentReceipt {
   cashConfirmedByPayerAt?: string;
   cashConfirmedByPayeeAt?: string;
   disclaimer: string;
+  isSandboxTest?: boolean;
 }
 
 export interface WorkerEarningsSummary {
@@ -178,6 +187,8 @@ export interface CreateOrderParams {
 
 export interface PaymentOrderResult {
   gatewayOrderId: string;
+  id?: string;
+  amount?: number;
   amountPaise: number;
   currency: string;
   checkoutUrl?: string;

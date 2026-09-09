@@ -46,8 +46,22 @@ export class AgentsController {
 
   async requestWorkerAccess(req: Request, res: Response, next: NextFunction) {
     try {
-      const { workerPhone } = requestWorkerAccessSchema.parse(req.body);
-      const relationship = await agentsService.requestWorkerAccess(req.user!.id, workerPhone);
+      const parsed = requestWorkerAccessSchema.parse(req.body);
+      const relationship = await agentsService.requestWorkerAccess(req.user!.id, parsed);
+      res.status(201).json({ success: true, data: relationship });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async requestWorkerAccessById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const workerId = req.params.workerId as string;
+      const consentConfirmed = req.body?.consentConfirmed === true;
+      const relationship = await agentsService.requestWorkerAccess(req.user!.id, {
+        workerId,
+        consentConfirmed,
+      });
       res.status(201).json({ success: true, data: relationship });
     } catch (error) {
       next(error);
@@ -94,9 +108,9 @@ export class AgentsController {
   async submitAssistedApplication(req: Request, res: Response, next: NextFunction) {
     try {
       const workerId = req.params.workerId as string;
-      const { workOpportunityId, proposedWage, workerNotes } = assistedApplicationSchema.parse(req.body);
+      const { workOpportunityId, proposedWage, workerNotes, consentConfirmed } = assistedApplicationSchema.parse(req.body);
       const application = await agentsService.submitAssistedApplication(
-        req.user!.id, workerId, workOpportunityId, proposedWage, workerNotes
+        req.user!.id, workerId, workOpportunityId, proposedWage, workerNotes, consentConfirmed
       );
       res.status(201).json({ success: true, data: application });
     } catch (error) {

@@ -15,6 +15,7 @@ import {
 } from "@nearvia/types";
 import { workOpportunitiesService } from "./service";
 import { discoveryService } from "./discovery.service";
+import { jobLifecycleService } from "../lifecycle/jobLifecycle.service";
 import { AppError } from "../../middleware/errorHandler";
 
 export class WorkOpportunitiesController {
@@ -398,6 +399,37 @@ export class WorkOpportunitiesController {
         data: result.opportunity,
         meta: {
           notifiedWorkersCount: result.notifiedWorkersCount,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/jobs/:id/lifecycle
+   */
+  public async getLifecycle(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const rawId = req.params.id;
+      const jobId = Array.isArray(rawId) ? rawId[0] : rawId;
+      if (!jobId) {
+        throw new AppError("Job ID is required.", 400, ErrorCode.VALIDATION_ERROR);
+      }
+      const lifecycle = await jobLifecycleService.getJobAuthoritativeLifecycle(
+        jobId,
+        req.user?.id,
+        req.user?.role,
+      );
+      res.status(200).json({
+        success: true,
+        data: lifecycle,
+        meta: {
           timestamp: new Date().toISOString(),
         },
       });

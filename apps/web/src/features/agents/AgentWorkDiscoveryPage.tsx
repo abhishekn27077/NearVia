@@ -52,6 +52,7 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<DiscoveredJob | null>(null);
   const [proposedWage, setProposedWage] = useState<string>("");
   const [workerNotes, setWorkerNotes] = useState<string>("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -108,12 +109,14 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
     setSelectedJob(job);
     setProposedWage(job.paymentAmount.toString());
     setWorkerNotes("");
+    setConsentConfirmed(false);
     setSubmitError(null);
     setSubmitSuccess(null);
   };
 
   const handleCloseApplyModal = () => {
     setSelectedJob(null);
+    setConsentConfirmed(false);
     setSubmitError(null);
     setSubmitSuccess(null);
   };
@@ -121,6 +124,10 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedJob || !workerId) return;
+    if (!consentConfirmed) {
+      setSubmitError("You must confirm worker consent before submitting.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -136,6 +143,7 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
           workOpportunityId: selectedJob.id,
           proposedWage: proposedWage ? parseFloat(proposedWage) : undefined,
           workerNotes: workerNotes.trim() || undefined,
+          consentConfirmed: true,
         }),
       });
 
@@ -356,6 +364,24 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
                   rows={3}
                   className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-cyan-500"
                 />
+              </div>
+
+              {/* Consent Confirmation */}
+              <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="consentConfirmation"
+                    checked={consentConfirmed}
+                    onChange={(e) => setConsentConfirmed(e.target.checked)}
+                    required
+                    className="mt-0.5 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-400"
+                  />
+                  <label htmlFor="consentConfirmation" className="text-xs text-slate-300 font-medium leading-relaxed">
+                    <strong className="text-white block mb-0.5">Worker Consent Affirmation</strong>
+                    Worker has given permission to Agent to assist with NEARVIA. I confirm that {workerName || "the worker"} has reviewed this job and authorized this application.
+                  </label>
+                </div>
               </div>
 
               {submitError && (

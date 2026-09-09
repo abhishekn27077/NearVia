@@ -10,7 +10,7 @@ export const AdminDisputesTab: React.FC = () => {
 
   // Dispute Arbitration Modal
   const [activeDispute, setActiveDispute] = useState<any | null>(null);
-  const [nextStatus, setNextStatus] = useState<"RESOLVED" | "REJECTED">("RESOLVED");
+  const [nextStatus, setNextStatus] = useState<"UNDER_REVIEW" | "RESOLVED" | "REJECTED">("RESOLVED");
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -250,6 +250,17 @@ export const AdminDisputesTab: React.FC = () => {
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider text-[10px]">Mediation Outcome</label>
               <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNextStatus("UNDER_REVIEW")}
+                  className={`flex-1 py-2.5 rounded-2xl text-xs font-bold transition shadow-xs ${
+                    nextStatus === "UNDER_REVIEW"
+                      ? "bg-amber-600 text-white shadow-md shadow-amber-600/20"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  Under Review
+                </button>
                 <button
                   type="button"
                   onClick={() => setNextStatus("RESOLVED")}

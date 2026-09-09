@@ -51,6 +51,7 @@ interface AuthContextType {
   loginWithMockRole: (role: UserRole) => Promise<void>;
   verifyMobile: (phone: string) => Promise<AuthUserContext>;
   verifyIdentity: (reference?: string) => Promise<AuthUserContext>;
+  resendVerificationEmail: (email: string) => Promise<void>;
   refreshProfile: () => Promise<AuthUserContext | null>;
   logout: () => Promise<void>;
 }
@@ -119,10 +120,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       preferredRole?: UserRole,
     ) => {
       try {
-        const storedRole =
-          (localStorage.getItem("nearvia_pending_role") as UserRole) ||
-          preferredRole ||
-          UserRole.WORKER;
+        const rawRole = (localStorage.getItem("nearvia_pending_role") as UserRole) || preferredRole;
+        const safeRole = [UserRole.WORKER, UserRole.PROVIDER, UserRole.AGENT].includes(rawRole)
+          ? rawRole
+          : UserRole.WORKER;
 
         const res = await fetch(`${webConfig.apiBaseUrl}/auth/sync-google-profile`, {
           method: "POST",
@@ -141,7 +142,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             avatarUrl:
               googleUser.user_metadata?.avatar_url ||
               googleUser.user_metadata?.picture,
-            role: storedRole,
+            role: safeRole,
           }),
         });
 
@@ -221,34 +222,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsLoading(true);
     setError(null);
     try {
-      let { data, error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: pass,
       });
 
-      // Auto-recover if email was previously unconfirmed
       if (
         authError &&
         (authError.message.toLowerCase().includes("not confirmed") ||
           authError.message.toLowerCase().includes("email_not_confirmed"))
       ) {
-        try {
-          await fetch(`${webConfig.apiBaseUrl}/auth/confirm-email`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email.trim() }),
-          });
-
-          // Retry sign in
-          const retryRes = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password: pass,
-          });
-          data = retryRes.data;
-          authError = retryRes.error;
-        } catch {
-          // Ignore retry failure
-        }
+        throw new Error(
+          "Your email address has not been verified yet. Please check your email inbox and verify your account before logging in.",
+        );
       }
 
       if (authError || !data?.session) {
@@ -274,6 +260,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const resendVerificationEmail = async (email: string): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+      });
+
+      // Also call backend rate-limited resend endpoint
+      await fetch(`${webConfig.apiBaseUrl}/auth/resend-verification-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      }).catch(() => {});
+
+      if (resendError && !resendError.message.toLowerCase().includes("rate limit")) {
+        throw new Error(resendError.message);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to resend verification email";
+      setError(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signUpWithEmailPassword = async (
     email: string,
     pass: string,
@@ -284,7 +298,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Provision account via backend (creates Supabase Auth user & confirmed profile with 0 rate limit)
+      // 1. Provision account via backend (creates Supabase Auth user & profile)
       const signupRes = await fetch(`${webConfig.apiBaseUrl}/auth/signup`, {
         method: "POST",
         headers: {
@@ -307,7 +321,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       const signupJson = await signupRes.json();
       const userProfile = signupJson.data as AuthUserContext;
 
-      // 2. Sign in to Supabase Auth on client to establish active session
+      // 2. Sign in to Supabase Auth on client if pre-confirmed (demo / test accounts)
       const { data: signInData, error: signInError } =
         await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -316,11 +330,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       if (!signInError && signInData.session) {
         setToken(signInData.session.access_token);
-      } else {
+        setUser(userProfile);
+      } else if (email.trim().toLowerCase().endsWith("@nearvia.test")) {
         setToken(`mock_token_${userProfile.authId}`);
+        setUser(userProfile);
       }
 
-      setUser(userProfile);
       return userProfile;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Sign up failed";
@@ -332,6 +347,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const loginWithDemoAccount = async (role: UserRole): Promise<AuthUserContext> => {
+    if (import.meta.env.PROD && !import.meta.env.VITE_ENABLE_DEMO_ACCOUNTS) {
+      throw new Error("Demo accounts are strictly disabled in production builds.");
+    }
     const creds = DEMO_CREDENTIALS[role];
     if (!creds) {
       throw new Error(`No demo account configured for role: ${role}`);
@@ -416,6 +434,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setUser(null);
       setToken(null);
       localStorage.removeItem("nearvia_pending_role");
+      localStorage.removeItem("nearvia_auth_user");
+      localStorage.removeItem("nearvia_auth_token");
       setIsLoading(false);
     }
   };
@@ -434,6 +454,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         loginWithMockRole,
         verifyMobile,
         verifyIdentity,
+        resendVerificationEmail,
         refreshProfile,
         logout,
       }}

@@ -121,6 +121,13 @@ router.post(
   (req, res, next) => workersController.revokeAgent(req, res, next),
 );
 
+router.delete(
+  "/me/agents/:id",
+  authenticateUser,
+  requireRole(UserRole.WORKER),
+  (req, res, next) => workersController.revokeAgent(req, res, next),
+);
+
 // 5. Phase 5: Worker Dashboard Real-Time Stats & Preferred Providers
 router.get(
   "/dashboard-stats",

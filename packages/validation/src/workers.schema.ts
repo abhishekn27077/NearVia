@@ -91,6 +91,47 @@ export const createAvailabilitySlotSchema = z
     path: ["endTime"],
   });
 
+export const goOnlineSchema = z
+  .object({
+    availableHours: z.number().min(0.5).max(24).optional(),
+    availableUntil: z
+      .string()
+      .datetime({
+        message: "availableUntil must be a valid ISO 8601 date string",
+      })
+      .optional()
+      .nullable(),
+    serviceRadiusKm: z.number().min(1).max(15).optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    preferredJobTypes: z.array(z.string()).optional(),
+    preferredCategories: z.array(z.string()).optional(),
+    preferredSkills: z.array(z.string()).optional(),
+  })
+  .strict();
+
+export const goOfflineSchema = z.object({}).strict();
+
+export const toggleAvailabilitySchema = z
+  .object({
+    isAvailableNow: z.boolean(),
+    availableHours: z.number().min(0.5).max(24).optional(),
+    availableUntil: z
+      .string()
+      .datetime({
+        message: "availableUntil must be a valid ISO 8601 date string",
+      })
+      .optional()
+      .nullable(),
+    serviceRadiusKm: z.number().min(1).max(15).optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    preferredJobTypes: z.array(z.string()).optional(),
+    preferredCategories: z.array(z.string()).optional(),
+    preferredSkills: z.array(z.string()).optional(),
+  })
+  .strict();
+
 export type UpdateAvailabilityInput = z.infer<typeof updateAvailabilitySchema>;
 export type UpdateWorkerProfileInput = z.infer<
   typeof updateWorkerProfileSchema
@@ -103,3 +144,6 @@ export type ToggleAvailableNowInput = z.infer<typeof toggleAvailableNowSchema>;
 export type CreateAvailabilitySlotInput = z.infer<
   typeof createAvailabilitySlotSchema
 >;
+export type GoOnlineInput = z.infer<typeof goOnlineSchema>;
+export type GoOfflineInput = z.infer<typeof goOfflineSchema>;
+export type ToggleAvailabilityInput = z.infer<typeof toggleAvailabilitySchema>;

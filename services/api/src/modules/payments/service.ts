@@ -15,7 +15,7 @@ import { query, withTransaction } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import { ErrorCode } from "@nearvia/config";
 import { defaultPaymentProvider } from "./provider/sandbox.provider";
-import { defaultRazorpayProvider } from "./provider/razorpay.provider";
+import { RazorpayPaymentProvider, defaultRazorpayProvider } from "./provider/razorpay.provider";
 import { PaymentProvider } from "./provider/payment.provider";
 import { logAuditEvent } from "../../utils/audit";
 import {
@@ -133,10 +133,17 @@ export class PaymentsService {
       });
     } catch {}
 
+    const normalizedOrder: PaymentOrderResult = {
+      ...order,
+      id: order.gatewayOrderId,
+      amount: order.amountPaise,
+    };
+
     return {
       payment: this.mapRowToResponse(record, assignment.opportunity_title),
-      order,
-    };
+      order: normalizedOrder,
+      razorpayOrder: normalizedOrder,
+    } as any;
   }
 
   // ──────────────────────────────────────────────────
@@ -285,104 +292,115 @@ export class PaymentsService {
     assignmentId: string,
     input: ConfirmCashPaymentInput
   ): Promise<PaymentRecordResponse> {
-    return await withTransaction(async (client) => {
-      // 1. Lock assignment and payment records
-      const assignRes = await client.query<{
-        id: string;
-        status: string;
-        agreed_wage: number;
-        payment_status: string;
-        worker_user_id: string;
-        provider_user_id: string;
-        opportunity_title: string;
-      }>(
-        `SELECT 
-           a.id, a.status, a.agreed_wage, a.payment_status,
-           w.user_id AS worker_user_id,
-           p.user_id AS provider_user_id,
-           wo.title AS opportunity_title
-         FROM assignments a
-         JOIN worker_profiles w ON a.worker_id = w.id
-         JOIN provider_profiles p ON a.provider_id = p.id
-         JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
-         WHERE a.id = $1 FOR UPDATE`,
-        [assignmentId]
+    // 1. Fetch assignment details
+    const assignRes = await query<{
+      id: string;
+      status: string;
+      agreed_wage: number;
+      payment_status: string;
+      work_opportunity_id: string;
+      worker_user_id: string;
+      provider_user_id: string;
+      opportunity_title: string;
+    }>(
+      `SELECT 
+         a.id, a.status, a.agreed_wage, a.payment_status, a.work_opportunity_id,
+         w.user_id AS worker_user_id,
+         p.user_id AS provider_user_id,
+         wo.title AS opportunity_title
+       FROM assignments a
+       JOIN worker_profiles w ON a.worker_id = w.id
+       JOIN provider_profiles p ON a.provider_id = p.id
+       JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
+       WHERE a.id = $1`,
+      [assignmentId]
+    );
+
+    const assignment = assignRes.rows[0];
+    if (!assignment) {
+      throw new AppError("Assignment not found", 404, ErrorCode.NOT_FOUND);
+    }
+
+    // Authorization: caller must be the assigned worker
+    if (assignment.worker_user_id !== workerUserId) {
+      throw new AppError(
+        "Only the assigned worker can confirm cash receipt",
+        403,
+        ErrorCode.UNAUTHORIZED_PAYMENT_ACTION
+      );
+    }
+
+    // 2. Fetch pending cash payment record
+    const payRes = await query<{
+      id: string;
+      payment_pin: string | null;
+      payment_pin_attempts: number;
+      status: string;
+      amount: number;
+    }>(
+      `SELECT id, payment_pin, payment_pin_attempts, status, amount
+       FROM payment_records
+       WHERE assignment_id = $1`,
+      [assignmentId]
+    );
+
+    const payment = payRes.rows[0];
+    if (!payment) {
+      throw new AppError(
+        "No cash payment transaction initiated for this assignment",
+        404,
+        ErrorCode.NOT_FOUND
+      );
+    }
+
+    if (payment.status === "CONFIRMED") {
+      throw new AppError(
+        "Cash payment has already been confirmed",
+        400,
+        ErrorCode.PAYMENT_ALREADY_CONFIRMED
+      );
+    }
+
+    // Check existing attempts limit
+    if ((payment.payment_pin_attempts || 0) >= 3) {
+      throw new AppError(
+        "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
+        429,
+        ErrorCode.PAYMENT_PIN_MAX_ATTEMPTS_EXCEEDED
+      );
+    }
+
+    // Validate PIN
+    const pinToVerify = (input.paymentPin || (input as any).pin || "").trim();
+    if (!payment.payment_pin || payment.payment_pin !== pinToVerify) {
+      const updateAttempts = await query<{ payment_pin_attempts: number }>(
+        `UPDATE payment_records
+         SET payment_pin_attempts = payment_pin_attempts + 1,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING payment_pin_attempts`,
+        [payment.id]
       );
 
-      const assignment = assignRes.rows[0];
-      if (!assignment) {
-        throw new AppError("Assignment not found", 404, ErrorCode.NOT_FOUND);
-      }
-
-      // Authorization: caller must be the assigned worker
-      if (assignment.worker_user_id !== workerUserId) {
+      const nextAttempts = updateAttempts.rows[0]?.payment_pin_attempts || 1;
+      if (nextAttempts >= 3) {
         throw new AppError(
-          "Only the assigned worker can confirm cash receipt",
-          403,
-          ErrorCode.UNAUTHORIZED_PAYMENT_ACTION
-        );
-      }
-
-      // Find pending cash payment record
-      const payRes = await client.query<{
-        id: string;
-        payment_pin: string | null;
-        payment_pin_attempts: number;
-        status: string;
-        amount: number;
-      }>(
-        `SELECT id, payment_pin, payment_pin_attempts, status, amount
-         FROM payment_records
-         WHERE assignment_id = $1 FOR UPDATE`,
-        [assignmentId]
-      );
-
-      const payment = payRes.rows[0];
-      if (!payment) {
-        throw new AppError(
-          "No cash payment transaction initiated for this assignment",
-          404,
-          ErrorCode.NOT_FOUND
-        );
-      }
-
-      if (payment.status === "CONFIRMED") {
-        throw new AppError(
-          "Cash payment has already been confirmed",
-          400,
-          ErrorCode.PAYMENT_ALREADY_CONFIRMED
-        );
-      }
-
-      // Brute-force protection: Rate limit PIN attempts
-      if (payment.payment_pin_attempts >= 5) {
-        throw new AppError(
-          "Maximum PIN verification attempts exceeded (5/5). Please contact support or the employer.",
+          "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
           429,
           ErrorCode.PAYMENT_PIN_MAX_ATTEMPTS_EXCEEDED
         );
       }
 
-      // Validate PIN
-      if (!payment.payment_pin || payment.payment_pin !== input.paymentPin.trim()) {
-        const nextAttempts = payment.payment_pin_attempts + 1;
-        await client.query(
-          `UPDATE payment_records
-           SET payment_pin_attempts = $1,
-               updated_at = NOW()
-           WHERE id = $2`,
-          [nextAttempts, payment.id]
-        );
+      throw new AppError(
+        `Invalid confirmation PIN. ${3 - nextAttempts} attempt(s) remaining.`,
+        400,
+        ErrorCode.INVALID_PAYMENT_PIN
+      );
+    }
 
-        throw new AppError(
-          `Invalid Payment PIN. ${5 - nextAttempts} attempt(s) remaining.`,
-          400,
-          ErrorCode.INVALID_PAYMENT_PIN
-        );
-      }
-
-      const txRef = `cash_settled_${Date.now()}`;
-
+    // 3. PIN matches -> Execute atomic settlement in transaction
+    const txRef = `cash_settled_${Date.now()}`;
+    return await withTransaction(async (client) => {
       // Update payment record to CONFIRMED
       const updatePayRes = await client.query(
         `UPDATE payment_records
@@ -398,10 +416,11 @@ export class PaymentsService {
         [txRef, payment.id]
       );
 
-      // Update assignment
+      // Update assignment to CONFIRMED and CLOSED
       await client.query(
         `UPDATE assignments
          SET payment_status = 'CONFIRMED',
+             status = 'CLOSED',
              final_wage_paid = $1,
              payment_method = 'CASH',
              payment_reference = $2,
@@ -409,6 +428,24 @@ export class PaymentsService {
          WHERE id = $3`,
         [payment.amount, txRef, assignmentId]
       );
+
+      // Check if all active assignments for this opportunity are completed/closed
+      const jobCheck = await client.query<{ unclosed: number }>(
+        `SELECT COUNT(*) AS unclosed
+         FROM assignments
+         WHERE work_opportunity_id = $1
+           AND status NOT IN ('CLOSED', 'CANCELLED', 'NO_SHOW')`,
+        [assignment.work_opportunity_id]
+      );
+      if (Number(jobCheck.rows[0]?.unclosed || 0) === 0) {
+        await client.query(
+          `UPDATE work_opportunities
+           SET status = 'PAID',
+               updated_at = NOW()
+           WHERE id = $1`,
+          [assignment.work_opportunity_id]
+        );
+      }
 
       // Notifications
       const amountINR = Number(payment.amount);
@@ -459,8 +496,9 @@ export class PaymentsService {
         amount: number;
         amount_paise: number;
         status: string;
+        gateway_order_id: string | null;
       }>(
-        `SELECT id, assignment_id, payer_id, payee_id, amount, amount_paise, status
+        `SELECT id, assignment_id, payer_id, payee_id, amount, amount_paise, status, gateway_order_id
          FROM payment_records
          WHERE id = $1 FOR UPDATE`,
         [paymentId]
@@ -479,8 +517,24 @@ export class PaymentsService {
         return this.getPaymentDetail(payerUserId, paymentId);
       }
 
-      const txRef = input.transactionRef || `tx_sb_${Date.now()}`;
+      const txRef = input.transactionRef || input.razorpayPaymentId || `tx_sb_${Date.now()}`;
       const method = input.paymentMethod || "UPI";
+
+      // Verify Razorpay signature if provided
+      if (input.razorpaySignature) {
+        const orderId = input.razorpayOrderId || payment.gateway_order_id || "";
+        const paymentId = input.razorpayPaymentId || txRef;
+        const razorpayProvider = defaultRazorpayProvider as RazorpayPaymentProvider;
+        const isValidSig = razorpayProvider.verifyPaymentSignature({
+          orderId,
+          paymentId,
+          signature: input.razorpaySignature,
+        });
+
+        if (!isValidSig) {
+          throw new AppError("Invalid Razorpay payment signature", 400, ErrorCode.UNAUTHORIZED);
+        }
+      }
 
       // 2. Update payment record to CONFIRMED
       const updateRes = await client.query(
@@ -495,10 +549,11 @@ export class PaymentsService {
         [method, txRef, paymentId]
       );
 
-      // 3. Atomically update assignment payment status
+      // 3. Atomically update assignment payment status and close assignment
       await client.query(
         `UPDATE assignments
          SET payment_status = 'CONFIRMED',
+             status = 'CLOSED',
              final_wage_paid = $1,
              payment_method = $2,
              payment_reference = $3,
@@ -506,6 +561,24 @@ export class PaymentsService {
          WHERE id = $4`,
         [payment.amount, method, txRef, payment.assignment_id]
       );
+
+      // Check if all active assignments for this opportunity are completed/closed
+      const jobCheck = await client.query<{ unclosed: number }>(
+        `SELECT COUNT(*) AS unclosed
+         FROM assignments
+         WHERE work_opportunity_id = (SELECT work_opportunity_id FROM assignments WHERE id = $1)
+           AND status NOT IN ('CLOSED', 'CANCELLED', 'NO_SHOW')`,
+        [payment.assignment_id]
+      );
+      if (Number(jobCheck.rows[0]?.unclosed || 0) === 0) {
+        await client.query(
+          `UPDATE work_opportunities
+           SET status = 'PAID',
+               updated_at = NOW()
+           WHERE id = (SELECT work_opportunity_id FROM assignments WHERE id = $1)`,
+          [payment.assignment_id]
+        );
+      }
 
       // 4. Notifications
       const amountINR = Number(payment.amount);
@@ -562,6 +635,25 @@ export class PaymentsService {
       }
     }
 
+    if (verified.event === "PAYMENT_FAILED") {
+      await query(
+        `UPDATE payment_records
+         SET status = 'FAILED',
+             notes = COALESCE(notes, '') || ' | Gateway webhook reported payment failure.',
+             updated_at = NOW()
+         WHERE gateway_order_id = $1 AND status != 'CONFIRMED'`,
+        [verified.gatewayOrderId]
+      );
+      await query(
+        `UPDATE assignments
+         SET payment_status = 'FAILED',
+             updated_at = NOW()
+         WHERE id = (SELECT assignment_id FROM payment_records WHERE gateway_order_id = $1 LIMIT 1)`,
+        [verified.gatewayOrderId]
+      );
+      return { processed: true, event: verified.event };
+    }
+
     if (verified.event === "PAYMENT_CONFIRMED") {
       let settledPayerId = "";
       let settledPayeeId = "";
@@ -609,12 +701,31 @@ export class PaymentsService {
         await client.query(
           `UPDATE assignments
            SET payment_status = 'CONFIRMED',
+               status = 'CLOSED',
                final_wage_paid = $1,
                payment_reference = $2,
                updated_at = NOW()
            WHERE id = $3`,
           [payment.amount, txRef, payment.assignment_id]
         );
+
+        // Check if all active assignments for this opportunity are completed/closed
+        const jobCheck = await client.query<{ unclosed: number }>(
+          `SELECT COUNT(*) AS unclosed
+           FROM assignments
+           WHERE work_opportunity_id = (SELECT work_opportunity_id FROM assignments WHERE id = $1)
+             AND status NOT IN ('CLOSED', 'CANCELLED', 'NO_SHOW')`,
+          [payment.assignment_id]
+        );
+        if (Number(jobCheck.rows[0]?.unclosed || 0) === 0) {
+          await client.query(
+            `UPDATE work_opportunities
+             SET status = 'PAID',
+                 updated_at = NOW()
+             WHERE id = (SELECT work_opportunity_id FROM assignments WHERE id = $1)`,
+            [payment.assignment_id]
+          );
+        }
       });
 
       // Send notifications outside transaction
@@ -643,15 +754,6 @@ export class PaymentsService {
           });
         } catch {}
       }
-    } else if (verified.event === "PAYMENT_FAILED") {
-      await query(
-        `UPDATE payment_records
-         SET status = 'FAILED',
-             notes = $1,
-             updated_at = NOW()
-         WHERE gateway_order_id = $2 AND status = 'PENDING'`,
-        [verified.errorReason || "Gateway reported payment failure", verified.gatewayOrderId]
-      );
     }
 
     return { processed: true, event: verified.event };
@@ -696,7 +798,7 @@ export class PaymentsService {
     const isCash = (row.payment_method || "").toUpperCase() === "CASH";
     const disclaimer = isCash
       ? "Cash payment was confirmed directly between employer and worker. NEARVIA is a software platform and does not hold custody or transfer physical cash."
-      : "Online payment was verified and processed via authorized gateway (Sandbox/Razorpay).";
+      : "DEMO / TEST PAYMENT: Verified and processed in Razorpay Sandbox mode. No real financial settlement occurs in this educational prototype.";
 
     const amountFloat = Number(row.amount);
     const feeFloat = Number(row.platform_fee || 0);
@@ -723,6 +825,7 @@ export class PaymentsService {
       cashConfirmedByPayerAt: row.cash_confirmed_by_payer_at,
       cashConfirmedByPayeeAt: row.cash_confirmed_by_payee_at,
       disclaimer,
+      isSandboxTest: !isCash,
     };
   }
 
@@ -1461,9 +1564,9 @@ export class PaymentsService {
       );
     }
 
-    if (assignment.status !== "COMPLETED") {
+    if (assignment.status !== "COMPLETED" && assignment.status !== "SETTLEMENT_PENDING") {
       throw new AppError(
-        `Cannot initiate payment for assignment in '${assignment.status}' status. Work must be verified as COMPLETED first.`,
+        `Cannot initiate payment for assignment in '${assignment.status}' status. Work must be verified as COMPLETED or SETTLEMENT_PENDING first.`,
         400,
         ErrorCode.PAYMENT_NOT_ELIGIBLE
       );

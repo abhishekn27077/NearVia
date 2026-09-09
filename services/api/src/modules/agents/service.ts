@@ -99,22 +99,44 @@ export class AgentsService {
   // AGENT-WORKER RELATIONSHIPS
   // ──────────────────────────────────────────────────
 
-  async requestWorkerAccess(agentUserId: string, workerPhone: string): Promise<AgentWorkerRelationshipResponse> {
+  async requestWorkerAccess(
+    agentUserId: string,
+    params: string | { workerPhone?: string; workerId?: string; consentConfirmed?: boolean }
+  ): Promise<AgentWorkerRelationshipResponse> {
     // 1. Resolve agent profile
     const agentRes = await query(`SELECT id FROM agent_profiles WHERE user_id = $1`, [agentUserId]);
     const agent = agentRes.rows[0];
     if (!agent) throw new AppError("Agent profile not found", 404);
 
-    // 2. Find worker by phone
-    const workerRes = await query(
-      `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
-       FROM users u
-       JOIN worker_profiles wp ON wp.user_id = u.id
-       WHERE u.phone = $1 AND u.role = 'WORKER'`,
-      [workerPhone]
-    );
-    const worker = workerRes.rows[0];
-    if (!worker) throw new AppError("No worker found with this phone number", 404);
+    let worker: { worker_id: string; user_id: string; full_name: string; phone: string } | undefined;
+    const workerPhone = typeof params === "string" ? params : params.workerPhone;
+    const workerId = typeof params === "object" ? params.workerId : undefined;
+    const consentConfirmed = typeof params === "object" ? params.consentConfirmed : undefined;
+
+    // 2. Find worker by phone or ID
+    if (workerPhone) {
+      const workerRes = await query<{ worker_id: string; user_id: string; full_name: string; phone: string }>(
+        `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
+         FROM users u
+         JOIN worker_profiles wp ON wp.user_id = u.id
+         WHERE u.phone = $1 AND u.role = 'WORKER'`,
+        [workerPhone]
+      );
+      worker = workerRes.rows[0];
+      if (!worker) throw new AppError("No worker found with this phone number", 404);
+    } else if (workerId) {
+      const workerRes = await query<{ worker_id: string; user_id: string; full_name: string; phone: string }>(
+        `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
+         FROM worker_profiles wp
+         JOIN users u ON wp.user_id = u.id
+         WHERE wp.id = $1 AND u.role = 'WORKER'`,
+        [workerId]
+      );
+      worker = workerRes.rows[0];
+      if (!worker) throw new AppError("No worker found with this ID", 404);
+    } else {
+      throw new AppError("Either workerPhone or workerId must be provided", 400);
+    }
 
     // 3. Check existing relationship
     const existingRes = await query(
@@ -125,9 +147,9 @@ export class AgentsService {
     if (existing) {
       if (existing.status === "ACTIVE") throw new AppError("You already have active access to this worker", 400);
       if (existing.status === "PENDING") throw new AppError("Access request already pending for this worker", 400);
-      // REVOKED → allow re-request by updating
+      // REVOKED → allow re-request by updating back to PENDING
       await query(
-        `UPDATE agent_worker_relationships SET status = 'PENDING', requested_at = NOW(), revoked_at = NULL, revoked_by = NULL, updated_at = NOW() WHERE id = $1`,
+        `UPDATE agent_worker_relationships SET status = 'PENDING', requested_at = NOW(), accepted_at = NULL, revoked_at = NULL, revoked_by = NULL, updated_at = NOW() WHERE id = $1`,
         [existing.id]
       );
     } else {
@@ -145,12 +167,18 @@ export class AgentsService {
         "AGENT_ACCESS_REQUEST",
         "Agent Access Request",
         `A local agent wants to assist you with finding work on NEARVIA. You can accept or decline this request.`,
-        JSON.stringify({ agentUserId }),
+        JSON.stringify({ agentUserId, consentConfirmed: !!consentConfirmed }),
       ]
     );
 
     // 5. Audit
-    await this.recordAudit(agent.id, worker.worker_id, null, "ACCESS_REQUESTED", `Requested access for worker phone ${workerPhone}`);
+    await this.recordAudit(
+      agent.id,
+      worker.worker_id,
+      null,
+      "ACCESS_REQUESTED",
+      `Requested access for worker ${worker.worker_id} (consentConfirmed: ${!!consentConfirmed})`
+    );
 
     // 6. Return the relationship
     return this.getRelationship(agent.id, worker.worker_id);
@@ -167,7 +195,7 @@ export class AgentsService {
        FROM agent_worker_relationships awr
        JOIN worker_profiles wp ON awr.worker_id = wp.id
        JOIN users u ON wp.user_id = u.id
-       WHERE awr.agent_id = $1 AND awr.status IN ('PENDING', 'ACTIVE')
+       WHERE awr.agent_id = $1
        ORDER BY awr.requested_at DESC`,
       [agent.id]
     );
@@ -193,11 +221,11 @@ export class AgentsService {
 
     const res = await query(
       `UPDATE agent_worker_relationships SET status = 'REVOKED', revoked_at = NOW(), revoked_by = 'AGENT', updated_at = NOW()
-       WHERE agent_id = $1 AND worker_id = $2 AND status = 'ACTIVE'
+       WHERE agent_id = $1 AND worker_id = $2 AND status IN ('ACTIVE', 'PENDING')
        RETURNING id`,
       [agent.id, workerId]
     );
-    if (res.rowCount === 0) throw new AppError("No active relationship found to revoke", 400);
+    if (res.rowCount === 0) throw new AppError("No active or pending relationship found to revoke", 400);
 
     await this.recordAudit(agent.id, workerId, null, "ACCESS_REVOKED_BY_AGENT", "Agent revoked access");
   }
@@ -316,7 +344,8 @@ export class AgentsService {
     workerId: string,
     workOpportunityId: string,
     proposedWage?: number,
-    workerNotes?: string
+    workerNotes?: string,
+    consentConfirmed?: boolean
   ): Promise<unknown> {
     await this.enforceActiveConsent(agentUserId, workerId);
 
@@ -352,13 +381,18 @@ export class AgentsService {
         "AGENT_ASSISTED_APPLICATION",
         "Application Submitted on Your Behalf",
         `${agentName} has submitted a work application for you. You can view it in your applications.`,
-        JSON.stringify({ workOpportunityId, agentUserId }),
+        JSON.stringify({ workOpportunityId, agentUserId, consentConfirmed: !!consentConfirmed }),
       ]
     );
 
     // Audit
-    await this.recordAudit(agentProfileId, workerId, workOpportunityId, "APPLICATION_ASSISTED",
-      `Agent submitted application for work ${workOpportunityId}`);
+    await this.recordAudit(
+      agentProfileId,
+      workerId,
+      workOpportunityId,
+      "APPLICATION_ASSISTED",
+      `Agent submitted application for work ${workOpportunityId} (consentConfirmed: ${!!consentConfirmed})`
+    );
 
     return application;
   }
@@ -468,12 +502,24 @@ export class AgentsService {
 
   /** Records an audit entry in audit_logs */
   private async recordAudit(
-    agentProfileId: string, workerId: string,
-    workOpportunityId: string | null, interactionType: string, notes: string
+    agentProfileIdOrUserId: string,
+    workerId: string,
+    workOpportunityId: string | null,
+    interactionType: string,
+    notes: string
   ): Promise<void> {
     try {
+      let actorUserId = agentProfileIdOrUserId;
+      const uRes = await query(`SELECT id FROM users WHERE id = $1`, [agentProfileIdOrUserId]);
+      if (uRes.rows.length === 0) {
+        const apRes = await query(`SELECT user_id FROM agent_profiles WHERE id = $1`, [agentProfileIdOrUserId]);
+        if (apRes.rows[0]) {
+          actorUserId = apRes.rows[0].user_id;
+        }
+      }
+
       await logAuditEvent({
-        actorId: agentProfileId,
+        actorId: actorUserId,
         action: `AGENT_${interactionType}`,
         targetEntity: "agent_worker_relationships",
         targetId: workerId,

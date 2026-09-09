@@ -574,7 +574,7 @@ export class ProvidersService {
   }
 
   /**
-   * Phase 5: Preferred Workers Management
+   * Phase 5 & 10: Preferred Workers Management
    */
   public async getPreferredWorkers(providerUserId: string): Promise<any[]> {
     const providerId = await this.getOrCreateProviderProfile(providerUserId);
@@ -587,10 +587,17 @@ export class ProvidersService {
         pw.notes,
         pw.created_at,
         u.full_name AS worker_name,
+        u.avatar_url AS worker_avatar_url,
         u.phone AS worker_phone,
+        wp.bio,
+        wp.experience_years,
+        wp.is_available_now,
+        wp.availability_status,
         wp.average_rating,
         wp.total_ratings_count,
         wp.completed_tasks_count,
+        COALESCE(wp.reliability_score, 100.0) AS reliability_score,
+        COALESCE(wp.verified_badge, FALSE) AS verified_badge,
         COALESCE(
           json_agg(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL),
           '[]'::json
@@ -601,24 +608,42 @@ export class ProvidersService {
        LEFT JOIN worker_skills ws ON ws.worker_id = wp.id
        LEFT JOIN skills s ON s.id = ws.skill_id
        WHERE pw.provider_id = $1
-       GROUP BY pw.id, pw.provider_id, pw.worker_id, pw.notes, pw.created_at, u.full_name, u.phone, wp.average_rating, wp.total_ratings_count, wp.completed_tasks_count
+       GROUP BY pw.id, pw.provider_id, pw.worker_id, pw.notes, pw.created_at, u.full_name, u.avatar_url, u.phone, wp.bio, wp.experience_years, wp.is_available_now, wp.availability_status, wp.average_rating, wp.total_ratings_count, wp.completed_tasks_count, wp.reliability_score, wp.verified_badge
        ORDER BY pw.created_at DESC`,
       [providerId],
     );
 
-    return res.rows.map((r) => ({
-      id: r.id,
-      providerId: r.provider_id,
-      workerId: r.worker_id,
-      workerName: r.worker_name,
-      workerPhoneMasked: r.worker_phone ? r.worker_phone.slice(0, 6) + "****" : "+919876****",
-      workerRating: Number(r.average_rating) || 5.0,
-      totalRatingsCount: Number(r.total_ratings_count) || 0,
-      completedTasksCount: Number(r.completed_tasks_count) || 0,
-      skills: Array.isArray(r.skills) ? r.skills : [],
-      notes: r.notes,
-      createdAt: r.created_at,
-    }));
+    return res.rows.map((r) => {
+      const completedTasks = Number(r.completed_tasks_count) || 0;
+      const totalRatings = Number(r.total_ratings_count) || 0;
+      const isNewWorker = completedTasks < 3 && totalRatings < 3;
+      const phone = r.worker_phone || "";
+      const workerPhoneMasked = phone.length >= 4
+        ? `+91 ***** ${phone.slice(-4)}`
+        : "+91 ***** ****";
+
+      return {
+        id: r.id,
+        providerId: r.provider_id,
+        workerId: r.worker_id,
+        workerName: r.worker_name,
+        workerPhoneMasked,
+        avatarUrl: r.worker_avatar_url || undefined,
+        bio: r.bio || undefined,
+        experienceYears: Number(r.experience_years) || 0,
+        isAvailableNow: Boolean(r.is_available_now),
+        availabilityStatus: r.availability_status,
+        isVerified: Boolean(r.verified_badge),
+        isNewWorker,
+        workerRating: Number(r.average_rating) || 5.0,
+        totalRatingsCount: totalRatings,
+        completedTasksCount: completedTasks,
+        reliabilityScore: Number(r.reliability_score) || 100,
+        skills: Array.isArray(r.skills) ? r.skills : [],
+        notes: r.notes,
+        createdAt: r.created_at,
+      };
+    });
   }
 
   public async addPreferredWorker(
@@ -626,18 +651,31 @@ export class ProvidersService {
     workerId: string,
     notes?: string,
   ): Promise<{ success: boolean; preferredId: string }> {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!workerId || !UUID_REGEX.test(workerId)) {
+      throw new AppError("Invalid worker ID format.", 400, ErrorCode.VALIDATION_ERROR);
+    }
+
     const providerId = await this.getOrCreateProviderProfile(providerUserId);
 
-    // Verify worker exists
-    const wCheck = await query("SELECT id FROM worker_profiles WHERE id = $1", [workerId]);
-    if (wCheck.rows.length === 0) {
+    // Verify worker exists and check user_id to prevent self-preference
+    const wCheck = await query<{ id: string; user_id: string }>(
+      "SELECT id, user_id FROM worker_profiles WHERE id = $1",
+      [workerId]
+    );
+    const workerRow = wCheck.rows[0];
+    if (!workerRow) {
       throw new AppError("Worker not found.", 404, ErrorCode.NOT_FOUND);
+    }
+
+    if (workerRow.user_id === providerUserId) {
+      throw new AppError("Cannot add yourself as a preferred worker.", 400, ErrorCode.VALIDATION_ERROR);
     }
 
     const res = await query<{ id: string }>(
       `INSERT INTO preferred_workers (provider_id, worker_id, notes)
        VALUES ($1, $2, $3)
-       ON CONFLICT (provider_id, worker_id) DO UPDATE SET notes = EXCLUDED.notes
+       ON CONFLICT (provider_id, worker_id) DO UPDATE SET notes = COALESCE(EXCLUDED.notes, preferred_workers.notes)
        RETURNING id`,
       [providerId, workerId, notes || null],
     );
@@ -649,6 +687,11 @@ export class ProvidersService {
     providerUserId: string,
     workerId: string,
   ): Promise<{ success: boolean }> {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!workerId || !UUID_REGEX.test(workerId)) {
+      throw new AppError("Invalid worker ID format.", 400, ErrorCode.VALIDATION_ERROR);
+    }
+
     const providerId = await this.getOrCreateProviderProfile(providerUserId);
 
     await query(

@@ -11,7 +11,6 @@ import {
   Map,
   ShieldCheck,
   Calendar,
-  Volume2,
 } from "lucide-react";
 import { DiscoveredOpportunity, GeoCoordinates } from "@nearvia/types";
 import { formatDistance } from "@nearvia/shared";
@@ -19,6 +18,7 @@ import { ApplyModal } from "../applications/ApplyModal";
 import { DirectionsModal } from "./DirectionsModal";
 import { useLanguage } from "../../context/LanguageContext";
 import { RecommendationFeedback } from "../intelligence/RecommendationFeedback";
+import { ReadAloudButton } from "../../components/common/ReadAloudButton";
 
 interface DiscoveredJobCardProps {
   opportunity: DiscoveredOpportunity;
@@ -38,34 +38,6 @@ export const DiscoveredJobCard: React.FC<DiscoveredJobCardProps> = ({
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showDirectionsModal, setShowDirectionsModal] = useState(false);
   const [applied, setApplied] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-
-  const speakJobDetails = () => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-
-    let text = "";
-    let langCode = "en-IN";
-
-    if (language === "kn") {
-      langCode = "kn-IN";
-      text = `${opportunity.title}. ಸಂಬಳ ರೂಪಾಯಿ ${opportunity.paymentAmount}. ಅವಧಿ ${opportunity.durationHours} ಗಂಟೆಗಳು. ಸ್ಥಳ ${formatDistance(opportunity.distanceKm)} ದೂರದಲ್ಲಿದೆ.`;
-    } else if (language === "hi") {
-      langCode = "hi-IN";
-      text = `${opportunity.title}. कमाई रुपये ${opportunity.paymentAmount}. समय ${opportunity.durationHours} घंटे. दूरी ${formatDistance(opportunity.distanceKm)}.`;
-    } else {
-      langCode = "en-IN";
-      text = `${opportunity.title}. Payout ${opportunity.paymentAmount} Rupees. Duration ${opportunity.durationHours} hours. Located ${formatDistance(opportunity.distanceKm)} away.`;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = langCode;
-    utterance.rate = 0.95;
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-  };
 
   const match = opportunity.match;
   const matchScore = match ? match.score : null;
@@ -127,19 +99,17 @@ export const DiscoveredJobCard: React.FC<DiscoveredJobCardProps> = ({
             <h3 className="text-lg sm:text-xl font-black text-slate-900 font-display-title tracking-tight leading-snug">
               {opportunity.title}
             </h3>
-            <button
-              type="button"
-              onClick={speakJobDetails}
-              className={`p-1.5 rounded-xl border transition-all ${
-                isSpeaking
-                  ? "bg-orange-100 text-orange-700 border-orange-300 animate-pulse ring-2 ring-orange-200"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-900 border-slate-200"
-              }`}
-              title={t.listenToJob}
-              aria-label={t.listenToJob}
-            >
-              <Volume2 className="w-4 h-4" />
-            </button>
+            <ReadAloudButton
+              job={{
+                title: opportunity.title,
+                description: opportunity.description,
+                paymentAmount: opportunity.paymentAmount,
+                durationHours: opportunity.durationHours,
+                distanceKm: opportunity.distanceKm,
+              }}
+              variant="icon"
+              size="sm"
+            />
           </div>
           <p className="text-xs text-slate-500 font-medium line-clamp-2">
             {opportunity.description}

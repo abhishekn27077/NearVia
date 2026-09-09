@@ -30,19 +30,40 @@ export function createRateLimiter(options: RateLimitOptions) {
     maxRequests,
     message = "Too many requests. Please try again later.",
     keyGenerator = (req: Request) => {
-      // Use authenticated user ID if available, otherwise IP address
+      // 1. Authenticated user ID
       const authUser = (req as any).user?.id;
-      return authUser ? `user:${authUser}` : `ip:${req.ip || "127.0.0.1"}`;
+      if (authUser) return `user:${authUser}`;
+
+      // 2. Normalized Email or Phone if present in request body
+      if (req.body?.email && typeof req.body.email === "string") {
+        return `email:${req.body.email.toLowerCase().trim()}`;
+      }
+      if (req.body?.phone && typeof req.body.phone === "string") {
+        return `phone:${req.body.phone.replace(/[\s\-\(\)]/g, "")}`;
+      }
+
+      // 3. Client IP address (sanitizing X-Forwarded-For)
+      const forwarded = req.headers?.["x-forwarded-for"];
+      let clientIp = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+      if (typeof forwarded === "string" && forwarded.trim()) {
+        const parts = forwarded.split(",");
+        const firstIp = parts[0]?.trim();
+        if (firstIp) clientIp = firstIp;
+      }
+      return `ip:${clientIp}`;
     },
   } = options;
 
   return (req: Request, res: Response, next: NextFunction): void => {
     // In test environment, allow bypassing rate limits unless specifically testing rate limiter
-    if (process.env.NODE_ENV === "test" && req.header("x-skip-rate-limit") === "true") {
+    if (process.env.NODE_ENV === "test" && req.header?.("x-skip-rate-limit") === "true") {
       return next();
     }
 
-    const key = `${req.baseUrl || ""}:${keyGenerator(req)}`;
+    // Normalize endpoint path: lowercase and strip trailing slashes
+    const rawPath = `${req.baseUrl || ""}${req.path || ""}`;
+    const normalizedPath = rawPath.toLowerCase().replace(/\/+$/, "") || "/";
+    const key = `${normalizedPath}:${keyGenerator(req)}`;
     const now = Date.now();
 
     let record = rateLimitStore.get(key);

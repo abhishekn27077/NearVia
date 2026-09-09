@@ -60,12 +60,24 @@ export class SandboxPaymentProvider implements PaymentProvider {
 
     try {
       const parsed = JSON.parse(bodyStr);
+      const payload = parsed.payload || {};
+      const paymentEntity = payload.payment?.entity || parsed;
+      const orderEntity = payload.order?.entity || parsed;
+      const eventName = parsed.event || parsed.type;
+
+      let standardizedEvent: "PAYMENT_CONFIRMED" | "PAYMENT_FAILED" | "REFUND_PROCESSED" = "PAYMENT_CONFIRMED";
+      if (eventName === "payment.failed" || eventName === "PAYMENT_FAILED") {
+        standardizedEvent = "PAYMENT_FAILED";
+      } else if (eventName === "refund.processed" || eventName === "payment.refunded" || eventName === "REFUND_PROCESSED") {
+        standardizedEvent = "REFUND_PROCESSED";
+      }
+
       return {
         isValid: true,
-        event: parsed.event, // 'PAYMENT_CONFIRMED' | 'PAYMENT_FAILED' | 'REFUND_PROCESSED'
-        gatewayOrderId: parsed.gatewayOrderId || parsed.order_id,
-        gatewayPaymentId: parsed.gatewayPaymentId || parsed.payment_id,
-        amountPaise: parsed.amountPaise || parsed.amount,
+        event: standardizedEvent,
+        gatewayOrderId: paymentEntity.order_id || orderEntity.id || parsed.gatewayOrderId || parsed.order_id,
+        gatewayPaymentId: paymentEntity.id || parsed.gatewayPaymentId || parsed.payment_id,
+        amountPaise: paymentEntity.amount || parsed.amountPaise || parsed.amount,
       };
     } catch {
       return {

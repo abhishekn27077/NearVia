@@ -56,7 +56,7 @@ export const VerificationCenterPage: React.FC = () => {
   }, [token, idSuccess, bizSuccess]);
 
   // Compute live verification states backed by DB
-  const emailVerified = Boolean(user?.email);
+  const emailVerified = Boolean(user?.emailVerified);
   const phoneVerified = Boolean(user?.mobileVerified);
   
   const pendingIdReq = verifications.find(
@@ -298,21 +298,27 @@ export const VerificationCenterPage: React.FC = () => {
               <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
                 <Mail className="w-6 h-6" />
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>VERIFIED</span>
-              </span>
+              {emailVerified ? (
+                <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>VERIFIED</span>
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  PENDING CONFIRMATION
+                </span>
+              )}
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900">Email Address</h3>
+              <h3 className="text-base font-black text-slate-900">Email Address (Primary V1)</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">{user?.email}</p>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Your primary email is confirmed and secured for all system notifications and payment receipts.
+              Your primary email is the authoritative account verification credential for NEARVIA V1 access.
             </p>
           </div>
 
-          {/* 2. Mobile Phone Verification */}
+          {/* 2. Mobile Phone Profile Info */}
           <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-card space-y-4">
             <div className="flex items-start justify-between">
               <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600">
@@ -324,29 +330,20 @@ export const VerificationCenterPage: React.FC = () => {
                   <span>VERIFIED</span>
                 </span>
               ) : (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                  NOT VERIFIED
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                  OPTIONAL PROFILE INFO
                 </span>
               )}
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900">Mobile Phone Number</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {user?.phone || "No phone added"}
+                {user?.phone || "No phone added (Optional)"}
               </p>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Required for emergency coordination, arrival notifications, and payment alerts.
+              Optional profile contact info for local coordination. SMS OTP is not required in NEARVIA V1.
             </p>
-            {!phoneVerified && (
-              <button
-                type="button"
-                onClick={() => setPhoneModalOpen(true)}
-                className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-xs transition-colors"
-              >
-                Verify Phone via OTP
-              </button>
-            )}
           </div>
 
           {/* 3. Government ID / KYC Verification */}

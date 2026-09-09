@@ -69,9 +69,9 @@ export class MessagesController {
   ): Promise<void> {
     try {
       const userId = (req as any).user.id;
-      const id = req.params.id as string;
+      const convId = z.string().uuid("Invalid conversation ID format").parse(req.params.id);
 
-      const conversation = await messagesService.getConversationById(userId, id);
+      const conversation = await messagesService.getConversationById(userId, convId);
 
       res.status(200).json({
         success: true,
@@ -89,9 +89,11 @@ export class MessagesController {
   ): Promise<void> {
     try {
       const userId = (req as any).user.id;
-      const id = req.params.id as string;
+      const convId = z.string().uuid("Invalid conversation ID format").parse(req.params.id);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
+      const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
 
-      const messages = await messagesService.getMessages(userId, id);
+      const messages = await messagesService.getMessages(userId, convId, limit, offset);
 
       res.status(200).json({
         success: true,
@@ -109,10 +111,10 @@ export class MessagesController {
   ): Promise<void> {
     try {
       const userId = (req as any).user.id;
-      const id = req.params.id as string;
+      const convId = z.string().uuid("Invalid conversation ID format").parse(req.params.id);
       const { content } = sendMessageSchema.parse(req.body);
 
-      const message = await messagesService.sendMessage(userId, id, content);
+      const message = await messagesService.sendMessage(userId, convId, content);
 
       res.status(201).json({
         success: true,

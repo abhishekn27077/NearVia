@@ -15,6 +15,8 @@ import {
 } from "../../middleware/auth.middleware";
 import { validateRequest } from "../../middleware/validateRequest";
 import { workOpportunitiesController } from "./controller";
+import { applicationsController } from "../applications/controller";
+import { matchingController } from "../matching/controller";
 
 const router = Router();
 
@@ -126,11 +128,7 @@ router.post(
   "/:id/applications",
   authenticateUser,
   requireRole([UserRole.WORKER, UserRole.ADMIN]),
-  (req, res, next) => {
-    // Lazy-import to avoid circular dependency
-    const { applicationsController } = require("../applications/controller");
-    applicationsController.applyForWork(req, res, next);
-  },
+  (req, res, next) => applicationsController.applyForWork(req, res, next),
 );
 
 /**
@@ -141,10 +139,30 @@ router.get(
   "/:id/applicants",
   authenticateUser,
   requireRole([UserRole.PROVIDER, UserRole.ADMIN]),
-  (req, res, next) => {
-    const { applicationsController } = require("../applications/controller");
-    applicationsController.getOpportunityApplicants(req, res, next);
-  },
+  (req, res, next) =>
+    applicationsController.getOpportunityApplicants(req, res, next),
+);
+
+/**
+ * @route GET /api/v1/jobs/:jobId/matches
+ * @route GET /api/v1/work-opportunities/:jobId/matches
+ * @desc Retrieve deterministic smart matches for this work opportunity
+ * @access Provider (Job Owner) or Admin
+ */
+router.get(
+  "/:jobId/matches",
+  authenticateUser,
+  requireRole([UserRole.PROVIDER, UserRole.ADMIN]),
+  (req, res, next) => matchingController.getJobMatches(req, res, next),
+);
+
+/**
+ * @route GET /api/v1/work-opportunities/:id/lifecycle
+ * @route GET /api/v1/jobs/:id/lifecycle
+ * @desc Get authoritative lifecycle state, milestones timeline, and next actions for job
+ */
+router.get("/:id/lifecycle", authenticateUser, (req, res, next) =>
+  workOpportunitiesController.getLifecycle(req, res, next),
 );
 
 export const jobsRouter: Router = router;

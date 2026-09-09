@@ -5,12 +5,15 @@
 
 import { Request, Response, NextFunction } from "express";
 import { matchingService } from "./service";
+import { smartMatchingService } from "./smartMatching.service";
 import { ApiResponse, ErrorCode } from "@nearvia/config";
 import { AppError } from "../../middleware/errorHandler";
 import {
   DiscoveryQueryParams,
   MatchedWorkOpportunity,
   MatchExplanation,
+  JobMatchesResponse,
+  UserRole,
 } from "@nearvia/types";
 
 export class MatchingController {
@@ -119,6 +122,61 @@ export class MatchingController {
         data: explanation,
         meta: { timestamp: new Date().toISOString() },
       };
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/jobs/:jobId/matches
+   * Returns deterministic smart matches for an employer's job.
+   * Provider/Admin authorization only.
+   */
+  public async getJobMatches(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required.",
+          401,
+          ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      const rawJobId = req.params.jobId || req.params.id;
+      const jobId = Array.isArray(rawJobId) ? rawJobId[0] : rawJobId;
+      if (!jobId) {
+        throw new AppError(
+          "Job ID is required.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
+      const radiusKm = req.query.radiusKm ? Number(req.query.radiusKm) : undefined;
+      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+
+      const isAdmin = req.user.role === UserRole.ADMIN;
+      const result = await smartMatchingService.getMatchesForJob(
+        jobId,
+        req.user.id,
+        isAdmin,
+        { radiusKm, limit }
+      );
+
+      const response: ApiResponse<JobMatchesResponse> = {
+        success: true,
+        data: result,
+        meta: {
+          timestamp: new Date().toISOString(),
+          total: result.totalMatches,
+        },
+      };
+
       res.status(200).json(response);
     } catch (error) {
       next(error);

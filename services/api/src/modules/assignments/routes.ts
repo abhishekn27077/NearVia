@@ -22,6 +22,10 @@ router.get("/:id", authenticateUser, (req, res, next) =>
   assignmentsController.getAssignmentById(req, res, next),
 );
 
+router.get("/:id/lifecycle", authenticateUser, (req, res, next) =>
+  assignmentsController.getLifecycle(req, res, next),
+);
+
 // Worker execution lifecycle
 router.post(
   "/:id/confirm",

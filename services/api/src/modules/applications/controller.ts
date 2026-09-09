@@ -373,6 +373,7 @@ export class ApplicationsController {
         req.user.id,
         id,
         validated.decisionNotes,
+        req.user.role,
       );
 
       const response: ApiResponse<{

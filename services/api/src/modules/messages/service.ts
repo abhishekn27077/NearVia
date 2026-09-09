@@ -248,7 +248,21 @@ export class MessagesService {
     }
 
     if (r.worker_user_id !== userId && r.provider_user_id !== userId) {
-      throw new AppError("You are not authorized to access this conversation.", 403, ErrorCode.FORBIDDEN);
+      // Check if user is an assisting agent with an active relationship
+      const agentCheck = await query<{ id: string }>(
+        `SELECT awr.id 
+         FROM agent_worker_relationships awr
+         JOIN agent_profiles ap ON awr.agent_id = ap.id
+         WHERE ap.user_id = $1 AND awr.worker_id = $2 AND awr.status = 'ACTIVE'`,
+        [userId, r.worker_id],
+      );
+      if (!agentCheck.rows[0]) {
+        throw new AppError(
+          "You are not authorized to access this conversation.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
     }
 
     return {
@@ -272,11 +286,13 @@ export class MessagesService {
   }
 
   /**
-   * Get messages for a conversation and mark received messages as read
+   * Get messages for a conversation with pagination and mark received messages as read
    */
   public async getMessages(
     userId: string,
     conversationId: string,
+    limit = 50,
+    offset = 0,
   ): Promise<MessageItem[]> {
     // 1. Authorization check
     await this.getConversationById(userId, conversationId);
@@ -289,7 +305,7 @@ export class MessagesService {
       [conversationId, userId],
     );
 
-    // 3. Fetch messages
+    // 3. Fetch messages with pagination
     const res = await query<{
       id: string;
       conversation_id: string;
@@ -312,8 +328,9 @@ export class MessagesService {
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        WHERE m.conversation_id = $1
-       ORDER BY m.created_at ASC`,
-      [conversationId],
+       ORDER BY m.created_at ASC
+       LIMIT $2 OFFSET $3`,
+      [conversationId, limit, offset],
     );
 
     return res.rows.map((m) => ({

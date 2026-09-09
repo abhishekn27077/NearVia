@@ -20,7 +20,12 @@ router.patch("/me", (req, res, next) => agentsController.updateMyProfile(req, re
 
 // ── Worker Relationships ──
 router.get("/workers", (req, res, next) => agentsController.getMyWorkers(req, res, next));
+router.get("/me/workers", (req, res, next) => agentsController.getMyWorkers(req, res, next));
 router.post("/workers/request", (req, res, next) => agentsController.requestWorkerAccess(req, res, next));
+router.post("/workers/:workerId", (req, res, next) => agentsController.requestWorkerAccessById(req, res, next));
+router.post("/me/workers/:workerId", (req, res, next) => agentsController.requestWorkerAccessById(req, res, next));
+router.delete("/workers/:workerId", (req, res, next) => agentsController.revokeWorkerAccess(req, res, next));
+router.delete("/me/workers/:workerId", (req, res, next) => agentsController.revokeWorkerAccess(req, res, next));
 router.post("/workers/:workerId/revoke", (req, res, next) => agentsController.revokeWorkerAccess(req, res, next));
 
 // ── Assisted Worker View ──

@@ -4,20 +4,51 @@
  */
 
 import { Router } from "express";
-import { registerRequestSchema } from "@nearvia/validation";
+import {
+  signupRequestSchema,
+  loginRequestSchema,
+  registerRequestSchema,
+  updateProfileSchema,
+  confirmEmailSchema,
+  resendVerificationEmailSchema,
+  syncGoogleProfileSchema,
+  verifyIdentitySchema,
+} from "@nearvia/validation";
 import { validateRequest, authenticateUser, authLimiter, otpLimiter } from "../../middleware";
 import { authController } from "./controller";
 
 const router = Router();
 
 // Direct Unified Sign Up (Creates Supabase Auth + Application User)
-router.post("/signup", authLimiter, (req, res, next) =>
-  authController.signUp(req, res, next),
+router.post(
+  "/signup",
+  authLimiter,
+  validateRequest(signupRequestSchema),
+  (req, res, next) => authController.signUp(req, res, next),
 );
 
-// Auto-confirm email if unconfirmed
-router.post("/confirm-email", authLimiter, (req, res, next) =>
-  authController.confirmEmail(req, res, next),
+// Unified Email/Password Login
+router.post(
+  "/login",
+  authLimiter,
+  validateRequest(loginRequestSchema),
+  (req, res, next) => authController.login(req, res, next),
+);
+
+// Resend Supabase Email Verification Link (Rate-limited)
+router.post(
+  "/resend-verification-email",
+  authLimiter,
+  validateRequest(resendVerificationEmailSchema),
+  (req, res, next) => authController.resendVerificationEmail(req, res, next),
+);
+
+// Auto-confirm email if unconfirmed (Non-production demo only)
+router.post(
+  "/confirm-email",
+  authLimiter,
+  validateRequest(confirmEmailSchema),
+  (req, res, next) => authController.confirmEmail(req, res, next),
 );
 
 // Public User Registration (Synchronizes Supabase account with NEARVIA application user)
@@ -29,8 +60,11 @@ router.post(
 );
 
 // Synchronize Google OAuth user with local database profile
-router.post("/sync-google-profile", authLimiter, (req, res, next) =>
-  authController.syncGoogleProfile(req, res, next),
+router.post(
+  "/sync-google-profile",
+  authLimiter,
+  validateRequest(syncGoogleProfileSchema),
+  (req, res, next) => authController.syncGoogleProfile(req, res, next),
 );
 
 // Protected: Get current authenticated user profile
@@ -59,13 +93,19 @@ router.post("/verify-mobile", authenticateUser, otpLimiter, (req, res, next) =>
 );
 
 // Protected: Verify identity (Demo KYC)
-router.post("/verify-identity", authenticateUser, (req, res, next) =>
-  authController.verifyIdentity(req, res, next),
+router.post(
+  "/verify-identity",
+  authenticateUser,
+  validateRequest(verifyIdentitySchema),
+  (req, res, next) => authController.verifyIdentity(req, res, next),
 );
 
-// Protected: Update profile
-router.put("/profile", authenticateUser, (req, res, next) =>
-  authController.updateProfile(req, res, next),
+// Protected: Update profile (Strictly rejects non-whitelisted / privileged fields)
+router.put(
+  "/profile",
+  authenticateUser,
+  validateRequest(updateProfileSchema),
+  (req, res, next) => authController.updateProfile(req, res, next),
 );
 
 // Protected: Logout acknowledgment

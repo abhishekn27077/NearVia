@@ -35,11 +35,13 @@ export const NEARVIA_CONFIG = {
     URGENCY_RELEVANCE: 0.05,
   },
 
-  // Work Execution & Attendance Defaults (Phase 10)
+  // Work Execution & Attendance Defaults (Phase 10, Phase 12)
   WORK_EXECUTION: {
     CHECK_IN_WINDOW_BEFORE_MINUTES: 120, // Can check in up to 2 hours before scheduled start
     CHECK_IN_WINDOW_AFTER_MINUTES: 240, // Can check in up to 4 hours after scheduled start
     MAX_CHECK_IN_PROXIMITY_METERS: 1000, // 1 km allowed check-in radius around workplace
+    MAX_CHECK_OUT_PROXIMITY_METERS: 1500, // 1.5 km allowed check-out radius around workplace
+    MAX_JOB_PIN_ATTEMPTS: 5, // Maximum failed Job PIN attempts before lockout
     NO_SHOW_GRACE_PERIOD_MINUTES: 30, // Can only be marked NO_SHOW 30 min after start time
   },
 

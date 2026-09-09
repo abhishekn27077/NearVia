@@ -231,6 +231,11 @@ export const WorkerApplicationsPage: React.FC = () => {
                       <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
                         {app.categoryName || "General Services"}
                       </span>
+                      {app.isAgentAssisted && (
+                        <span className="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-black">
+                          🤝 Agent-Assisted
+                        </span>
+                      )}
                       {getStatusBadge(app.status)}
                     </div>
 

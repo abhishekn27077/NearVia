@@ -60,26 +60,31 @@ router.get("/workforce-radar", (req, res, next) =>
 
 /**
  * @route GET /api/v1/providers/preferred-workers
+ * @route GET /api/v1/providers/me/preferred-workers
  * @desc Retrieve list of provider's preferred workers
  */
-router.get("/preferred-workers", (req, res, next) =>
+router.get(["/preferred-workers", "/me/preferred-workers"], (req, res, next) =>
   providersController.getPreferredWorkers(req, res, next),
 );
 
 /**
  * @route POST /api/v1/providers/preferred-workers/:workerId
+ * @route POST /api/v1/providers/me/preferred-workers/:workerId
  * @desc Add a worker to preferred list
  */
-router.post("/preferred-workers/:workerId", (req, res, next) =>
-  providersController.addPreferredWorker(req, res, next),
+router.post(
+  ["/preferred-workers/:workerId", "/me/preferred-workers/:workerId"],
+  (req, res, next) => providersController.addPreferredWorker(req, res, next),
 );
 
 /**
  * @route DELETE /api/v1/providers/preferred-workers/:workerId
+ * @route DELETE /api/v1/providers/me/preferred-workers/:workerId
  * @desc Remove a worker from preferred list
  */
-router.delete("/preferred-workers/:workerId", (req, res, next) =>
-  providersController.removePreferredWorker(req, res, next),
+router.delete(
+  ["/preferred-workers/:workerId", "/me/preferred-workers/:workerId"],
+  (req, res, next) => providersController.removePreferredWorker(req, res, next),
 );
 
 /**

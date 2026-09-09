@@ -41,7 +41,11 @@ export interface AgentWorkerRelationshipResponse {
 }
 
 export const requestWorkerAccessSchema = z.object({
-  workerPhone: z.string().min(10).max(20),
+  workerPhone: z.string().min(10).max(20).optional(),
+  workerId: z.string().uuid().optional(),
+  consentConfirmed: z.boolean().optional(),
+}).refine((data) => data.workerPhone || data.workerId, {
+  message: "Either workerPhone or workerId must be provided",
 });
 
 export type RequestWorkerAccessInput = z.infer<typeof requestWorkerAccessSchema>;
@@ -51,6 +55,7 @@ export const assistedApplicationSchema = z.object({
   workOpportunityId: z.string().uuid(),
   proposedWage: z.number().positive().optional(),
   workerNotes: z.string().max(500).optional(),
+  consentConfirmed: z.boolean().optional(),
 });
 
 export type AssistedApplicationInput = z.infer<typeof assistedApplicationSchema>;

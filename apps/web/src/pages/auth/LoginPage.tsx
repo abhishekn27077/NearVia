@@ -8,22 +8,27 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 export const LoginPage: React.FC = () => {
   const {
     signInWithEmailPassword,
     signInWithGoogle,
+    resendVerificationEmail,
     isLoading,
     error,
   } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setResendStatus(null);
     try {
       const user = await signInWithEmailPassword(email, password);
       const rolePrefix = `/${user.role.toLowerCase()}`;
@@ -33,6 +38,19 @@ export const LoginPage: React.FC = () => {
       navigate(redirectUrl, { replace: true });
     } catch {
       // Error handled by AuthContext
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) {
+      setResendStatus("Please enter your email address above to resend verification.");
+      return;
+    }
+    try {
+      await resendVerificationEmail(email);
+      setResendStatus("Verification email sent! Check your inbox.");
+    } catch {
+      setResendStatus("Failed to resend. Please try again later.");
     }
   };
 
@@ -55,16 +73,36 @@ export const LoginPage: React.FC = () => {
             <LogIn className="w-7 h-7" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-display-title">
-            Sign In to NEARVIA
+            {t.loginTitle}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Access your hyperlocal work marketplace dashboard
+            {t.loginSubtitle}
           </p>
         </div>
 
         {error && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-            {error}
+          <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium space-y-2">
+            <div>{error}</div>
+            {(error.toLowerCase().includes("verified") ||
+              error.toLowerCase().includes("verification") ||
+              error.toLowerCase().includes("inbox")) && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={isLoading}
+                  className="font-bold underline text-rose-900 hover:text-rose-950 cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500"
+                >
+                  Resend verification email to {email || "entered email"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {resendStatus && (
+          <div role="status" className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-medium">
+            {resendStatus}
           </div>
         )}
 
@@ -73,9 +111,10 @@ export const LoginPage: React.FC = () => {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="w-full py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold text-xs transition-transform duration-100 ease-out active:scale-95 shadow-xs flex items-center justify-center space-x-3 disabled:opacity-50 btn-tactile cursor-pointer"
+          aria-label="Continue with Google"
+          className="w-full py-3.5 px-4 min-h-[44px] rounded-2xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold text-xs transition-transform duration-100 ease-out active:scale-95 shadow-xs flex items-center justify-center space-x-3 disabled:opacity-50 btn-tactile cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -106,35 +145,39 @@ export const LoginPage: React.FC = () => {
         {/* Email/Password Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label htmlFor="login-email" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" aria-hidden="true" />
               <input
+                id="login-email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
+                aria-label="Email Address"
+                className="w-full pl-11 pr-4 py-3.5 min-h-[44px] rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label htmlFor="login-password" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Password
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" aria-hidden="true" />
               <input
+                id="login-password"
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
+                aria-label="Password"
+                className="w-full pl-11 pr-4 py-3.5 min-h-[44px] rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
               />
             </div>
           </div>
@@ -142,17 +185,17 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs transition-all shadow-md shadow-orange-600/20 flex items-center justify-center space-x-2 disabled:opacity-50"
+            className="w-full py-3.5 min-h-[44px] rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs transition-all shadow-md shadow-orange-600/20 flex items-center justify-center space-x-2 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-orange-500"
           >
-            <span>{isLoading ? "Signing in..." : "Sign In"}</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{isLoading ? t.loading : t.loginBtn}</span>
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </button>
         </form>
 
         <div className="pt-2 text-center text-xs text-slate-500">
-          Don't have an account?{" "}
-          <Link to="/register" className="text-orange-600 font-extrabold hover:underline">
-            Register Now
+          {t.dontHaveAccount}{" "}
+          <Link to="/register" className="text-orange-600 font-extrabold hover:underline focus-visible:ring-2 focus-visible:ring-orange-500">
+            {t.createAccount}
           </Link>
         </div>
       </div>

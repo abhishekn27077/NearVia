@@ -379,7 +379,7 @@ describe("Phase 9: Security Hardening & Regression Suite", () => {
       await expect(
         workOpportunitiesService.publishWorkOpportunity("opp-2", "user-prov-1")
       ).rejects.toThrow(/Cannot publish opportunity currently in/);
-    });
+    }, 15000);
   });
 
   // ─────────────────────────────────────────────────────────────

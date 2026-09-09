@@ -36,7 +36,7 @@ export interface BoundingBox {
 export interface User {
   id: string;
   authId: string;
-  phone: string;
+  phone?: string;
   fullName: string;
   email?: string;
   role: UserRole;
@@ -45,6 +45,8 @@ export interface User {
   locationText?: string;
   latitude?: number;
   longitude?: number;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string;
   mobileVerified?: boolean;
   mobileVerifiedAt?: string;
   identityVerified?: boolean;
@@ -62,7 +64,7 @@ export interface User {
 export interface AuthUserContext {
   id: string;
   authId: string;
-  phone: string;
+  phone?: string;
   fullName: string;
   email?: string;
   role: UserRole;
@@ -71,6 +73,8 @@ export interface AuthUserContext {
   locationText?: string;
   latitude?: number;
   longitude?: number;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string;
   mobileVerified?: boolean;
   mobileVerifiedAt?: string;
   identityVerified?: boolean;
@@ -378,6 +382,8 @@ export interface Application {
   appliedAt: string;
   respondedAt?: string;
   decisionNotes?: string;
+  assistedByAgentId?: string;
+  isAgentAssisted?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -431,6 +437,8 @@ export interface ApplicantListItem {
   proposedWage?: number;
   workerNotes?: string;
   appliedAt: string;
+  assistedByAgentId?: string;
+  isAgentAssisted?: boolean;
   matchScore: number;
   matchReasons: string[];
 }
@@ -467,6 +475,7 @@ export interface Assignment {
   cancellationReason?: string;
   completionNotes?: string;
   checkInDistanceMeters?: number;
+  checkOutDistanceMeters?: number;
   jobPin?: string;
   jobPinAttempts?: number;
   jobPinVerifiedAt?: string;
@@ -496,14 +505,21 @@ export interface AssignmentDetail extends Assignment {
   providerFullName: string;
   providerBusinessName?: string;
   providerContactPhone: string;
+  providerRating?: number;
 
   workerFullName: string;
-  workerAvatarUrl?: string;
   workerContactPhone?: string;
+  workerRating?: number;
+  workerVerified?: boolean;
 
-  // Opportunity coordinates for check-in proximity validation
+  workSiteLocation?: {
+    latitude: number;
+    longitude: number;
+  };
+
   opportunityLatitude?: number;
   opportunityLongitude?: number;
+  workerAvatarUrl?: string;
 }
 
 // 12.1 Attendance Record Model
@@ -519,10 +535,11 @@ export interface AttendanceRecord {
   createdAt: string;
 }
 
-// 12.2 Assignment Action Inputs (Phase 6 & 10)
+// 12.2 Assignment Action Inputs (Phase 6 & 10, Phase 12)
 export interface CheckInInput {
   latitude?: number;
   longitude?: number;
+  jobPin?: string;
   notes?: string;
   manualFallback?: boolean;
 }
@@ -535,6 +552,7 @@ export interface CheckOutInput {
   completionNotes?: string;
   latitude?: number;
   longitude?: number;
+  manualFallback?: boolean;
 }
 
 export type JobEvidenceType =
@@ -654,6 +672,7 @@ export interface PaymentRecord {
   reconciliationStatus?: "MATCHED" | "DISCREPANCY" | "DISPUTED" | "UNRECONCILED";
   reconciliationNotes?: string;
   notes?: string;
+  isSandboxTest?: boolean;
   recordedAt: string;
   createdAt: string;
   updatedAt?: string;
@@ -680,6 +699,7 @@ export interface PaymentReceipt {
   cashConfirmedByPayerAt?: string;
   cashConfirmedByPayeeAt?: string;
   disclaimer: string;
+  isSandboxTest?: boolean;
 }
 
 export interface InitiateCashPaymentInput {
@@ -715,12 +735,22 @@ export interface Dispute {
   respondentId: string;
   reason: string;
   description: string;
+  evidenceUrls?: string[];
   status: DisputeStatus;
   resolutionNotes?: string;
   resolvedBy?: string;
   resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
+
+  // Enriched context
+  workOpportunityId?: string;
+  opportunityTitle?: string;
+  workType?: string;
+  agreedWage?: number;
+  paymentStatus?: string;
+  initiatorName?: string;
+  respondentName?: string;
 }
 
 // 17. Reports Model
@@ -729,13 +759,16 @@ export interface Report {
   reporterId: string;
   targetType: string;
   targetId: string;
+  category?: string;
   reason: string;
   description?: string;
+  evidenceUrls?: string[];
   status: ReportStatus;
   reviewedBy?: string;
   resolution?: string;
   createdAt: string;
   updatedAt: string;
+  reporterName?: string;
 }
 
 // 18. Notifications Model
@@ -1052,4 +1085,45 @@ export interface MarketDemandHotspot {
   urgencyTier: "LOW" | "BALANCED" | "HIGH_DEMAND" | "CRITICAL_SHORTAGE";
 }
 
+// ------------------------------------------------------------------------------
+// Phase 9: Smart Matching Models (Deterministic & Privacy-Preserving)
+// ------------------------------------------------------------------------------
 
+export type DistanceBucket =
+  | "WALKABLE"
+  | "NEARBY"
+  | "WITHIN_3KM"
+  | "WITHIN_5KM"
+  | "WITHIN_RADIUS";
+
+export interface SmartMatchCandidate {
+  workerId: string;
+  rank: number;
+  matchScore: number;
+  fullName: string;
+  avatarUrl?: string;
+  bio?: string;
+  experienceYears: number;
+  matchedSkills: string[];
+  allSkills: string[];
+  distanceBucket: DistanceBucket;
+  approximateDistanceKm: number;
+  approximateDistanceFormatted: string;
+  isAvailableNow: boolean;
+  availabilityStatus: AvailabilityStatus;
+  isPreferredWorker: boolean;
+  isVerified: boolean;
+  isNewWorker: boolean;
+  tasksCompletedCount?: number;
+  averageRating?: number;
+  whyMatched: string;
+  matchHighlights: string[];
+}
+
+export interface JobMatchesResponse {
+  jobId: string;
+  jobTitle: string;
+  jobCategoryName: string;
+  totalMatches: number;
+  matches: SmartMatchCandidate[];
+}

@@ -30,7 +30,7 @@ export async function authenticateUser(
 ): Promise<void> {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader || !authHeader.match(/^Bearer\s+/i)) {
     next(
       new AppError(
         "Authentication required. Missing Bearer token.",
@@ -41,7 +41,7 @@ export async function authenticateUser(
     return;
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
     next(
       new AppError(
@@ -70,13 +70,14 @@ export async function authenticateUser(
     const result = await query<{
       id: string;
       auth_id: string;
-      phone: string;
+      phone: string | null;
       full_name: string;
       email: string | null;
       role: UserRole;
       is_active: boolean;
+      email_verified?: boolean;
     }>(
-      "SELECT id, auth_id, phone, full_name, email, role, is_active FROM users WHERE auth_id = $1",
+      "SELECT id, auth_id, phone, full_name, email, role, is_active, email_verified FROM users WHERE auth_id = $1",
       [verified.authId],
     );
 
@@ -111,14 +112,21 @@ export async function authenticateUser(
       return;
     }
 
+    const isEmailVerified = Boolean(userRow.email_verified || verified.emailVerified);
+    if (verified.emailVerified && !userRow.email_verified) {
+      // Synchronize verified state from Supabase Auth to PostgreSQL
+      query("UPDATE users SET email_verified = TRUE, email_verified_at = NOW() WHERE id = $1", [userRow.id]).catch(() => {});
+    }
+
     req.user = {
       id: userRow.id,
       authId: userRow.auth_id,
-      phone: userRow.phone,
+      phone: userRow.phone ?? undefined,
       fullName: userRow.full_name,
       email: userRow.email ?? undefined,
       role: userRow.role,
       isActive: userRow.is_active,
+      emailVerified: isEmailVerified,
     };
 
     next();
@@ -161,3 +169,31 @@ export function requireRole(allowedRole: UserRole | UserRole[]) {
  * Multi-Role Authorization Helper
  */
 export const requireAnyRole = requireRole;
+
+/**
+ * Require Verified Email Middleware
+ * Ensures the authenticated user possesses a verified email address.
+ */
+export function requireVerifiedEmail(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
+  if (!req.user) {
+    next(new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED));
+    return;
+  }
+
+  if (!req.user.emailVerified) {
+    next(
+      new AppError(
+        "Email verification required. Please verify your email address to access this resource.",
+        403,
+        ErrorCode.FORBIDDEN,
+      ),
+    );
+    return;
+  }
+
+  next();
+}

@@ -11,6 +11,7 @@ import {
   Calendar,
   CreditCard,
   Banknote,
+  FlaskConical,
 } from "lucide-react";
 import { PaymentReceipt } from "@nearvia/types";
 import { formatCurrencyINR, playPaymentSuccessChime, playMechanicalTick } from "../../utils";
@@ -133,6 +134,20 @@ export const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                   {receipt.paymentMethod}
                 </span>
               </div>
+
+              {receipt.isSandboxTest && (
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-between shadow-xs">
+                  <div className="flex items-center space-x-2">
+                    <FlaskConical className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="text-[11px] font-bold text-amber-900">
+                      Razorpay Gateway Test Environment
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-900 font-black text-[10px] tracking-wider uppercase">
+                    DEMO / TEST PAYMENT
+                  </span>
+                </div>
+              )}
 
               {/* Parties Info Card */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 grid grid-cols-2 gap-4 text-xs">

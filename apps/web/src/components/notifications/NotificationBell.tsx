@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
   CheckCheck,
@@ -169,6 +169,53 @@ export const NotificationBell: React.FC = () => {
     }
   };
 
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (n: NotificationItem) => {
+    if (!n.isRead) handleMarkAsRead(n.id);
+    setIsOpen(false);
+
+    if (n.type === "NEW_MESSAGE" || n.data?.conversationId) {
+      if (n.data?.conversationId) {
+        navigate(`/messages/${n.data.conversationId}`);
+      } else {
+        navigate("/messages");
+      }
+      return;
+    }
+
+    if (n.data?.assignmentId) {
+      if (user?.role === "PROVIDER") {
+        navigate(`/provider/shifts/${n.data.assignmentId}`);
+      } else {
+        navigate(`/worker/shifts/${n.data.assignmentId}`);
+      }
+      return;
+    }
+
+    if (n.data?.workOpportunityId) {
+      if (user?.role === "PROVIDER") {
+        if (n.type === "NEW_APPLICATION") {
+          navigate(`/provider/jobs/${n.data.workOpportunityId}/applicants`);
+        } else {
+          navigate(`/provider/jobs/${n.data.workOpportunityId}`);
+        }
+      } else {
+        navigate("/worker/applications");
+      }
+      return;
+    }
+
+    if (n.type?.includes("DISPUTE") || n.type?.includes("REPORT")) {
+      if (user?.role === "ADMIN") {
+        navigate("/admin");
+      } else {
+        navigate("/disputes");
+      }
+      return;
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -233,7 +280,7 @@ export const NotificationBell: React.FC = () => {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  onClick={() => !n.isRead && handleMarkAsRead(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                   className={`p-3.5 transition-colors flex items-start space-x-3 cursor-pointer ${
                     n.isRead
                       ? "bg-white hover:bg-slate-50 text-slate-600"

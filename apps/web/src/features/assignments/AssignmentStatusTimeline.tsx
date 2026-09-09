@@ -15,6 +15,8 @@ interface AssignmentStatusTimelineProps {
   checkedInAt?: string;
   startedAt?: string;
   completedAt?: string;
+  settlementPendingAt?: string;
+  closedAt?: string;
   cancelledAt?: string;
   noShowAt?: string;
 }
@@ -32,6 +34,8 @@ export const AssignmentStatusTimeline: React.FC<AssignmentStatusTimelineProps> =
   checkedInAt,
   startedAt,
   completedAt,
+  settlementPendingAt,
+  closedAt: _closedAt,
   cancelledAt,
   noShowAt,
 }) => {
@@ -91,6 +95,11 @@ export const AssignmentStatusTimeline: React.FC<AssignmentStatusTimelineProps> =
       label: "Completed",
       timestamp: completedAt,
     },
+    {
+      status: AssignmentStatus.SETTLEMENT_PENDING,
+      label: "Settlement",
+      timestamp: settlementPendingAt,
+    },
   ];
 
   const statusOrder: Record<AssignmentStatus, number> = {
@@ -99,6 +108,8 @@ export const AssignmentStatusTimeline: React.FC<AssignmentStatusTimelineProps> =
     [AssignmentStatus.CHECKED_IN]: 2,
     [AssignmentStatus.IN_PROGRESS]: 3,
     [AssignmentStatus.COMPLETED]: 4,
+    [AssignmentStatus.SETTLEMENT_PENDING]: 5,
+    [AssignmentStatus.CLOSED]: 5,
     [AssignmentStatus.CANCELLED]: -1,
     [AssignmentStatus.NO_SHOW]: -1,
     [AssignmentStatus.REPLACED]: -1,
@@ -113,11 +124,11 @@ export const AssignmentStatusTimeline: React.FC<AssignmentStatusTimelineProps> =
           Shift Execution Timeline
         </h4>
         <span className="px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-800 text-[11px] font-black">
-          Step {Math.min(5, currentStepIdx + 1)} of 5
+          Step {Math.min(6, currentStepIdx + 1)} of 6
         </span>
       </div>
 
-      <div className="grid grid-cols-5 gap-2 relative">
+      <div className="grid grid-cols-6 gap-2 relative">
         {steps.map((step, idx) => {
           const isPassed = idx < currentStepIdx;
           const isCurrent = idx === currentStepIdx;

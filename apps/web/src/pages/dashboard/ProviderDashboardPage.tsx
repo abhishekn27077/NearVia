@@ -230,6 +230,19 @@ export const ProviderDashboardPage: React.FC = () => {
     }
   };
 
+  const handleRemovePreferred = async (workerId: string) => {
+    try {
+      const res = await apiFetch(`/providers/preferred-workers/${workerId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setPreferredWorkers((prev) => prev.filter((p) => p.workerId !== workerId));
+      }
+    } catch (err) {
+      console.error("Failed to remove preferred worker:", err);
+    }
+  };
+
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 bg-[#FAFAF9]">
       {/* 1. Hero Welcome & Instant Action Banner */}
@@ -661,7 +674,13 @@ export const ProviderDashboardPage: React.FC = () => {
                 </div>
 
                 <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">Favorited Partner</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePreferred(pw.workerId)}
+                    className="text-[11px] font-semibold text-rose-500 hover:text-rose-700 transition-colors"
+                  >
+                    Remove
+                  </button>
                   <Link
                     to={`/provider/work/new`}
                     className="px-3 py-1 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition-colors"

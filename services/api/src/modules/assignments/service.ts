@@ -30,6 +30,7 @@ import { query, withTransaction } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import { ErrorCode, NEARVIA_CONFIG } from "@nearvia/config";
 import { notificationsService } from "../notifications/service";
+import { trackPlatformEvent } from "../../utils/events";
 
 interface AssignmentDbRow {
   id: string;
@@ -53,6 +54,7 @@ interface AssignmentDbRow {
   cancellation_reason: string | null;
   completion_notes: string | null;
   check_in_distance_meters: number | null;
+  check_out_distance_meters: number | null;
   job_pin: string | null;
   job_pin_attempts: number;
   job_pin_verified_at: string | null;
@@ -109,6 +111,10 @@ export class AssignmentsService {
       checkInDistanceMeters:
         r.check_in_distance_meters != null
           ? Number(r.check_in_distance_meters)
+          : undefined,
+      checkOutDistanceMeters:
+        r.check_out_distance_meters != null
+          ? Number(r.check_out_distance_meters)
           : undefined,
       // Reveal PIN to provider, or to worker only after verification
       jobPin:
@@ -181,6 +187,7 @@ export class AssignmentsService {
         asn.cancellation_reason,
         asn.completion_notes,
         asn.check_in_distance_meters,
+        asn.check_out_distance_meters,
         asn.job_pin,
         asn.job_pin_attempts,
         asn.job_pin_verified_at,
@@ -437,6 +444,17 @@ export class AssignmentsService {
         );
       }
 
+      await trackPlatformEvent({
+        eventType: "ASSIGNMENT_CONFIRMED",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: workerUserId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          status: AssignmentStatus.CONFIRMED,
+        },
+      });
+
       notificationsService
         .createNotification(
           row.provider_user_id,
@@ -499,7 +517,64 @@ export class AssignmentsService {
         );
       }
 
-      // 1. Time Window Validation
+      // 1. Job PIN Validation (if provided at check-in)
+      let pinVerified = false;
+      if (input.jobPin) {
+        if (
+          (row.job_pin_attempts || 0) >=
+          NEARVIA_CONFIG.WORK_EXECUTION.MAX_JOB_PIN_ATTEMPTS
+        ) {
+          throw new AppError(
+            `Maximum PIN verification attempts exceeded (${NEARVIA_CONFIG.WORK_EXECUTION.MAX_JOB_PIN_ATTEMPTS}/${NEARVIA_CONFIG.WORK_EXECUTION.MAX_JOB_PIN_ATTEMPTS}). Please request provider on-site assistance.`,
+            429,
+            ErrorCode.JOB_PIN_MAX_ATTEMPTS_EXCEEDED,
+          );
+        }
+
+        const inputPin = String(input.jobPin).trim();
+        const expectedPin = String(row.job_pin || "").trim();
+
+        if (!inputPin || inputPin !== expectedPin) {
+          const newAttempts = (row.job_pin_attempts || 0) + 1;
+          await query(
+            `UPDATE assignments
+             SET job_pin_attempts = $2,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [assignmentId, newAttempts],
+          );
+
+          await trackPlatformEvent({
+            eventType: "JOB_PIN_FAILED",
+            entityType: "assignment",
+            entityId: assignmentId,
+            userId: workerUserId,
+            details: { attempts: newAttempts },
+          });
+
+          if (
+            newAttempts >= NEARVIA_CONFIG.WORK_EXECUTION.MAX_JOB_PIN_ATTEMPTS
+          ) {
+            throw new AppError(
+              `Maximum PIN verification attempts exceeded (${NEARVIA_CONFIG.WORK_EXECUTION.MAX_JOB_PIN_ATTEMPTS}/${NEARVIA_CONFIG.WORK_EXECUTION.MAX_JOB_PIN_ATTEMPTS}). Assignment is locked. Contact provider or support.`,
+              429,
+              ErrorCode.JOB_PIN_MAX_ATTEMPTS_EXCEEDED,
+            );
+          }
+
+          throw new AppError(
+            `Invalid Job PIN. Attempts remaining: ${
+              NEARVIA_CONFIG.WORK_EXECUTION.MAX_JOB_PIN_ATTEMPTS - newAttempts
+            }. Please verify with provider.`,
+            400,
+            ErrorCode.INVALID_JOB_PIN,
+          );
+        }
+
+        pinVerified = true;
+      }
+
+      // 2. Time Window Validation
       const isWindowValid = this.validateCheckInTimeWindow(
         row.work_date,
         row.start_time,
@@ -514,7 +589,7 @@ export class AssignmentsService {
         );
       }
 
-      // 2. Proximity Calculation & Verification
+      // 3. Proximity Calculation & Verification
       let calculatedDistanceMeters: number | null = null;
       if (
         input.latitude != null &&
@@ -546,38 +621,78 @@ export class AssignmentsService {
         }
       }
 
-      // 3. Update Assignment Status
+      // 4. Update Assignment Status
       await client.query(
         `UPDATE assignments 
          SET status = 'CHECKED_IN', 
              checked_in_at = NOW(), 
              check_in_distance_meters = $2,
+             job_pin_verified_at = CASE WHEN $3::boolean = TRUE THEN NOW() ELSE job_pin_verified_at END,
+             job_pin_attempts = CASE WHEN $3::boolean = TRUE THEN 0 ELSE job_pin_attempts END,
              updated_at = NOW() 
          WHERE id = $1`,
-        [assignmentId, calculatedDistanceMeters],
+        [assignmentId, calculatedDistanceMeters, pinVerified],
       );
 
-      // 4. Record in Attendance Table
+      // 5. Record in Attendance Table
       try {
-        await client.query(
-          `INSERT INTO attendance_records (
-            assignment_id,
-            worker_id,
-            check_in_time,
-            distance_meters,
-            notes,
-            created_at
-           ) VALUES ($1, $2, NOW(), $3, $4, NOW())`,
-          [
-            assignmentId,
-            row.worker_id,
-            calculatedDistanceMeters,
-            input.notes ||
-              (input.manualFallback ? "Manual check-in" : "GPS check-in"),
-          ],
+        const attRes = await client.query(
+          `SELECT id FROM attendance_records WHERE assignment_id = $1 LIMIT 1`,
+          [assignmentId],
         );
-      } catch {
-        // Fallback if attendance_records table is undergoing migration
+
+        if (attRes.rows.length > 0) {
+          await client.query(
+            `UPDATE attendance_records
+             SET check_in_time = NOW(),
+                 check_in_location = CASE WHEN $2::numeric IS NOT NULL AND $3::numeric IS NOT NULL THEN ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography ELSE check_in_location END,
+                 distance_meters = COALESCE($4, distance_meters),
+                 verified_by_provider = CASE WHEN $5::boolean = TRUE THEN TRUE ELSE verified_by_provider END,
+                 notes = COALESCE($6, notes)
+             WHERE assignment_id = $1`,
+            [
+              assignmentId,
+              input.latitude || null,
+              input.longitude || null,
+              calculatedDistanceMeters,
+              pinVerified,
+              input.notes || (input.manualFallback ? "Manual check-in" : "GPS check-in"),
+            ],
+          );
+        } else {
+          await client.query(
+            `INSERT INTO attendance_records (
+              assignment_id,
+              worker_id,
+              check_in_time,
+              check_in_location,
+              distance_meters,
+              verified_by_provider,
+              notes,
+              created_at
+             ) VALUES (
+              $1,
+              $2,
+              NOW(),
+              CASE WHEN $3::numeric IS NOT NULL AND $4::numeric IS NOT NULL THEN ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography ELSE NULL END,
+              $5,
+              $6,
+              $7,
+              NOW()
+             )`,
+            [
+              assignmentId,
+              row.worker_id,
+              input.latitude || null,
+              input.longitude || null,
+              calculatedDistanceMeters,
+              pinVerified,
+              input.notes || (input.manualFallback ? "Manual check-in" : "GPS check-in"),
+            ],
+          );
+        }
+      } catch (e) {
+        console.warn("[AssignmentsService] Failed to write attendance record:", e);
       }
 
       const updated = await this.fetchAssignmentRow(
@@ -590,6 +705,28 @@ export class AssignmentsService {
           500,
           ErrorCode.DATABASE_ERROR,
         );
+      }
+
+      await trackPlatformEvent({
+        eventType: "WORKER_CHECKED_IN",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: workerUserId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          status: AssignmentStatus.CHECKED_IN,
+          checkInDistanceMeters: calculatedDistanceMeters,
+          pinVerified,
+        },
+      });
+
+      if (pinVerified) {
+        await trackPlatformEvent({
+          eventType: "JOB_PIN_VERIFIED",
+          entityType: "assignment",
+          entityId: assignmentId,
+          userId: workerUserId,
+        });
       }
 
       notificationsService
@@ -682,6 +819,17 @@ export class AssignmentsService {
           ErrorCode.DATABASE_ERROR,
         );
       }
+      await trackPlatformEvent({
+        eventType: "WORK_STARTED",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: workerUserId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          status: AssignmentStatus.IN_PROGRESS,
+        },
+      });
+
       return this.mapRowToDetail(updated);
     });
   }
@@ -788,6 +936,17 @@ export class AssignmentsService {
         );
       }
 
+      await trackPlatformEvent({
+        eventType: "WORK_COMPLETED",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: workerUserId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          status: AssignmentStatus.COMPLETED,
+        },
+      });
+
       notificationsService
         .createNotification(
           row.provider_user_id,
@@ -876,15 +1035,44 @@ export class AssignmentsService {
         [row.work_opportunity_id],
       );
 
-      if (Number(checkRes.rows[0]?.uncompleted || 0) === 0) {
+      const allCompleted = Number(checkRes.rows[0]?.uncompleted || 0) === 0;
+      if (allCompleted) {
         await client.query(
           `UPDATE work_opportunities 
-           SET status = 'COMPLETED', 
-               completed_at = NOW(), 
+           SET status = 'SETTLEMENT_PENDING', 
+               completed_at = COALESCE(completed_at, NOW()), 
                updated_at = NOW() 
            WHERE id = $1`,
           [row.work_opportunity_id],
         );
+      }
+
+      // Initialize pending payment_records row if not already created
+      try {
+        const payRes = await client.query(
+          `SELECT id FROM payment_records WHERE assignment_id = $1 LIMIT 1`,
+          [assignmentId],
+        );
+        if (payRes.rows.length === 0) {
+          const finalWageNum = Number(finalWage) || 0;
+          const finalWagePaise = Math.round(finalWageNum * 100);
+          await client.query(
+            `INSERT INTO payment_records (
+               assignment_id, payer_id, payee_id, amount, amount_paise,
+               currency, status, payment_method, notes, created_at, recorded_at
+             ) VALUES ($1, $2, $3, $4, $5, 'INR', 'PENDING', 'DIRECT', $6, NOW(), NOW())`,
+            [
+              assignmentId,
+              row.provider_user_id,
+              row.worker_user_id,
+              finalWageNum,
+              finalWagePaise,
+              `Wage settlement pending for ${row.title}`,
+            ],
+          );
+        }
+      } catch {
+        // Table fallback
       }
 
       // Reset worker availability
@@ -909,6 +1097,32 @@ export class AssignmentsService {
           500,
           ErrorCode.DATABASE_ERROR,
         );
+      }
+
+      await trackPlatformEvent({
+        eventType: "PROVIDER_CONFIRMED_COMPLETION",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: providerUserId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          finalWage,
+          status: AssignmentStatus.COMPLETED,
+        },
+      });
+
+      if (allCompleted) {
+        await trackPlatformEvent({
+          eventType: "SETTLEMENT_PENDING",
+          entityType: "work_opportunity",
+          entityId: row.work_opportunity_id,
+          userId: providerUserId,
+          details: {
+            assignmentId,
+            finalWage,
+            status: "SETTLEMENT_PENDING",
+          },
+        });
       }
 
       notificationsService
@@ -1117,6 +1331,18 @@ export class AssignmentsService {
           ErrorCode.DATABASE_ERROR,
         );
       }
+      await trackPlatformEvent({
+        eventType: "ASSIGNMENT_CANCELLED",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          reason: input.reason,
+          status: AssignmentStatus.CANCELLED,
+        },
+      });
+
       return this.mapRowToDetail(updated);
     });
   }
@@ -1248,13 +1474,29 @@ export class AssignmentsService {
 
       if (!inputPin || inputPin !== expectedPin) {
         const newAttempts = (row.job_pin_attempts || 0) + 1;
-        await client.query(
+        await query(
           `UPDATE assignments
            SET job_pin_attempts = $2,
                updated_at = NOW()
            WHERE id = $1`,
           [assignmentId, newAttempts],
         );
+
+        await trackPlatformEvent({
+          eventType: "JOB_PIN_FAILED",
+          entityType: "assignment",
+          entityId: assignmentId,
+          userId: workerUserId,
+          details: { attempts: newAttempts },
+        });
+
+        if (newAttempts >= 5) {
+          throw new AppError(
+            "Maximum PIN verification attempts exceeded (5/5). Assignment is locked. Contact provider or support.",
+            429,
+            ErrorCode.JOB_PIN_MAX_ATTEMPTS_EXCEEDED,
+          );
+        }
 
         throw new AppError(
           `Invalid Job PIN. Attempts remaining: ${5 - newAttempts}. Please verify with provider.`,
@@ -1272,6 +1514,22 @@ export class AssignmentsService {
          WHERE id = $1`,
         [assignmentId],
       );
+
+      try {
+        await client.query(
+          `UPDATE attendance_records SET verified_by_provider = TRUE WHERE assignment_id = $1`,
+          [assignmentId],
+        );
+      } catch {
+        // Fallback
+      }
+
+      await trackPlatformEvent({
+        eventType: "JOB_PIN_VERIFIED",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: workerUserId,
+      });
 
       // Audit log
       try {
@@ -1344,6 +1602,36 @@ export class AssignmentsService {
         );
       }
 
+      // Proximity Calculation & Verification on Check-Out
+      let calculatedDistanceMeters: number | null = null;
+      if (
+        input.latitude != null &&
+        input.longitude != null &&
+        row.opportunity_latitude != null &&
+        row.opportunity_longitude != null
+      ) {
+        calculatedDistanceMeters = this.calculateHaversineDistanceMeters(
+          input.latitude,
+          input.longitude,
+          Number(row.opportunity_latitude),
+          Number(row.opportunity_longitude),
+        );
+
+        if (
+          calculatedDistanceMeters >
+            NEARVIA_CONFIG.WORK_EXECUTION.MAX_CHECK_OUT_PROXIMITY_METERS &&
+          !input.manualFallback
+        ) {
+          throw new AppError(
+            `You are ${(calculatedDistanceMeters / 1000).toFixed(1)} km away from the work site (allowed: ${(
+              NEARVIA_CONFIG.WORK_EXECUTION.MAX_CHECK_OUT_PROXIMITY_METERS / 1000
+            ).toFixed(1)} km). Please check out near the site or confirm manual check-out.`,
+            400,
+            ErrorCode.CHECK_OUT_PROXIMITY_EXCEEDED,
+          );
+        }
+      }
+
       // Calculate worked minutes
       const startMs = row.started_at
         ? new Date(row.started_at).getTime()
@@ -1359,11 +1647,75 @@ export class AssignmentsService {
              checked_out_at = NOW(),
              completed_at = COALESCE(completed_at, NOW()),
              worked_minutes = $2,
-             completion_notes = COALESCE($3, completion_notes),
+             check_out_distance_meters = $3,
+             completion_notes = COALESCE($4, completion_notes),
              updated_at = NOW()
          WHERE id = $1`,
-        [assignmentId, workedMinutes, input.completionNotes || null],
+        [
+          assignmentId,
+          workedMinutes,
+          calculatedDistanceMeters,
+          input.completionNotes || null,
+        ],
       );
+
+      // Record check-out in attendance_records
+      try {
+        const attRes = await client.query(
+          `SELECT id FROM attendance_records WHERE assignment_id = $1 LIMIT 1`,
+          [assignmentId],
+        );
+
+        if (attRes.rows.length > 0) {
+          await client.query(
+            `UPDATE attendance_records
+             SET check_out_time = NOW(),
+                 check_out_location = CASE WHEN $2::numeric IS NOT NULL AND $3::numeric IS NOT NULL THEN ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography ELSE check_out_location END,
+                 check_out_distance_meters = COALESCE($4, check_out_distance_meters),
+                 notes = COALESCE($5, notes)
+             WHERE assignment_id = $1`,
+            [
+              assignmentId,
+              input.latitude || null,
+              input.longitude || null,
+              calculatedDistanceMeters,
+              input.completionNotes || null,
+            ],
+          );
+        } else {
+          await client.query(
+            `INSERT INTO attendance_records (
+              assignment_id,
+              worker_id,
+              check_in_time,
+              check_out_time,
+              check_out_location,
+              check_out_distance_meters,
+              notes,
+              created_at
+             ) VALUES (
+              $1,
+              $2,
+              NOW(),
+              NOW(),
+              CASE WHEN $3::numeric IS NOT NULL AND $4::numeric IS NOT NULL THEN ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography ELSE NULL END,
+              $5,
+              $6,
+              NOW()
+             )`,
+            [
+              assignmentId,
+              row.worker_id,
+              input.latitude || null,
+              input.longitude || null,
+              calculatedDistanceMeters,
+              input.completionNotes || null,
+            ],
+          );
+        }
+      } catch (e) {
+        console.warn("[AssignmentsService] Failed to update attendance record on check-out:", e);
+      }
 
       // Check if all workers for opportunity are completed
       const checkRes = await client.query<{ uncompleted: number }>(
@@ -1406,6 +1758,7 @@ export class AssignmentsService {
             assignmentId,
             JSON.stringify({
               workedMinutes,
+              checkOutDistanceMeters: calculatedDistanceMeters,
               checkedOutAt: new Date().toISOString(),
               completionNotes: input.completionNotes,
             }),
@@ -1414,6 +1767,29 @@ export class AssignmentsService {
       } catch (e) {
         console.warn("[AssignmentsService] Failed to write audit log for CHECK_OUT:", e);
       }
+
+      await trackPlatformEvent({
+        eventType: "WORKER_CHECKED_OUT",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: workerUserId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          workedMinutes,
+          checkOutDistanceMeters: calculatedDistanceMeters,
+        },
+      });
+
+      await trackPlatformEvent({
+        eventType: "WORK_COMPLETED",
+        entityType: "assignment",
+        entityId: assignmentId,
+        userId: workerUserId,
+        details: {
+          workOpportunityId: row.work_opportunity_id,
+          workedMinutes,
+        },
+      });
 
       // Notify provider
       const hours = Math.floor(workedMinutes / 60);

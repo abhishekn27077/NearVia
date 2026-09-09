@@ -18,7 +18,9 @@ import { query, withTransaction } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import { ErrorCode } from "@nearvia/config";
 import { matchingService } from "../matching/service";
+import crypto from "crypto";
 import { notificationsService } from "../notifications/service";
+import { trackPlatformEvent } from "../../utils/events";
 
 export class ApplicationsService {
   /**
@@ -116,7 +118,45 @@ export class ApplicationsService {
       );
     }
 
+    // Prevent self-application (provider applying to own opportunity)
+    const provCheck = await query<{ user_id: string }>(
+      "SELECT user_id FROM provider_profiles WHERE id = $1",
+      [job.provider_id],
+    );
+    if (provCheck.rows[0]?.user_id === workerUserId) {
+      throw new AppError(
+        "You cannot apply to your own work opportunity.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
     // Lifecycle check
+    if (job.status === "DRAFT") {
+      throw new AppError(
+        "Cannot apply to an unpublished draft opportunity.",
+        400,
+        ErrorCode.WORK_EXPIRED_OR_CANCELLED,
+      );
+    }
+    if (job.status === "CANCELLED") {
+      throw new AppError(
+        "Cannot apply to a cancelled work opportunity.",
+        400,
+        ErrorCode.WORK_EXPIRED_OR_CANCELLED,
+      );
+    }
+    if (
+      job.status === "COMPLETED" ||
+      job.status === "EXPIRED" ||
+      job.status === "FILLED"
+    ) {
+      throw new AppError(
+        "This work opportunity is closed and cannot accept applications.",
+        400,
+        ErrorCode.WORK_EXPIRED_OR_CANCELLED,
+      );
+    }
     const validStatuses = ["PUBLISHED", "MATCHING", "PARTIALLY_FILLED"];
     if (!validStatuses.includes(job.status)) {
       throw new AppError(
@@ -183,31 +223,43 @@ export class ApplicationsService {
       // Offline fallback
     }
 
-    // 4. Create application
-    const insertRes = await query<{
-      id: string;
-      created_at: string;
-      applied_at: string;
-      status: string;
-      proposed_wage: number | null;
-      worker_notes: string | null;
-    }>(
-      `INSERT INTO applications (
-        work_opportunity_id,
-        worker_id,
-        status,
-        proposed_wage,
-        worker_notes,
-        applied_at
-       ) VALUES ($1, $2, 'PENDING', $3, $4, NOW())
-       RETURNING id, created_at, applied_at, status, proposed_wage, worker_notes`,
-      [
-        workOpportunityId,
-        worker.id,
-        input.proposedWage || null,
-        input.workerNotes || null,
-      ],
-    );
+    // 4. Create application with race-condition protection (Postgres 23505)
+    let insertRes;
+    try {
+      insertRes = await query<{
+        id: string;
+        created_at: string;
+        applied_at: string;
+        status: string;
+        proposed_wage: number | null;
+        worker_notes: string | null;
+      }>(
+        `INSERT INTO applications (
+          work_opportunity_id,
+          worker_id,
+          status,
+          proposed_wage,
+          worker_notes,
+          applied_at
+         ) VALUES ($1, $2, 'PENDING', $3, $4, NOW())
+         RETURNING id, created_at, applied_at, status, proposed_wage, worker_notes`,
+        [
+          workOpportunityId,
+          worker.id,
+          input.proposedWage || null,
+          input.workerNotes || null,
+        ],
+      );
+    } catch (err: any) {
+      if (err?.code === "23505") {
+        throw new AppError(
+          "You have already submitted an application for this work opportunity.",
+          409,
+          ErrorCode.APPLICATION_DUPLICATE,
+        );
+      }
+      throw err;
+    }
 
     const appRow = insertRes.rows[0];
     if (!appRow) {
@@ -304,6 +356,7 @@ export class ApplicationsService {
       opp_status: string;
       category_name: string;
       business_name: string | null;
+      assisted_by_agent_id: string | null;
     }>(
       `SELECT 
         a.id,
@@ -315,6 +368,7 @@ export class ApplicationsService {
         a.applied_at,
         a.responded_at,
         a.decision_notes,
+        a.assisted_by_agent_id,
         a.created_at,
         a.updated_at,
         wo.title,
@@ -351,6 +405,8 @@ export class ApplicationsService {
       appliedAt: r.applied_at,
       respondedAt: r.responded_at || undefined,
       decisionNotes: r.decision_notes || undefined,
+      assistedByAgentId: r.assisted_by_agent_id || undefined,
+      isAgentAssisted: Boolean(r.assisted_by_agent_id),
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       opportunityTitle: r.title,
@@ -409,6 +465,7 @@ export class ApplicationsService {
       worker_avatar_url: string | null;
       worker_rating: number | null;
       worker_completed_tasks: number | null;
+      assisted_by_agent_id: string | null;
     }>(
       `SELECT 
         a.id,
@@ -422,6 +479,7 @@ export class ApplicationsService {
         a.applied_at,
         a.responded_at,
         a.decision_notes,
+        a.assisted_by_agent_id,
         a.created_at,
         a.updated_at,
         wo.title,
@@ -479,6 +537,8 @@ export class ApplicationsService {
       appliedAt: r.applied_at,
       respondedAt: r.responded_at || undefined,
       decisionNotes: r.decision_notes || undefined,
+      assistedByAgentId: r.assisted_by_agent_id || undefined,
+      isAgentAssisted: Boolean(r.assisted_by_agent_id),
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       opportunityTitle: r.title,
@@ -601,6 +661,7 @@ export class ApplicationsService {
       worker_notes: string | null;
       applied_at: string;
       distance_meters: number;
+      assisted_by_agent_id: string | null;
     }>(
       `SELECT 
         a.id AS application_id,
@@ -618,7 +679,8 @@ export class ApplicationsService {
         a.proposed_wage,
         a.worker_notes,
         a.applied_at,
-        ST_Distance(wp.location, wo.location) AS distance_meters
+        ST_Distance(wp.location, wo.location) AS distance_meters,
+        a.assisted_by_agent_id
        FROM applications a
        JOIN worker_profiles wp ON a.worker_id = wp.id
        JOIN users u ON wp.user_id = u.id
@@ -683,6 +745,8 @@ export class ApplicationsService {
         proposedWage: row.proposed_wage ? Number(row.proposed_wage) : undefined,
         workerNotes: row.worker_notes || undefined,
         appliedAt: row.applied_at,
+        assistedByAgentId: row.assisted_by_agent_id || undefined,
+        isAgentAssisted: Boolean(row.assisted_by_agent_id),
         matchScore,
         matchReasons,
       });
@@ -798,8 +862,9 @@ export class ApplicationsService {
     providerUserId: string,
     applicationId: string,
     notes?: string,
+    requestingRole?: string,
   ): Promise<{ application: ApplicationDetail; assignmentId: string }> {
-    return withTransaction(async (client) => {
+    const meta = await withTransaction(async (client) => {
       // 1. Fetch application details with lock
       const appRes = await client.query<{
         id: string;
@@ -835,7 +900,8 @@ export class ApplicationsService {
       }
 
       // Check provider ownership
-      if (app.provider_user_id !== providerUserId) {
+      const isAdmin = requestingRole === "ADMIN";
+      if (!isAdmin && app.provider_user_id !== providerUserId) {
         throw new AppError(
           "You are not authorized to accept applicants for this work.",
           403,
@@ -877,6 +943,21 @@ export class ApplicationsService {
         );
       }
 
+      // Check if worker already has an active assignment for this job
+      const existingActive = await client.query<{ id: string }>(
+        `SELECT id FROM assignments 
+         WHERE work_opportunity_id = $1 AND worker_id = $2
+           AND status NOT IN ('CANCELLED', 'NO_SHOW', 'REPLACED')`,
+        [app.work_opportunity_id, app.worker_id],
+      );
+      if (existingActive.rows.length > 0) {
+        throw new AppError(
+          "Worker is already actively assigned to this work opportunity.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
+
       // Capacity verification
       if (job.workers_assigned >= job.workers_needed) {
         throw new AppError(
@@ -911,6 +992,9 @@ export class ApplicationsService {
         ? Number(app.proposed_wage)
         : Number(job.payment_amount);
 
+      const pin = Math.floor(1000 + Math.random() * 9000).toString();
+      const pinHash = crypto.createHash("sha256").update(pin).digest("hex");
+
       const assignRes = await client.query<{ id: string }>(
         `INSERT INTO assignments (
           work_opportunity_id,
@@ -919,8 +1003,10 @@ export class ApplicationsService {
           application_id,
           status,
           agreed_wage,
+          job_pin,
+          job_pin_hash,
           assigned_at
-         ) VALUES ($1, $2, $3, $4, 'ASSIGNED', $5, NOW())
+         ) VALUES ($1, $2, $3, $4, 'ASSIGNED', $5, $6, $7, NOW())
          RETURNING id`,
         [
           app.work_opportunity_id,
@@ -928,6 +1014,8 @@ export class ApplicationsService {
           app.provider_id,
           app.id,
           agreedWage,
+          pin,
+          pinHash,
         ],
       );
 
@@ -940,37 +1028,88 @@ export class ApplicationsService {
         );
       }
 
-      // 6. Return updated detail
-      const updatedApp = await this.getApplicationById(
-        providerUserId,
-        applicationId,
-      );
+      return {
+        assignmentId,
+        workOpportunityId: app.work_opportunity_id,
+        workerId: app.worker_id,
+        jobTitle: job.title,
+      };
+    });
 
-      // Trigger in-app notification to Worker
-      client
-        .query<{ user_id: string }>(
-          "SELECT user_id FROM worker_profiles WHERE id = $1",
-          [app.worker_id],
-        )
+    // 6. Return updated detail (queried after transaction COMMIT)
+    const updatedApp = await this.getApplicationById(
+      providerUserId,
+      applicationId,
+    );
+
+    // Audit Events
+    trackPlatformEvent({
+      eventType: "WORKER_SELECTED",
+      userId: providerUserId,
+      resourceType: "applications",
+      resourceId: applicationId,
+      metadata: { workOpportunityId: meta.workOpportunityId, workerId: meta.workerId },
+    }).catch(() => {});
+
+    trackPlatformEvent({
+      eventType: "ASSIGNMENT_CREATED",
+      userId: providerUserId,
+      resourceType: "assignments",
+      resourceId: meta.assignmentId,
+      metadata: { workOpportunityId: meta.workOpportunityId, workerId: meta.workerId },
+    }).catch(() => {});
+
+    // Trigger in-app notification to Worker
+    query<{ user_id: string }>(
+      "SELECT user_id FROM worker_profiles WHERE id = $1",
+      [meta.workerId],
+    )
+      .then((res) => {
+        const workerUserId = res.rows[0]?.user_id;
+        if (workerUserId) {
+          notificationsService.createNotification(
+            workerUserId,
+            "APPLICATION_ACCEPTED",
+            `You've been hired for ${meta.jobTitle}!`,
+            `You've been hired for '${meta.jobTitle}'! Open My Shifts to confirm attendance and get directions.`,
+            {
+              workOpportunityId: meta.workOpportunityId,
+              assignmentId: meta.assignmentId,
+            },
+          );
+        }
+      })
+      .catch(() => {});
+
+    // Trigger in-app notification to assisting Agent if applicable
+    if (updatedApp.assistedByAgentId) {
+      query<{ user_id: string }>(
+        "SELECT user_id FROM agent_profiles WHERE id = $1",
+        [updatedApp.assistedByAgentId],
+      )
         .then((res) => {
-          const workerUserId = res.rows[0]?.user_id;
-          if (workerUserId) {
+          const agentUserId = res.rows[0]?.user_id;
+          if (agentUserId) {
             notificationsService.createNotification(
-              workerUserId,
-              "APPLICATION_ACCEPTED",
-              `You've been hired for ${job.title}!`,
-              `You've been hired for '${job.title}'! Open My Shifts to confirm attendance and get directions.`,
-              { workOpportunityId: app.work_opportunity_id, assignmentId },
+              agentUserId,
+              "AGENT_WORKER_HIRED",
+              `Worker hired for ${meta.jobTitle}`,
+              `Your assisted worker has been hired for '${meta.jobTitle}'. Help them prepare for their shift.`,
+              {
+                workOpportunityId: meta.workOpportunityId,
+                assignmentId: meta.assignmentId,
+                workerId: meta.workerId,
+              },
             );
           }
         })
         .catch(() => {});
+    }
 
-      return {
-        application: updatedApp,
-        assignmentId,
-      };
-    });
+    return {
+      application: updatedApp,
+      assignmentId: meta.assignmentId,
+    };
   }
 }
 

@@ -243,19 +243,32 @@ export const Header: React.FC = () => {
         {/* Right Side Status, Language Selector & User Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
           {/* Language Switcher Pill */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-[11px] font-extrabold" title="Select Language">
-            <span className="px-1.5 text-slate-400">
+          <div
+            role="group"
+            aria-label="Select application language"
+            className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-[11px] font-extrabold"
+            title="Select Language / ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ / भाषा चुनें"
+          >
+            <span className="px-1.5 text-slate-400" aria-hidden="true">
               <Languages className="w-3.5 h-3.5" />
             </span>
             {(["en", "kn", "hi"] as Language[]).map((lang) => (
               <button
                 key={lang}
                 type="button"
+                aria-pressed={language === lang}
+                aria-label={
+                  lang === "en"
+                    ? "English"
+                    : lang === "kn"
+                    ? "ಕನ್ನಡ (Kannada)"
+                    : "हिंदी (Hindi)"
+                }
                 onClick={() => setLanguage(lang)}
-                className={`px-2 py-0.5 rounded-lg transition-all ${
+                className={`px-2.5 py-1 min-h-[34px] rounded-lg transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 ${
                   language === lang
-                    ? "bg-white text-slate-900 shadow-xs font-black"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-white text-slate-900 shadow-xs font-black ring-1 ring-slate-200/60"
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
                 } ${lang === "kn" ? "font-kn" : ""} ${lang === "hi" ? "font-hi" : ""}`}
               >
                 {lang === "en" ? "EN" : lang === "kn" ? "ಕನ್ನಡ" : "हिंदी"}
