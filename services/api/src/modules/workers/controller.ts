@@ -14,6 +14,7 @@ import {
 import { workersService } from "./service";
 import { skillsService } from "./skills.service";
 import { AppError } from "../../middleware/errorHandler";
+import { validateUuid } from "../../utils/security";
 
 export class WorkersController {
   /**
@@ -218,15 +219,7 @@ export class WorkersController {
         );
       }
 
-      const rawSkillId = req.params.skillId;
-      const skillId = Array.isArray(rawSkillId) ? rawSkillId[0] : rawSkillId;
-      if (!skillId) {
-        throw new AppError(
-          "Skill ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const skillId = validateUuid(req.params.skillId, "Skill ID");
 
       await workersService.removeWorkerSkill(req.user.id, skillId);
       res.status(200).json({
@@ -351,15 +344,7 @@ export class WorkersController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
-        throw new AppError(
-          "Availability slot ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const id = validateUuid(req.params.id, "Availability slot ID");
 
       await workersService.deleteAvailabilitySlot(req.user.id, id);
       res.status(200).json({
@@ -411,7 +396,7 @@ export class WorkersController {
           ErrorCode.UNAUTHORIZED,
         );
       }
-      const relationshipId = req.params.id as string;
+      const relationshipId = validateUuid(req.params.id, "Relationship ID");
       await workersService.acceptAgentRequest(req.user.id, relationshipId);
       res.status(200).json({ success: true, message: "Agent request accepted" });
     } catch (error) {
@@ -435,7 +420,7 @@ export class WorkersController {
           ErrorCode.UNAUTHORIZED,
         );
       }
-      const relationshipId = req.params.id as string;
+      const relationshipId = validateUuid(req.params.id, "Relationship ID");
       await workersService.revokeAgent(req.user.id, relationshipId);
       res.status(200).json({ success: true, message: "Agent access revoked" });
     } catch (error) {
@@ -504,7 +489,7 @@ export class WorkersController {
         throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
       }
 
-      const providerId = (req.params.providerId || "") as string;
+      const providerId = validateUuid(req.params.providerId, "Provider ID");
       const result = await workersService.addPreferredProvider(req.user.id, providerId);
 
       res.status(200).json({
@@ -530,7 +515,7 @@ export class WorkersController {
         throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
       }
 
-      const providerId = (req.params.providerId || "") as string;
+      const providerId = validateUuid(req.params.providerId, "Provider ID");
       const result = await workersService.removePreferredProvider(req.user.id, providerId);
 
       res.status(200).json({

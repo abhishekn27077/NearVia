@@ -10,6 +10,7 @@ import {
   requestWorkerAccessSchema,
   assistedApplicationSchema,
 } from "./types";
+import { validateUuid } from "../../utils/security";
 
 export class AgentsController {
   // ── Profile ──
@@ -56,7 +57,7 @@ export class AgentsController {
 
   async requestWorkerAccessById(req: Request, res: Response, next: NextFunction) {
     try {
-      const workerId = req.params.workerId as string;
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
       const consentConfirmed = req.body?.consentConfirmed === true;
       const relationship = await agentsService.requestWorkerAccess(req.user!.id, {
         workerId,
@@ -70,7 +71,7 @@ export class AgentsController {
 
   async revokeWorkerAccess(req: Request, res: Response, next: NextFunction) {
     try {
-      const workerId = req.params.workerId as string;
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
       await agentsService.revokeWorkerAccess(req.user!.id, workerId);
       res.status(200).json({ success: true, message: "Worker access revoked" });
     } catch (error) {
@@ -82,7 +83,7 @@ export class AgentsController {
 
   async getWorkerDetail(req: Request, res: Response, next: NextFunction) {
     try {
-      const workerId = req.params.workerId as string;
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
       const detail = await agentsService.getWorkerForAgent(req.user!.id, workerId);
       res.status(200).json({ success: true, data: detail });
     } catch (error) {
@@ -94,7 +95,7 @@ export class AgentsController {
 
   async getWorkForWorker(req: Request, res: Response, next: NextFunction) {
     try {
-      const workerId = req.params.workerId as string;
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
       const queryParams = req.query as Record<string, string>;
       const result = await agentsService.getWorkForWorker(req.user!.id, workerId, queryParams);
       res.status(200).json({ success: true, data: result });
@@ -107,7 +108,7 @@ export class AgentsController {
 
   async submitAssistedApplication(req: Request, res: Response, next: NextFunction) {
     try {
-      const workerId = req.params.workerId as string;
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
       const { workOpportunityId, proposedWage, workerNotes, consentConfirmed } = assistedApplicationSchema.parse(req.body);
       const application = await agentsService.submitAssistedApplication(
         req.user!.id, workerId, workOpportunityId, proposedWage, workerNotes, consentConfirmed
@@ -122,7 +123,7 @@ export class AgentsController {
 
   async getWorkerApplications(req: Request, res: Response, next: NextFunction) {
     try {
-      const workerId = req.params.workerId as string;
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
       const applications = await agentsService.getWorkerApplications(req.user!.id, workerId);
       res.status(200).json({ success: true, data: applications });
     } catch (error) {
@@ -132,7 +133,7 @@ export class AgentsController {
 
   async getWorkerAssignments(req: Request, res: Response, next: NextFunction) {
     try {
-      const workerId = req.params.workerId as string;
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
       const assignments = await agentsService.getWorkerAssignments(req.user!.id, workerId);
       res.status(200).json({ success: true, data: assignments });
     } catch (error) {

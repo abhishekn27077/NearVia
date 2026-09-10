@@ -15,6 +15,7 @@ import {
   JobMatchesResponse,
   UserRole,
 } from "@nearvia/types";
+import { validateUuid, clampPagination } from "../../utils/security";
 
 export class MatchingController {
   /**
@@ -35,12 +36,53 @@ export class MatchingController {
         );
       }
 
+      const { page, limit } = clampPagination(req.query, 20, 50);
+
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+
+      if (req.query.latitude !== undefined || req.query.longitude !== undefined) {
+        if (req.query.latitude === undefined || req.query.longitude === undefined) {
+          throw new AppError(
+            "Both latitude and longitude must be provided together.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        latitude = Number(req.query.latitude);
+        longitude = Number(req.query.longitude);
+        if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+          throw new AppError(
+            "Latitude must be a valid number between -90 and 90 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+          throw new AppError(
+            "Longitude must be a valid number between -180 and 180 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+      }
+
+      let radiusKm: number | undefined;
+      if (req.query.radiusKm !== undefined) {
+        radiusKm = Number(req.query.radiusKm);
+        if (isNaN(radiusKm) || radiusKm < 0.5 || radiusKm > 15) {
+          throw new AppError(
+            "Search radius must be between 0.5 km and 15 km.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+      }
+
       const parsedQuery: DiscoveryQueryParams = {
-        latitude: req.query.latitude ? Number(req.query.latitude) : undefined,
-        longitude: req.query.longitude
-          ? Number(req.query.longitude)
-          : undefined,
-        radiusKm: req.query.radiusKm ? Number(req.query.radiusKm) : undefined,
+        latitude,
+        longitude,
+        radiusKm,
         search: req.query.search ? String(req.query.search) : undefined,
         workType: req.query.workType as any,
         categoryId: req.query.categoryId
@@ -56,8 +98,8 @@ export class MatchingController {
           ? Number(req.query.maxPayment)
           : undefined,
         sort: (req.query.sort as any) || "RECOMMENDED",
-        page: req.query.page ? Number(req.query.page) : undefined,
-        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        page,
+        limit,
       };
 
       const result = await matchingService.matchWorkOpportunitiesForWorker(
@@ -102,15 +144,7 @@ export class MatchingController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
-        throw new AppError(
-          "Work opportunity ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const id = validateUuid(req.params.id, "Work opportunity ID");
 
       const explanation: MatchExplanation = await matchingService.explainMatch(
         req.user.id,
@@ -147,18 +181,10 @@ export class MatchingController {
         );
       }
 
-      const rawJobId = req.params.jobId || req.params.id;
-      const jobId = Array.isArray(rawJobId) ? rawJobId[0] : rawJobId;
-      if (!jobId) {
-        throw new AppError(
-          "Job ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const jobId = validateUuid(req.params.jobId || req.params.id, "Job ID");
 
       const radiusKm = req.query.radiusKm ? Number(req.query.radiusKm) : undefined;
-      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+      const { limit } = clampPagination(req.query, 10, 50);
 
       const isAdmin = req.user.role === UserRole.ADMIN;
       const result = await smartMatchingService.getMatchesForJob(

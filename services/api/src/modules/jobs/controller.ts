@@ -17,6 +17,7 @@ import { workOpportunitiesService } from "./service";
 import { discoveryService } from "./discovery.service";
 import { jobLifecycleService } from "../lifecycle/jobLifecycle.service";
 import { AppError } from "../../middleware/errorHandler";
+import { validateUuid } from "../../utils/security";
 
 export class WorkOpportunitiesController {
   /**
@@ -52,17 +53,50 @@ export class WorkOpportunitiesController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const lat = req.query.latitude
-        ? Number(req.query.latitude)
-        : req.query.lat
-        ? Number(req.query.lat)
-        : 12.9716;
-      const lng = req.query.longitude
-        ? Number(req.query.longitude)
-        : req.query.lng
-        ? Number(req.query.lng)
-        : 77.5946;
-      const radiusKm = req.query.radiusKm ? Number(req.query.radiusKm) : 5;
+      const rawLat = req.query.latitude || req.query.lat;
+      const rawLng = req.query.longitude || req.query.lng;
+      const rawRadius = req.query.radiusKm || req.query.radius;
+
+      let lat = 12.9716;
+      let lng = 77.5946;
+      let radiusKm = 5;
+
+      if (rawLat !== undefined || rawLng !== undefined) {
+        if (rawLat === undefined || rawLng === undefined) {
+          throw new AppError(
+            "Both latitude and longitude must be provided together.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        lat = Number(rawLat);
+        lng = Number(rawLng);
+        if (isNaN(lat) || lat < -90 || lat > 90) {
+          throw new AppError(
+            "Latitude must be a valid number between -90 and 90 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (isNaN(lng) || lng < -180 || lng > 180) {
+          throw new AppError(
+            "Longitude must be a valid number between -180 and 180 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+      }
+
+      if (rawRadius !== undefined) {
+        radiusKm = Number(rawRadius);
+        if (isNaN(radiusKm) || radiusKm < 0.5 || radiusKm > 15) {
+          throw new AppError(
+            "Search radius must be between 0.5 km and 15 km.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+      }
 
       const summary = await workOpportunitiesService.getDiscoverySummary(
         lat,
@@ -94,14 +128,57 @@ export class WorkOpportunitiesController {
     try {
       const rawLat = req.query.latitude || req.query.lat;
       const rawLng = req.query.longitude || req.query.lng;
+      const rawRadius = req.query.radiusKm || req.query.radius;
       const rawSearch = req.query.search || req.query.q;
       const rawDate = req.query.dateFilter || req.query.date;
       const rawDuration = req.query.durationFilter || req.query.duration;
 
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+
+      if (rawLat !== undefined || rawLng !== undefined) {
+        if (rawLat === undefined || rawLng === undefined) {
+          throw new AppError(
+            "Both latitude and longitude must be provided together.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        latitude = Number(rawLat);
+        longitude = Number(rawLng);
+        if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+          throw new AppError(
+            "Latitude must be a valid number between -90 and 90 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+          throw new AppError(
+            "Longitude must be a valid number between -180 and 180 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+      }
+
+      let radiusKm: number | undefined;
+      if (rawRadius !== undefined) {
+        radiusKm = Number(rawRadius);
+        if (isNaN(radiusKm) || radiusKm <= 0) {
+          throw new AppError(
+            "Search radius must be a positive number.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        radiusKm = Math.min(15, Math.max(0.5, radiusKm));
+      }
+
       const parsedQuery: DiscoveryQueryParams = {
-        latitude: rawLat ? Number(rawLat) : undefined,
-        longitude: rawLng ? Number(rawLng) : undefined,
-        radiusKm: req.query.radiusKm ? Number(req.query.radiusKm) : undefined,
+        latitude,
+        longitude,
+        radiusKm,
         search: rawSearch ? String(rawSearch) : undefined,
         workType: req.query.workType as any,
         categoryId: req.query.categoryId
@@ -226,15 +303,7 @@ export class WorkOpportunitiesController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
-        throw new AppError(
-          "Work opportunity ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const id = validateUuid(req.params.id, "Work opportunity ID");
 
       const opportunity = await workOpportunitiesService.getWorkOpportunityById(
         id,
@@ -270,15 +339,7 @@ export class WorkOpportunitiesController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
-        throw new AppError(
-          "Work opportunity ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const id = validateUuid(req.params.id, "Work opportunity ID");
 
       const updated = await workOpportunitiesService.updateWorkOpportunity(
         id,
@@ -313,15 +374,7 @@ export class WorkOpportunitiesController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
-        throw new AppError(
-          "Work opportunity ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const id = validateUuid(req.params.id, "Work opportunity ID");
 
       const published = await workOpportunitiesService.publishWorkOpportunity(
         id,
@@ -355,15 +408,7 @@ export class WorkOpportunitiesController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
-        throw new AppError(
-          "Work opportunity ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const id = validateUuid(req.params.id, "Work opportunity ID");
 
       const cancelled = await workOpportunitiesService.cancelWorkOpportunity(
         id,
@@ -416,11 +461,7 @@ export class WorkOpportunitiesController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const rawId = req.params.id;
-      const jobId = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!jobId) {
-        throw new AppError("Job ID is required.", 400, ErrorCode.VALIDATION_ERROR);
-      }
+      const jobId = validateUuid(req.params.id, "Job ID");
       const lifecycle = await jobLifecycleService.getJobAuthoritativeLifecycle(
         jobId,
         req.user?.id,

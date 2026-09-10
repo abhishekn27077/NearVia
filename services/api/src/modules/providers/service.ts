@@ -391,11 +391,45 @@ export class ProvidersService {
     categoryId?: string,
   ): Promise<any> {
     try {
-      // 1. Resolve search center
+      // 1. Coordinate and radius validation
+      if (latitude !== undefined || longitude !== undefined) {
+        if (latitude === undefined || longitude === undefined) {
+          throw new AppError(
+            "Both latitude and longitude must be provided together.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+          throw new AppError(
+            "Latitude must be a valid number between -90 and 90 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+          throw new AppError(
+            "Longitude must be a valid number between -180 and 180 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+      }
+
+      if (isNaN(radiusKm) || radiusKm < 0.5 || radiusKm > 15.0) {
+        throw new AppError(
+          "Search radius must be between 0.5 km and 15 km.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
+      const boundedRadius = Math.min(15, Math.max(0.5, radiusKm));
+
       let centerLat = latitude;
       let centerLng = longitude;
 
-      if (!centerLat || !centerLng) {
+      if (centerLat === undefined || centerLng === undefined) {
         const provRes = await query<{ latitude: number; longitude: number }>(
           `SELECT ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude
            FROM provider_profiles
@@ -412,7 +446,20 @@ export class ProvidersService {
         }
       }
 
-      const boundedRadius = Math.min(20, Math.max(1, radiusKm));
+      // Stale availability condition:
+      // - Must be AVAILABLE_NOW and not OFFLINE
+      // - Must not have expired available_until
+      // - Must have had heartbeat or availability update within 12 hours
+      const availabilityFilter = `
+        wp.is_available_now = TRUE
+        AND wp.availability_status != 'OFFLINE'
+        AND (wp.available_until IS NULL OR wp.available_until > NOW())
+        AND (
+          (wp.availability_updated_at IS NOT NULL AND wp.availability_updated_at >= NOW() - INTERVAL '12 hours')
+          OR
+          (wp.availability_updated_at IS NULL AND wp.updated_at >= NOW() - INTERVAL '12 hours')
+        )
+      `;
 
       // 2. Query available workers within radius (PostGIS ST_DWithin)
       // Category Aggregates
@@ -432,8 +479,7 @@ export class ProvidersService {
         JOIN worker_skills ws ON ws.worker_id = wp.id
         JOIN skills s ON s.id = ws.skill_id
         JOIN categories c ON c.id = s.category_id
-        WHERE wp.is_available_now = TRUE
-          AND (wp.available_until IS NULL OR wp.available_until > NOW())
+        WHERE ${availabilityFilter}
           AND ST_DWithin(
             wp.location,
             ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
@@ -450,8 +496,6 @@ export class ProvidersService {
       const clusterSql = `
         SELECT 
           COALESCE(wp.address_approximate, 'Bangalore Urban') AS approximate_area_name,
-          ROUND(AVG(ST_Y(wp.location::geometry))::numeric, 3) AS center_latitude,
-          ROUND(AVG(ST_X(wp.location::geometry))::numeric, 3) AS center_longitude,
           COUNT(DISTINCT wp.id) AS worker_count,
           json_agg(DISTINCT jsonb_build_object(
             'categoryId', c.id,
@@ -461,8 +505,7 @@ export class ProvidersService {
         LEFT JOIN worker_skills ws ON ws.worker_id = wp.id
         LEFT JOIN skills s ON s.id = ws.skill_id
         LEFT JOIN categories c ON c.id = s.category_id
-        WHERE wp.is_available_now = TRUE
-          AND (wp.available_until IS NULL OR wp.available_until > NOW())
+        WHERE ${availabilityFilter}
           AND ST_DWithin(
             wp.location,
             ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
@@ -499,8 +542,7 @@ export class ProvidersService {
           wp.is_available_now
         FROM worker_profiles wp
         JOIN users u ON u.id = wp.user_id
-        WHERE wp.is_available_now = TRUE
-          AND (wp.available_until IS NULL OR wp.available_until > NOW())
+        WHERE ${availabilityFilter}
           AND ST_DWithin(
             wp.location,
             ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
@@ -515,8 +557,7 @@ export class ProvidersService {
       const totalWorkersRes = await query<{ total_count: string }>(
         `SELECT COUNT(DISTINCT wp.id) AS total_count
          FROM worker_profiles wp
-         WHERE wp.is_available_now = TRUE
-           AND (wp.available_until IS NULL OR wp.available_until > NOW())
+         WHERE ${availabilityFilter}
            AND ST_DWithin(
              wp.location,
              ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
@@ -524,6 +565,51 @@ export class ProvidersService {
            )`,
         [centerLng, centerLat, boundedRadius * 1000],
       );
+
+      // Privacy threshold on clusters (k-anonymity: singletons < 2 are aggregated into "Other Neighborhoods" to protect individual identity)
+      const thresholdClusters: any[] = [];
+      let smallClustersCount = 0;
+      const smallClustersCategories: any[] = [];
+
+      for (const r of clusterRes.rows) {
+        const count = parseInt(r.worker_count || "0", 10);
+        if (count >= 2) {
+          thresholdClusters.push({
+            id: `cluster_${thresholdClusters.length + 1}`,
+            approximateAreaName: (r.approximate_area_name || "Bangalore").replace(/GPS\s*\([^)]*\)/gi, "Central Zone"),
+            centerCoordinates: {
+              latitude: centerLat,
+              longitude: centerLng,
+            },
+            availableWorkersCount: count,
+            categories: Array.isArray(r.available_categories)
+              ? r.available_categories.filter((cat: any) => cat && cat.categoryId)
+              : [],
+          });
+        } else if (count > 0) {
+          smallClustersCount += count;
+          if (Array.isArray(r.available_categories)) {
+            for (const c of r.available_categories) {
+              if (c && c.categoryId && !smallClustersCategories.some((sc) => sc.categoryId === c.categoryId)) {
+                smallClustersCategories.push(c);
+              }
+            }
+          }
+        }
+      }
+
+      if (smallClustersCount > 0) {
+        thresholdClusters.push({
+          id: `cluster_${thresholdClusters.length + 1}`,
+          approximateAreaName: "Other Nearby Neighborhoods",
+          centerCoordinates: {
+            latitude: centerLat,
+            longitude: centerLng,
+          },
+          availableWorkersCount: smallClustersCount,
+          categories: smallClustersCategories,
+        });
+      }
 
       return {
         totalAvailableWorkers: parseInt(totalWorkersRes.rows[0]?.total_count || "0", 10),
@@ -538,28 +624,19 @@ export class ProvidersService {
           categorySlug: r.category_slug,
           availableWorkersCount: parseInt(r.available_count || "0", 10),
         })),
-        clusters: clusterRes.rows.map((r, idx) => ({
-          id: `cluster_${idx + 1}`,
-          approximateAreaName: (r.approximate_area_name || "Bangalore").replace(/GPS\s*\([^)]*\)/gi, "Central Zone"),
-          centerCoordinates: {
-            latitude: Number(r.center_latitude) || centerLat,
-            longitude: Number(r.center_longitude) || centerLng,
-          },
-          availableWorkersCount: parseInt(r.worker_count || "0", 10),
-          categories: Array.isArray(r.available_categories)
-            ? r.available_categories.filter((cat: any) => cat && cat.categoryId)
-            : [],
-        })),
-        availableTalent: talentRes.rows.map((r) => ({
-          id: r.worker_profile_id,
+        clusters: thresholdClusters,
+        availableTalent: talentRes.rows.map((r, idx) => ({
+          // Synthetic sequential ID: NEVER leaks real worker UUID or substring!
+          id: `talent_${idx + 1}`,
           primarySkill: r.primary_skill,
           rating: Number(r.rating) || 4.8,
           totalRatings: parseInt(r.total_ratings || "0", 10),
           completedTasks: parseInt(r.completed_tasks || "0", 10),
           verifiedBadge: Boolean(r.verified_badge),
           phoneVerified: Boolean(r.phone_verified),
-          distanceKm: Number(r.distance_km) || 1.5,
-          areaName: r.area_name || "Nearby",
+          // Coarsened distance (0.5 km increments) to protect against triangulation
+          distanceKm: Math.round((Number(r.distance_km) || 1.5) * 2) / 2,
+          areaName: (r.area_name || "Nearby Zone").replace(/GPS\s*\([^)]*\)/gi, "Nearby Zone"),
           isAvailableNow: Boolean(r.is_available_now),
         })),
       };

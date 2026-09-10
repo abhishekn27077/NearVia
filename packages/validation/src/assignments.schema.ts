@@ -1,47 +1,73 @@
 import { z } from "zod";
 
-export const checkInSchema = z.object({
-  latitude: z
-    .number()
-    .min(-90, "Latitude must be between -90 and 90")
-    .max(90, "Latitude must be between -90 and 90")
-    .optional(),
-  longitude: z
-    .number()
-    .min(-180, "Longitude must be between -180 and 180")
-    .max(180, "Longitude must be between -180 and 180")
-    .optional(),
-  jobPin: z
-    .string()
-    .trim()
-    .regex(/^\d{4}$/, "Job PIN must be a 4-digit number")
-    .optional(),
-  notes: z
-    .string()
-    .trim()
-    .max(500, "Notes cannot exceed 500 characters")
-    .optional(),
-  manualFallback: z.boolean().optional(),
-});
+export const checkInSchema = z
+  .object({
+    latitude: z
+      .number()
+      .min(-90, "Latitude must be between -90 and 90")
+      .max(90, "Latitude must be between -90 and 90")
+      .optional(),
+    longitude: z
+      .number()
+      .min(-180, "Longitude must be between -180 and 180")
+      .max(180, "Longitude must be between -180 and 180")
+      .optional(),
+    jobPin: z
+      .string()
+      .trim()
+      .regex(/^\d{4}$/, "Job PIN must be a 4-digit number")
+      .optional(),
+    notes: z
+      .string()
+      .trim()
+      .max(500, "Notes cannot exceed 500 characters")
+      .optional(),
+    manualFallback: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      (data.latitude !== undefined && data.longitude === undefined) ||
+      (data.latitude === undefined && data.longitude !== undefined)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Both latitude and longitude must be provided together.",
+        path: data.latitude === undefined ? ["latitude"] : ["longitude"],
+      });
+    }
+  });
 
-export const checkOutSchema = z.object({
-  latitude: z
-    .number()
-    .min(-90, "Latitude must be between -90 and 90")
-    .max(90, "Latitude must be between -90 and 90")
-    .optional(),
-  longitude: z
-    .number()
-    .min(-180, "Longitude must be between -180 and 180")
-    .max(180, "Longitude must be between -180 and 180")
-    .optional(),
-  completionNotes: z
-    .string()
-    .trim()
-    .max(500, "Completion notes cannot exceed 500 characters")
-    .optional(),
-  manualFallback: z.boolean().optional(),
-});
+export const checkOutSchema = z
+  .object({
+    latitude: z
+      .number()
+      .min(-90, "Latitude must be between -90 and 90")
+      .max(90, "Latitude must be between -90 and 90")
+      .optional(),
+    longitude: z
+      .number()
+      .min(-180, "Longitude must be between -180 and 180")
+      .max(180, "Longitude must be between -180 and 180")
+      .optional(),
+    completionNotes: z
+      .string()
+      .trim()
+      .max(500, "Completion notes cannot exceed 500 characters")
+      .optional(),
+    manualFallback: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      (data.latitude !== undefined && data.longitude === undefined) ||
+      (data.latitude === undefined && data.longitude !== undefined)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Both latitude and longitude must be provided together.",
+        path: data.latitude === undefined ? ["latitude"] : ["longitude"],
+      });
+    }
+  });
 
 export const verifyPinSchema = z.object({
   jobPin: z
@@ -107,4 +133,3 @@ export type CompleteWorkInput = z.infer<typeof completeWorkSchema>;
 export type ConfirmCompletionInput = z.infer<typeof confirmCompletionSchema>;
 export type CancelAssignmentInput = z.infer<typeof cancelAssignmentSchema>;
 export type NoShowInput = z.infer<typeof noShowSchema>;
-

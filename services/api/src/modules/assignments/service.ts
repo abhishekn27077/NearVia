@@ -423,14 +423,22 @@ export class AssignmentsService {
         );
       }
 
-      await client.query(
+      const updateRes = await client.query(
         `UPDATE assignments 
          SET status = 'CONFIRMED', 
              confirmed_at = NOW(), 
              updated_at = NOW() 
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'ASSIGNED'`,
         [assignmentId],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed or worker has already confirmed.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       const updated = await this.fetchAssignmentRow(
         assignmentId,
@@ -589,22 +597,78 @@ export class AssignmentsService {
         );
       }
 
-      // 3. Proximity Calculation & Verification
+      // 3. Proximity Calculation & Verification via Authoritative PostGIS ST_Distance
       let calculatedDistanceMeters: number | null = null;
-      if (
-        input.latitude != null &&
-        input.longitude != null &&
-        row.opportunity_latitude != null &&
-        row.opportunity_longitude != null
-      ) {
-        calculatedDistanceMeters = this.calculateHaversineDistanceMeters(
-          input.latitude,
-          input.longitude,
-          Number(row.opportunity_latitude),
-          Number(row.opportunity_longitude),
-        );
+
+      if (input.latitude != null || input.longitude != null) {
+        if (input.latitude == null || input.longitude == null) {
+          throw new AppError(
+            "Both latitude and longitude must be provided together.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (
+          typeof input.latitude !== "number" ||
+          isNaN(input.latitude) ||
+          input.latitude < -90 ||
+          input.latitude > 90
+        ) {
+          throw new AppError(
+            "Latitude must be a valid number between -90 and 90 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (
+          typeof input.longitude !== "number" ||
+          isNaN(input.longitude) ||
+          input.longitude < -180 ||
+          input.longitude > 180
+        ) {
+          throw new AppError(
+            "Longitude must be a valid number between -180 and 180 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+
+        if (row.work_opportunity_id) {
+          try {
+            const postgisRes = await client.query<{ distance_meters: string }>(
+              `SELECT ST_Distance(
+                 wo.location,
+                 ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+               ) AS distance_meters
+               FROM work_opportunities wo
+               WHERE wo.id = $3`,
+              [input.longitude, input.latitude, row.work_opportunity_id],
+            );
+            if (postgisRes.rows[0]?.distance_meters != null) {
+              calculatedDistanceMeters =
+                Math.round(parseFloat(postgisRes.rows[0].distance_meters) * 100) / 100;
+            }
+          } catch {
+            // Fallback for mock environment
+          }
+        }
+
+        // Fallback to Haversine if PostGIS DB query did not yield distance (e.g. mock DB)
+        if (
+          calculatedDistanceMeters == null &&
+          row.opportunity_latitude != null &&
+          row.opportunity_longitude != null
+        ) {
+          calculatedDistanceMeters = this.calculateHaversineDistanceMeters(
+            input.latitude,
+            input.longitude,
+            Number(row.opportunity_latitude),
+            Number(row.opportunity_longitude),
+          );
+        }
 
         if (
+          calculatedDistanceMeters != null &&
           calculatedDistanceMeters >
             NEARVIA_CONFIG.WORK_EXECUTION.MAX_CHECK_IN_PROXIMITY_METERS &&
           !input.manualFallback
@@ -621,8 +685,8 @@ export class AssignmentsService {
         }
       }
 
-      // 4. Update Assignment Status
-      await client.query(
+      // 4. Update Assignment Status atomically (optimistic state concurrency check)
+      const updateRes = await client.query(
         `UPDATE assignments 
          SET status = 'CHECKED_IN', 
              checked_in_at = NOW(), 
@@ -630,9 +694,17 @@ export class AssignmentsService {
              job_pin_verified_at = CASE WHEN $3::boolean = TRUE THEN NOW() ELSE job_pin_verified_at END,
              job_pin_attempts = CASE WHEN $3::boolean = TRUE THEN 0 ELSE job_pin_attempts END,
              updated_at = NOW() 
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'CONFIRMED'`,
         [assignmentId, calculatedDistanceMeters, pinVerified],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed or worker has already checked in.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       // 5. Record in Attendance Table
       try {
@@ -780,15 +852,23 @@ export class AssignmentsService {
         );
       }
 
-      // Update assignment
-      await client.query(
+      // Update assignment atomically
+      const updateRes = await client.query(
         `UPDATE assignments 
          SET status = 'IN_PROGRESS', 
              started_at = NOW(), 
              updated_at = NOW() 
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'CHECKED_IN'`,
         [assignmentId],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed or work is already started.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       // Update worker availability to BUSY
       await client.query(
@@ -882,16 +962,24 @@ export class AssignmentsService {
         );
       }
 
-      // Update assignment status
-      await client.query(
+      // Update assignment status atomically
+      const updateRes = await client.query(
         `UPDATE assignments 
          SET status = 'COMPLETED', 
              completed_at = NOW(), 
              completion_notes = $2,
              updated_at = NOW() 
-         WHERE id = $1`,
+         WHERE id = $1 AND status IN ('IN_PROGRESS', 'CHECKED_IN')`,
         [assignmentId, input.completionNotes || null],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed or work has already completed.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       // Check if all assignments for this opportunity are completed
       const checkRes = await client.query<{ uncompleted: number }>(
@@ -1004,16 +1092,24 @@ export class AssignmentsService {
 
       const finalWage = input.finalWagePaid || row.agreed_wage;
 
-      // Update assignment
-      await client.query(
+      // Update assignment atomically
+      const updateRes = await client.query(
         `UPDATE assignments 
          SET status = 'COMPLETED', 
              completed_at = COALESCE(completed_at, NOW()), 
              final_wage_paid = $2,
              updated_at = NOW() 
-         WHERE id = $1`,
+         WHERE id = $1 AND status IN ('IN_PROGRESS', 'CHECKED_IN', 'COMPLETED')`,
         [assignmentId, finalWage],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       // Mark attendance record verified if exists
       try {
@@ -1198,17 +1294,23 @@ export class AssignmentsService {
             ErrorCode.NO_SHOW_NOT_ELIGIBLE,
           );
         }
-      }
-
-      // Update assignment
-      await client.query(
+      }      // Update assignment atomically
+      const updateRes = await client.query(
         `UPDATE assignments 
          SET status = 'NO_SHOW', 
              no_show_at = NOW(), 
              updated_at = NOW() 
-         WHERE id = $1`,
+         WHERE id = $1 AND status IN ('ASSIGNED', 'CONFIRMED')`,
         [assignmentId],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed or cannot be marked as no-show.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       // Decrement workers_assigned on work_opportunity and update status
       await client.query(
@@ -1218,7 +1320,7 @@ export class AssignmentsService {
                WHEN workers_assigned - 1 <= 0 THEN 'PUBLISHED'::work_opportunity_status
                ELSE 'PARTIALLY_FILLED'::work_opportunity_status
              END,
-             updated_at = NOW()
+             updated_at = NOW() 
          WHERE id = $1`,
         [row.work_opportunity_id],
       );
@@ -1283,17 +1385,25 @@ export class AssignmentsService {
         );
       }
 
-      // Update assignment
-      await client.query(
+      // Update assignment atomically
+      const updateRes = await client.query(
         `UPDATE assignments 
          SET status = 'CANCELLED', 
              cancelled_at = NOW(), 
              cancelled_by = $2,
              cancellation_reason = $3,
              updated_at = NOW() 
-         WHERE id = $1`,
+         WHERE id = $1 AND status IN ('ASSIGNED', 'CONFIRMED')`,
         [assignmentId, userId, input.reason],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed or cannot be cancelled.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       // Decrement workers_assigned on work_opportunity and update status
       await client.query(
@@ -1602,22 +1712,78 @@ export class AssignmentsService {
         );
       }
 
-      // Proximity Calculation & Verification on Check-Out
+      // Proximity Calculation & Verification on Check-Out via Authoritative PostGIS ST_Distance
       let calculatedDistanceMeters: number | null = null;
-      if (
-        input.latitude != null &&
-        input.longitude != null &&
-        row.opportunity_latitude != null &&
-        row.opportunity_longitude != null
-      ) {
-        calculatedDistanceMeters = this.calculateHaversineDistanceMeters(
-          input.latitude,
-          input.longitude,
-          Number(row.opportunity_latitude),
-          Number(row.opportunity_longitude),
-        );
+
+      if (input.latitude != null || input.longitude != null) {
+        if (input.latitude == null || input.longitude == null) {
+          throw new AppError(
+            "Both latitude and longitude must be provided together.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (
+          typeof input.latitude !== "number" ||
+          isNaN(input.latitude) ||
+          input.latitude < -90 ||
+          input.latitude > 90
+        ) {
+          throw new AppError(
+            "Latitude must be a valid number between -90 and 90 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+        if (
+          typeof input.longitude !== "number" ||
+          isNaN(input.longitude) ||
+          input.longitude < -180 ||
+          input.longitude > 180
+        ) {
+          throw new AppError(
+            "Longitude must be a valid number between -180 and 180 degrees.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+          );
+        }
+
+        if (row.work_opportunity_id) {
+          try {
+            const postgisRes = await client.query<{ distance_meters: string }>(
+              `SELECT ST_Distance(
+                 wo.location,
+                 ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+               ) AS distance_meters
+               FROM work_opportunities wo
+               WHERE wo.id = $3`,
+              [input.longitude, input.latitude, row.work_opportunity_id],
+            );
+            if (postgisRes.rows[0]?.distance_meters != null) {
+              calculatedDistanceMeters =
+                Math.round(parseFloat(postgisRes.rows[0].distance_meters) * 100) / 100;
+            }
+          } catch {
+            // Fallback for mock environment
+          }
+        }
+
+        // Fallback to Haversine if PostGIS DB query did not yield distance (e.g. mock DB)
+        if (
+          calculatedDistanceMeters == null &&
+          row.opportunity_latitude != null &&
+          row.opportunity_longitude != null
+        ) {
+          calculatedDistanceMeters = this.calculateHaversineDistanceMeters(
+            input.latitude,
+            input.longitude,
+            Number(row.opportunity_latitude),
+            Number(row.opportunity_longitude),
+          );
+        }
 
         if (
+          calculatedDistanceMeters != null &&
           calculatedDistanceMeters >
             NEARVIA_CONFIG.WORK_EXECUTION.MAX_CHECK_OUT_PROXIMITY_METERS &&
           !input.manualFallback
@@ -1640,8 +1806,8 @@ export class AssignmentsService {
         : Date.now() - 3600000;
       const workedMinutes = Math.max(1, Math.round((Date.now() - startMs) / 60000));
 
-      // Update assignment
-      await client.query(
+      // Update assignment atomically (optimistic state concurrency check)
+      const updateRes = await client.query(
         `UPDATE assignments
          SET status = 'COMPLETED',
              checked_out_at = NOW(),
@@ -1650,7 +1816,7 @@ export class AssignmentsService {
              check_out_distance_meters = $3,
              completion_notes = COALESCE($4, completion_notes),
              updated_at = NOW()
-         WHERE id = $1`,
+         WHERE id = $1 AND status IN ('IN_PROGRESS', 'CHECKED_IN')`,
         [
           assignmentId,
           workedMinutes,
@@ -1658,6 +1824,14 @@ export class AssignmentsService {
           input.completionNotes || null,
         ],
       );
+
+      if (updateRes.rowCount === 0) {
+        throw new AppError(
+          "Assignment state has changed or worker has already checked out.",
+          409,
+          ErrorCode.CONFLICT,
+        );
+      }
 
       // Record check-out in attendance_records
       try {

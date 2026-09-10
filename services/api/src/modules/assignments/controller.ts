@@ -9,6 +9,7 @@ import { assignmentsService } from "./service";
 import { jobLifecycleService } from "../lifecycle/jobLifecycle.service";
 import { ApiResponse, ErrorCode } from "@nearvia/config";
 import { AppError } from "../../middleware/errorHandler";
+import { validateUuid } from "../../utils/security";
 import {
   AssignmentDetail,
   UserRole,
@@ -36,16 +37,7 @@ export class AssignmentsController {
    * Helper to safely extract single string ID from params
    */
   private getAssignmentId(req: Request): string {
-    const rawId = req.params.id;
-    const id = Array.isArray(rawId) ? rawId[0] : rawId;
-    if (!id) {
-      throw new AppError(
-        "Assignment ID is required.",
-        400,
-        ErrorCode.VALIDATION_ERROR,
-      );
-    }
-    return id;
+    return validateUuid(req.params.id, "Assignment ID");
   }
 
   /**
@@ -139,6 +131,14 @@ export class AssignmentsController {
         );
       }
 
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError(
+          "Only workers can confirm shift assignments.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
       const id = this.getAssignmentId(req);
       const assignment = await assignmentsService.confirmAssignment(
         req.user.id,
@@ -171,6 +171,14 @@ export class AssignmentsController {
           "Authentication required.",
           401,
           ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError(
+          "Only workers can check in to assignments.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
 
@@ -221,6 +229,14 @@ export class AssignmentsController {
         );
       }
 
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError(
+          "Only workers can start work on assignments.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
       const id = this.getAssignmentId(req);
       const parseResult = startWorkSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -265,6 +281,14 @@ export class AssignmentsController {
           "Authentication required.",
           401,
           ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError(
+          "Only workers can submit work completion.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
 
@@ -315,6 +339,14 @@ export class AssignmentsController {
         );
       }
 
+      if (req.user.role !== UserRole.PROVIDER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError(
+          "Only providers can confirm work completion.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
       const id = this.getAssignmentId(req);
       const parseResult = confirmCompletionSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -359,6 +391,14 @@ export class AssignmentsController {
           "Authentication required.",
           401,
           ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      if (req.user.role !== UserRole.PROVIDER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError(
+          "Only providers can report a no-show.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
 
@@ -454,6 +494,10 @@ export class AssignmentsController {
         throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
       }
 
+      if (req.user.role !== UserRole.PROVIDER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError("Only providers can request replacement workers.", 403, ErrorCode.FORBIDDEN);
+      }
+
       const id = this.getAssignmentId(req);
       const result = await assignmentsService.requestReplacementWorker(id, req.user.id, req.body.reason);
 
@@ -479,6 +523,10 @@ export class AssignmentsController {
     try {
       if (!req.user) {
         throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
+      }
+
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError("Only workers can verify the job PIN.", 403, ErrorCode.FORBIDDEN);
       }
 
       const id = this.getAssignmentId(req);
@@ -522,6 +570,10 @@ export class AssignmentsController {
     try {
       if (!req.user) {
         throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
+      }
+
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
+        throw new AppError("Only workers can check out from assignments.", 403, ErrorCode.FORBIDDEN);
       }
 
       const id = this.getAssignmentId(req);

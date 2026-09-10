@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { reviewSchema } from "./types";
 import { reviewsService } from "./service";
+import { validateUuid, clampPagination } from "../../utils/security";
 
 export class ReviewsController {
   public async submitReview(req: Request, res: Response, next: NextFunction) {
     try {
-      const assignmentId = req.params.id as string;
+      const assignmentId = validateUuid(req.params.id, "Assignment ID");
       const reviewerId = req.user!.id; // from auth middleware
       const validatedData = reviewSchema.parse(req.body);
 
@@ -18,7 +19,7 @@ export class ReviewsController {
 
   public async getTrustProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.params.id as string;
+      const userId = validateUuid(req.params.id, "User ID");
       const trustProfile = await reviewsService.getTrustProfile(userId);
       res.status(200).json({ success: true, data: trustProfile });
     } catch (error) {
@@ -28,9 +29,8 @@ export class ReviewsController {
 
   public async getUserReviews(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.params.id as string;
-      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
+      const userId = validateUuid(req.params.id, "User ID");
+      const { page, limit } = clampPagination(req.query, 10, 50);
       
       const reviews = await reviewsService.getUserReviews(userId, page, limit);
       res.status(200).json({ success: true, data: reviews });

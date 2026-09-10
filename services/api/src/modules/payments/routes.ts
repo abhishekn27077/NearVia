@@ -112,7 +112,7 @@ router.get("/:id", (req, res, next) =>
   paymentsController.getPaymentDetail(req, res, next)
 );
 
-router.post("/:id/refund", (req, res, next) =>
+router.post("/:id/refund", requireRole([UserRole.PROVIDER, UserRole.ADMIN]), (req, res, next) =>
   paymentsController.refundPayment(req, res, next)
 );
 

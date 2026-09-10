@@ -292,98 +292,78 @@ export class PaymentsService {
     assignmentId: string,
     input: ConfirmCashPaymentInput
   ): Promise<PaymentRecordResponse> {
-    // 1. Fetch assignment details
-    const assignRes = await query<{
-      id: string;
-      status: string;
-      agreed_wage: number;
-      payment_status: string;
-      work_opportunity_id: string;
-      worker_user_id: string;
-      provider_user_id: string;
-      opportunity_title: string;
-    }>(
-      `SELECT 
-         a.id, a.status, a.agreed_wage, a.payment_status, a.work_opportunity_id,
-         w.user_id AS worker_user_id,
-         p.user_id AS provider_user_id,
-         wo.title AS opportunity_title
-       FROM assignments a
-       JOIN worker_profiles w ON a.worker_id = w.id
-       JOIN provider_profiles p ON a.provider_id = p.id
-       JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
-       WHERE a.id = $1`,
-      [assignmentId]
-    );
-
-    const assignment = assignRes.rows[0];
-    if (!assignment) {
-      throw new AppError("Assignment not found", 404, ErrorCode.NOT_FOUND);
-    }
-
-    // Authorization: caller must be the assigned worker
-    if (assignment.worker_user_id !== workerUserId) {
-      throw new AppError(
-        "Only the assigned worker can confirm cash receipt",
-        403,
-        ErrorCode.UNAUTHORIZED_PAYMENT_ACTION
-      );
-    }
-
-    // 2. Fetch pending cash payment record
-    const payRes = await query<{
-      id: string;
-      payment_pin: string | null;
-      payment_pin_attempts: number;
-      status: string;
-      amount: number;
-    }>(
-      `SELECT id, payment_pin, payment_pin_attempts, status, amount
-       FROM payment_records
-       WHERE assignment_id = $1`,
-      [assignmentId]
-    );
-
-    const payment = payRes.rows[0];
-    if (!payment) {
-      throw new AppError(
-        "No cash payment transaction initiated for this assignment",
-        404,
-        ErrorCode.NOT_FOUND
-      );
-    }
-
-    if (payment.status === "CONFIRMED") {
-      throw new AppError(
-        "Cash payment has already been confirmed",
-        400,
-        ErrorCode.PAYMENT_ALREADY_CONFIRMED
-      );
-    }
-
-    // Check existing attempts limit
-    if ((payment.payment_pin_attempts || 0) >= 3) {
-      throw new AppError(
-        "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
-        429,
-        ErrorCode.PAYMENT_PIN_MAX_ATTEMPTS_EXCEEDED
-      );
-    }
-
-    // Validate PIN
-    const pinToVerify = (input.paymentPin || (input as any).pin || "").trim();
-    if (!payment.payment_pin || payment.payment_pin !== pinToVerify) {
-      const updateAttempts = await query<{ payment_pin_attempts: number }>(
-        `UPDATE payment_records
-         SET payment_pin_attempts = payment_pin_attempts + 1,
-             updated_at = NOW()
-         WHERE id = $1
-         RETURNING payment_pin_attempts`,
-        [payment.id]
+    return await withTransaction(async (client) => {
+      // 1. Fetch assignment details
+      const assignRes = await client.query<{
+        id: string;
+        status: string;
+        agreed_wage: number;
+        payment_status: string;
+        work_opportunity_id: string;
+        worker_user_id: string;
+        provider_user_id: string;
+        opportunity_title: string;
+      }>(
+        `SELECT 
+           a.id, a.status, a.agreed_wage, a.payment_status, a.work_opportunity_id,
+           w.user_id AS worker_user_id,
+           p.user_id AS provider_user_id,
+           wo.title AS opportunity_title
+         FROM assignments a
+         JOIN worker_profiles w ON a.worker_id = w.id
+         JOIN provider_profiles p ON a.provider_id = p.id
+         JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
+         WHERE a.id = $1`,
+        [assignmentId]
       );
 
-      const nextAttempts = updateAttempts.rows[0]?.payment_pin_attempts || 1;
-      if (nextAttempts >= 3) {
+      const assignment = assignRes.rows[0];
+      if (!assignment) {
+        throw new AppError("Assignment not found", 404, ErrorCode.NOT_FOUND);
+      }
+
+      // Authorization: caller must be the assigned worker
+      if (assignment.worker_user_id !== workerUserId) {
+        throw new AppError(
+          "Only the assigned worker can confirm cash receipt",
+          403,
+          ErrorCode.UNAUTHORIZED_PAYMENT_ACTION
+        );
+      }
+
+      // 2. Fetch pending cash payment record
+      const payRes = await client.query<{
+        id: string;
+        payment_pin: string | null;
+        payment_pin_attempts: number;
+        status: string;
+        amount: number;
+      }>(
+        `SELECT id, payment_pin, payment_pin_attempts, status, amount
+         FROM payment_records
+         WHERE assignment_id = $1`,
+        [assignmentId]
+      );
+
+      const payment = payRes.rows[0];
+      if (!payment) {
+        throw new AppError(
+          "No cash payment transaction initiated for this assignment",
+          404,
+          ErrorCode.NOT_FOUND
+        );
+      }
+
+      if (payment.status === "CONFIRMED") {
+        throw new AppError(
+          "Cash payment has already been confirmed",
+          400,
+          ErrorCode.PAYMENT_ALREADY_CONFIRMED
+        );
+      }
+
+      // Check existing attempts limit
+      if ((payment.payment_pin_attempts || 0) >= 3) {
         throw new AppError(
           "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
           429,
@@ -391,16 +371,36 @@ export class PaymentsService {
         );
       }
 
-      throw new AppError(
-        `Invalid confirmation PIN. ${3 - nextAttempts} attempt(s) remaining.`,
-        400,
-        ErrorCode.INVALID_PAYMENT_PIN
-      );
-    }
+      // Validate PIN
+      const pinToVerify = (input.paymentPin || (input as any).pin || "").trim();
+      if (!payment.payment_pin || payment.payment_pin !== pinToVerify) {
+        const updateAttempts = await client.query<{ payment_pin_attempts: number }>(
+          `UPDATE payment_records
+           SET payment_pin_attempts = payment_pin_attempts + 1,
+               updated_at = NOW()
+           WHERE id = $1
+           RETURNING payment_pin_attempts`,
+          [payment.id]
+        );
 
-    // 3. PIN matches -> Execute atomic settlement in transaction
-    const txRef = `cash_settled_${Date.now()}`;
-    return await withTransaction(async (client) => {
+        const nextAttempts = updateAttempts?.rows?.[0]?.payment_pin_attempts ?? 1;
+        if (nextAttempts >= 3) {
+          throw new AppError(
+            "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
+            429,
+            ErrorCode.PAYMENT_PIN_MAX_ATTEMPTS_EXCEEDED
+          );
+        }
+
+        throw new AppError(
+          `Invalid Payment PIN. ${3 - nextAttempts} attempt(s) remaining.`,
+          400,
+          ErrorCode.INVALID_PAYMENT_PIN
+        );
+      }
+
+      // 3. PIN matches -> Execute atomic settlement in transaction
+      const txRef = `cash_settled_${Date.now()}`;
       // Update payment record to CONFIRMED
       const updatePayRes = await client.query(
         `UPDATE payment_records
@@ -1613,7 +1613,7 @@ export class PaymentsService {
       paymentMethod: row.payment_method,
       transactionRef: row.transaction_ref,
       gatewayOrderId: row.gateway_order_id,
-      paymentPin: row.payment_pin,
+      paymentPin: row.payment_pin_verified_at ? row.payment_pin : undefined,
       paymentPinAttempts: row.payment_pin_attempts,
       paymentPinVerifiedAt: row.payment_pin_verified_at,
       cashConfirmedByPayerAt: row.cash_confirmed_by_payer_at,

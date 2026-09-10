@@ -398,4 +398,18 @@ describe("NEARVIA Prompt 2: Google OAuth / Supabase Identity Security Hardening 
       _resetClientsForTest();
     }
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // TEST 17: Mock tokens strictly rejected in production
+  // ─────────────────────────────────────────────────────────────
+  it("TEST 17: verifySupabaseToken strictly rejects mock tokens when NODE_ENV is production", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const result = await verifySupabaseToken("mock_token_forged_identity");
+      expect(result).toBeNull();
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
 });

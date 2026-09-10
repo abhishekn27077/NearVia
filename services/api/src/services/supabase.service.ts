@@ -88,8 +88,8 @@ export interface VerifiedAuthResult {
 export async function verifySupabaseToken(
   token: string,
 ): Promise<VerifiedAuthResult | null> {
-  // Test/Mock Token Support for Automated Integration Tests
-  if (token.startsWith("mock_token_")) {
+  // Test/Mock Token Support for Automated Integration Tests (Strictly disabled in production)
+  if (process.env.NODE_ENV !== "production" && token.startsWith("mock_token_")) {
     const authId = token.replace("mock_token_", "");
     return {
       authId,

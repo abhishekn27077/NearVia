@@ -149,7 +149,10 @@ export class ApplicationsService {
     if (
       job.status === "COMPLETED" ||
       job.status === "EXPIRED" ||
-      job.status === "FILLED"
+      job.status === "FILLED" ||
+      job.status === "SETTLEMENT_PENDING" ||
+      job.status === "PAID" ||
+      job.status === "CLOSED"
     ) {
       throw new AppError(
         "This work opportunity is closed and cannot accept applications.",
@@ -609,12 +612,20 @@ export class ApplicationsService {
       );
     }
 
-    await query(
+    const updateRes = await query(
       `UPDATE applications
        SET status = 'WITHDRAWN', decision_notes = $1, responded_at = NOW(), updated_at = NOW()
-       WHERE id = $2`,
+       WHERE id = $2 AND status IN ('PENDING', 'SHORTLISTED')`,
       [reason || "Withdrawn by worker", applicationId],
     );
+
+    if (updateRes.rowCount === 0) {
+      throw new AppError(
+        "Application state has changed or application cannot be withdrawn.",
+        409,
+        ErrorCode.APPLICATION_INVALID_STATE,
+      );
+    }
 
     return this.getApplicationById(workerUserId, applicationId);
   }
@@ -967,18 +978,27 @@ export class ApplicationsService {
         );
       }
 
-      // 3. Update application to ACCEPTED
-      await client.query(
+      // 3. Update application to ACCEPTED with atomic concurrency check
+      const appUpdateRes = await client.query(
         `UPDATE applications
          SET status = 'ACCEPTED', decision_notes = $1, responded_at = NOW(), updated_at = NOW()
-         WHERE id = $2`,
+         WHERE id = $2 AND status IN ('PENDING', 'SHORTLISTED')`,
         [notes || "Accepted and assigned to work", applicationId],
       );
 
+      if (appUpdateRes.rowCount === 0) {
+        throw new AppError(
+          "Application is no longer in a valid state to be accepted.",
+          409,
+          ErrorCode.APPLICATION_INVALID_STATE,
+        );
+      }
+
       // 4. Increment workers_assigned & update opportunity status
       const newAssigned = job.workers_assigned + 1;
+      const isNowFilled = newAssigned >= job.workers_needed;
       const newStatus =
-        newAssigned >= job.workers_needed ? "FILLED" : "PARTIALLY_FILLED";
+        isNowFilled ? "FILLED" : "PARTIALLY_FILLED";
 
       await client.query(
         `UPDATE work_opportunities
@@ -1028,19 +1048,60 @@ export class ApplicationsService {
         );
       }
 
+      // 6. When position is filled, auto-reject remaining pending/shortlisted candidates
+      const rejectedWorkerUserIds: string[] = [];
+      if (isNowFilled) {
+        const remainingRes = await client.query<{ id: string; worker_id: string }>(
+          `UPDATE applications
+           SET status = 'REJECTED', 
+               decision_notes = 'Position filled by another candidate', 
+               responded_at = NOW(), 
+               updated_at = NOW()
+           WHERE work_opportunity_id = $1 
+             AND status IN ('PENDING', 'SHORTLISTED') 
+             AND id != $2
+           RETURNING id, worker_id`,
+          [app.work_opportunity_id, applicationId],
+        );
+
+        for (const rem of remainingRes.rows) {
+          const wRes = await client.query<{ user_id: string }>(
+            "SELECT user_id FROM worker_profiles WHERE id = $1",
+            [rem.worker_id],
+          );
+          if (wRes.rows[0]?.user_id) {
+            rejectedWorkerUserIds.push(wRes.rows[0].user_id);
+          }
+        }
+      }
+
       return {
         assignmentId,
         workOpportunityId: app.work_opportunity_id,
         workerId: app.worker_id,
         jobTitle: job.title,
+        rejectedWorkerUserIds,
       };
     });
 
-    // 6. Return updated detail (queried after transaction COMMIT)
+    // 7. Return updated detail (queried after transaction COMMIT)
     const updatedApp = await this.getApplicationById(
       providerUserId,
       applicationId,
     );
+
+    // Notify rejected candidates whose applications were closed
+    for (const rejectedUserId of meta.rejectedWorkerUserIds) {
+      notificationsService
+        .createNotification(
+          rejectedUserId,
+          "APPLICATION_REJECTED",
+          `Position Filled: ${meta.jobTitle}`,
+          `The position for '${meta.jobTitle}' has been filled by another candidate. Thank you for your interest.`,
+          { workOpportunityId: meta.workOpportunityId },
+        )
+        .catch(() => {});
+    }
 
     // Audit Events
     trackPlatformEvent({

@@ -12,6 +12,7 @@ import {
   rejectVerificationSchema,
   moderateWorkSchema,
 } from "./types";
+import { validateUuid, clampPagination } from "../../utils/security";
 
 export class AdminController {
   public async getDashboardMetrics(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -25,8 +26,7 @@ export class AdminController {
 
   public async getUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 20;
+      const { page, limit } = clampPagination(req.query, 20, 100);
       const search = req.query.search as string | undefined;
       const role = req.query.role as string | undefined;
       const status = req.query.status as string | undefined;
@@ -40,7 +40,7 @@ export class AdminController {
 
   public async getUserById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = req.params.id as string;
+      const userId = validateUuid(req.params.id, "User ID");
       const user = await adminService.getUserById(userId);
       res.json({ success: true, data: user });
     } catch (err) {
@@ -52,7 +52,7 @@ export class AdminController {
     try {
       const parsed = updateUserStatusSchema.parse(req.body);
       const adminId = (req as any).user.id;
-      const userId = req.params.id as string;
+      const userId = validateUuid(req.params.id, "User ID");
       const ip = req.ip;
       const ua = req.get("user-agent");
 
@@ -73,7 +73,7 @@ export class AdminController {
     try {
       const parsed = updateUserRoleSchema.parse(req.body);
       const adminId = (req as any).user.id;
-      const userId = req.params.id as string;
+      const userId = validateUuid(req.params.id, "User ID");
       const ip = req.ip;
       const ua = req.get("user-agent");
 
@@ -92,8 +92,7 @@ export class AdminController {
 
   public async getWorkOpportunities(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 20;
+      const { page, limit } = clampPagination(req.query, 20, 100);
       const status = req.query.status as string | undefined;
       const workType = req.query.workType as string | undefined;
       const search = req.query.search as string | undefined;
@@ -109,7 +108,7 @@ export class AdminController {
     try {
       const parsed = moderateWorkSchema.parse(req.body);
       const adminId = (req as any).user.id;
-      const workId = req.params.id as string;
+      const workId = validateUuid(req.params.id, "Work opportunity ID");
       const ip = req.ip;
       const ua = req.get("user-agent");
 
@@ -128,8 +127,7 @@ export class AdminController {
 
   public async getVerifications(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 20;
+      const { page, limit } = clampPagination(req.query, 20, 100);
       const status = req.query.status as string | undefined;
       const targetType = req.query.targetType as string | undefined;
 
@@ -144,7 +142,7 @@ export class AdminController {
     try {
       const parsed = approveVerificationSchema.parse(req.body);
       const adminId = (req as any).user.id;
-      const verificationId = req.params.id as string;
+      const verificationId = validateUuid(req.params.id, "Verification ID");
       const ip = req.ip;
       const ua = req.get("user-agent");
 
@@ -165,7 +163,7 @@ export class AdminController {
     try {
       const parsed = rejectVerificationSchema.parse(req.body);
       const adminId = (req as any).user.id;
-      const verificationId = req.params.id as string;
+      const verificationId = validateUuid(req.params.id, "Verification ID");
       const ip = req.ip;
       const ua = req.get("user-agent");
 
@@ -184,8 +182,7 @@ export class AdminController {
 
   public async getPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 20;
+      const { page, limit } = clampPagination(req.query, 20, 100);
       const status = req.query.status as string | undefined;
       const search = req.query.search as string | undefined;
 
@@ -198,8 +195,7 @@ export class AdminController {
 
   public async getAuditLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 30;
+      const { page, limit } = clampPagination(req.query, 30, 100);
       const action = req.query.action as string | undefined;
       const targetEntity = req.query.targetEntity as string | undefined;
 
@@ -241,10 +237,9 @@ export class AdminController {
 
   public async getPlatformEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 25;
+      const { page, limit } = clampPagination(req.query, 25, 100);
       const eventType = req.query.eventType as string | undefined;
-      const userId = req.query.userId as string | undefined;
+      const userId = req.query.userId ? validateUuid(req.query.userId, "User ID") : undefined;
 
       const result = await analyticsService.getPlatformEvents(page, limit, eventType, userId);
       res.json({ success: true, ...result });

@@ -8,11 +8,13 @@ import { Request, Response, NextFunction } from "express";
 import { applicationsService } from "./service";
 import { ApiResponse, ErrorCode } from "@nearvia/config";
 import { AppError } from "../../middleware/errorHandler";
+import { validateUuid } from "../../utils/security";
 import {
   ApplicationDetail,
   ApplicantListItem,
   ApplyWorkInput,
   ApplicationDecisionInput,
+  UserRole,
 } from "@nearvia/types";
 import {
   applyWorkSchema,
@@ -39,16 +41,15 @@ export class ApplicationsController {
         );
       }
 
-      const rawId = req.params.id;
-      const workOpportunityId = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!workOpportunityId) {
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
         throw new AppError(
-          "Work opportunity ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
+          "Only workers can apply for work opportunities.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
 
+      const workOpportunityId = validateUuid(req.params.id, "Work opportunity ID");
       const validatedInput: ApplyWorkInput = applyWorkSchema.parse(req.body);
 
       const application = await applicationsService.applyForWork(
@@ -122,15 +123,7 @@ export class ApplicationsController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
-        throw new AppError(
-          "Application ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const id = validateUuid(req.params.id, "Application ID");
 
       const application = await applicationsService.getApplicationById(
         req.user.id,
@@ -166,16 +159,15 @@ export class ApplicationsController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
+      if (req.user.role !== UserRole.WORKER && req.user.role !== UserRole.ADMIN) {
         throw new AppError(
-          "Application ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
+          "Only workers can withdraw applications.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
 
+      const id = validateUuid(req.params.id, "Application ID");
       const validated = withdrawApplicationSchema.parse(req.body);
 
       const application = await applicationsService.withdrawApplication(
@@ -213,15 +205,15 @@ export class ApplicationsController {
         );
       }
 
-      const rawId = req.params.id;
-      const workOpportunityId = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!workOpportunityId) {
+      if (req.user.role !== UserRole.PROVIDER && req.user.role !== UserRole.ADMIN) {
         throw new AppError(
-          "Work opportunity ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
+          "Only providers can view applicants for their work opportunities.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
+
+      const workOpportunityId = validateUuid(req.params.id, "Work opportunity ID");
 
       const applicants = await applicationsService.getOpportunityApplicants(
         req.user.id,
@@ -260,15 +252,15 @@ export class ApplicationsController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
+      if (req.user.role !== UserRole.PROVIDER && req.user.role !== UserRole.ADMIN) {
         throw new AppError(
-          "Application ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
+          "Only providers can shortlist candidates.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
+
+      const id = validateUuid(req.params.id, "Application ID");
 
       const validated: ApplicationDecisionInput =
         applicationDecisionSchema.parse(req.body);
@@ -308,15 +300,15 @@ export class ApplicationsController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
+      if (req.user.role !== UserRole.PROVIDER && req.user.role !== UserRole.ADMIN) {
         throw new AppError(
-          "Application ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
+          "Only providers can decline candidates.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
+
+      const id = validateUuid(req.params.id, "Application ID");
 
       const validated: ApplicationDecisionInput =
         applicationDecisionSchema.parse(req.body);
@@ -356,15 +348,15 @@ export class ApplicationsController {
         );
       }
 
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!id) {
+      if (req.user.role !== UserRole.PROVIDER && req.user.role !== UserRole.ADMIN) {
         throw new AppError(
-          "Application ID is required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
+          "Only providers can select and hire candidates.",
+          403,
+          ErrorCode.FORBIDDEN,
         );
       }
+
+      const id = validateUuid(req.params.id, "Application ID");
 
       const validated: ApplicationDecisionInput =
         applicationDecisionSchema.parse(req.body);

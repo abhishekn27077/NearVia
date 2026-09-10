@@ -79,7 +79,14 @@ export class AuthController {
         const token = authHeader.replace(/^Bearer\s+/i, "").trim();
         if (token) {
           const verified = await verifySupabaseToken(token);
-          if (verified?.email) {
+          if (!verified) {
+            throw new AppError(
+              "Invalid or expired authentication token.",
+              401,
+              ErrorCode.UNAUTHORIZED,
+            );
+          }
+          if (verified.email) {
             authenticatedEmail = verified.email;
           }
         }
@@ -120,6 +127,7 @@ export class AuthController {
 
   /**
    * POST /api/v1/auth/register
+   * Strictly derives identity from a verified Bearer token.
    */
   public async register(
     req: Request,
@@ -127,41 +135,60 @@ export class AuthController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      // If a Bearer token is provided, verify it and ensure authId and email cannot be forged
       const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.match(/^Bearer\s+/i)) {
-        const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-        if (token) {
-          const verified = await verifySupabaseToken(token);
-          if (!verified) {
-            throw new AppError(
-              "Invalid or expired authentication token.",
-              401,
-              ErrorCode.UNAUTHORIZED,
-            );
-          }
-          if (req.body.authId && req.body.authId !== verified.authId) {
-            throw new AppError(
-              "Identity mismatch. Provided authId does not match verified token.",
-              403,
-              ErrorCode.FORBIDDEN,
-            );
-          }
-          if (
-            req.body.email &&
-            verified.email &&
-            req.body.email.trim().toLowerCase() !== verified.email.trim().toLowerCase()
-          ) {
-            throw new AppError(
-              "Identity mismatch. Provided email does not match verified token.",
-              403,
-              ErrorCode.FORBIDDEN,
-            );
-          }
-        }
+      if (!authHeader || !authHeader.match(/^Bearer\s+/i)) {
+        throw new AppError(
+          "Authentication required. Missing Bearer token.",
+          401,
+          ErrorCode.UNAUTHORIZED,
+        );
       }
 
-      const user = await authService.registerUser(req.body);
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      if (!token) {
+        throw new AppError(
+          "Authentication required. Invalid token format.",
+          401,
+          ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      const verified = await verifySupabaseToken(token);
+      if (!verified) {
+        throw new AppError(
+          "Invalid or expired authentication token.",
+          401,
+          ErrorCode.UNAUTHORIZED,
+        );
+      }
+
+      if (req.body.authId && req.body.authId !== verified.authId) {
+        throw new AppError(
+          "Identity mismatch. Provided authId does not match verified token.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
+      if (
+        req.body.email &&
+        verified.email &&
+        req.body.email.trim().toLowerCase() !== verified.email.trim().toLowerCase()
+      ) {
+        throw new AppError(
+          "Identity mismatch. Provided email does not match verified token.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
+      const registrationPayload = {
+        ...req.body,
+        authId: verified.authId,
+        email: verified.email || req.body.email,
+      };
+
+      const user = await authService.registerUser(registrationPayload);
       const response: ApiResponse<AuthUserContext> = {
         success: true,
         data: user,
@@ -284,15 +311,15 @@ export class AuthController {
         );
       }
 
-      // Authoritative email derived directly from verified token
-      const email = verified.email || req.body.email;
-      if (!email) {
+      // Authoritative email derived directly from verified token (client body cannot override or supply email)
+      if (!verified.email) {
         throw new AppError(
           "Verified email is required for OAuth profile synchronization.",
           400,
           ErrorCode.VALIDATION_ERROR,
         );
       }
+      const email = verified.email;
 
       // Check if user is already deactivated/suspended
       const existingUser = await authService.getUserByAuthId(verified.authId);

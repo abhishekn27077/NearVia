@@ -15,6 +15,7 @@ import {
   Sparkles,
   ShieldCheck,
   Check,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { webConfig } from "../../config";
@@ -253,6 +254,28 @@ export const WorkOpportunityDetailPage: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>Application Submitted (Track Status)</span>
                   </Link>
+                ) : opportunity.workersAssigned >= opportunity.workersNeeded ||
+                  opportunity.status === WorkOpportunityStatus.FILLED ? (
+                  <div className="px-5 py-2.5 rounded-2xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold flex items-center space-x-2">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                    <span>Position Filled</span>
+                  </div>
+                ) : opportunity.status === WorkOpportunityStatus.COMPLETED ||
+                  opportunity.status === WorkOpportunityStatus.SETTLEMENT_PENDING ? (
+                  <div className="px-5 py-2.5 rounded-2xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-slate-400" />
+                    <span>Shift Completed</span>
+                  </div>
+                ) : opportunity.status === WorkOpportunityStatus.CANCELLED ? (
+                  <div className="px-5 py-2.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center space-x-2">
+                    <XCircle className="w-4 h-4 text-rose-500" />
+                    <span>Posting Cancelled</span>
+                  </div>
+                ) : opportunity.status === WorkOpportunityStatus.EXPIRED ? (
+                  <div className="px-5 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold flex items-center space-x-2">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <span>Posting Expired</span>
+                  </div>
                 ) : (
                   <button
                     onClick={() => setShowApplyModal(true)}

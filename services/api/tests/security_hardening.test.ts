@@ -30,6 +30,7 @@ import { verifySupabaseToken } from "../src/services/supabase.service";
 describe("Phase 9: Security Hardening & Regression Suite", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (query as any).mockReset();
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -215,7 +216,9 @@ describe("Phase 9: Security Hardening & Regression Suite", () => {
         updated_at: new Date().toISOString(),
       };
 
-      (query as any).mockResolvedValue({ rows: [mockConversation] });
+      (query as any)
+        .mockResolvedValueOnce({ rows: [mockConversation] })
+        .mockResolvedValueOnce({ rows: [] });
 
       const { messagesService } = await import("../src/modules/messages/service");
 
@@ -413,11 +416,316 @@ describe("Phase 9: Security Hardening & Regression Suite", () => {
       limiter(req, res, next);
       expect(next).toHaveBeenCalledTimes(3);
 
-      // Request 4 blocked with 429
       limiter(req, res, next);
       expect(next).toHaveBeenCalledTimes(3);
       expect(statusCode).toBe(429);
       expect(responseBody.error.code).toBe("RATE_LIMIT_EXCEEDED");
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 7. FINAL AUTHENTICATION & AUTHORIZATION HARDENING (PROMPT 1)
+  // ─────────────────────────────────────────────────────────────
+  describe("7. Final Authentication & Authorization Hardening Target Tests", () => {
+    it("7.1 missing token on register endpoint → 401 Unauthorized", async () => {
+      const { authController } = await import("../src/modules/auth/controller");
+      const req: any = {
+        headers: {},
+        body: {
+          fullName: "New User",
+          role: UserRole.WORKER,
+        },
+      };
+      const res: any = {};
+      const next = vi.fn();
+
+      await authController.register(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(AppError));
+      expect(next.mock.calls[0][0].statusCode).toBe(401);
+      expect(next.mock.calls[0][0].message).toContain("Missing Bearer token");
+    });
+
+    it("7.2 invalid/expired token on register endpoint → 401 Unauthorized", async () => {
+      (verifySupabaseToken as any).mockResolvedValue(null);
+      const { authController } = await import("../src/modules/auth/controller");
+      const req: any = {
+        headers: { authorization: "Bearer bad_or_expired_token" },
+        body: {
+          fullName: "New User",
+          role: UserRole.WORKER,
+        },
+      };
+      const res: any = {};
+      const next = vi.fn();
+
+      await authController.register(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(AppError));
+      expect(next.mock.calls[0][0].statusCode).toBe(401);
+      expect(next.mock.calls[0][0].message).toContain("Invalid or expired authentication token");
+    });
+
+    it("7.3 ADMIN self-registration via signup → strictly rejected with 403 Forbidden", async () => {
+      const { authService } = await import("../src/modules/auth/service");
+      await expect(
+        authService.signUpWithEmail({
+          email: "admin_attacker@nearvia.test",
+          password: "Password123!",
+          fullName: "Attacker",
+          role: UserRole.ADMIN,
+        })
+      ).rejects.toThrow("Public registration as ADMIN is strictly prohibited.");
+    });
+
+    it("7.4 ADMIN self-registration via registerUser → strictly rejected with 403 Forbidden", async () => {
+      const { authService } = await import("../src/modules/auth/service");
+      await expect(
+        authService.registerUser({
+          authId: "auth-admin-attempt",
+          fullName: "Attacker",
+          email: "attacker@nearvia.test",
+          role: UserRole.ADMIN as any,
+        })
+      ).rejects.toThrow("Public registration as ADMIN is strictly prohibited.");
+    });
+
+    it("7.5 Google OAuth role tampering (role: ADMIN) → rejected with 403 Forbidden", async () => {
+      (verifySupabaseToken as any).mockResolvedValue({
+        authId: "google-auth-123",
+        email: "googleuser@example.com",
+      });
+
+      const { authController } = await import("../src/modules/auth/controller");
+      const req: any = {
+        headers: { authorization: "Bearer valid_google_token" },
+        body: {
+          role: UserRole.ADMIN,
+          fullName: "Google Admin Attacker",
+        },
+      };
+      const res: any = {};
+      const next = vi.fn();
+
+      await authController.syncGoogleProfile(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(AppError));
+      expect(next.mock.calls[0][0].statusCode).toBe(403);
+      expect(next.mock.calls[0][0].message).toContain("ADMIN is strictly prohibited");
+    });
+
+    it("7.6 Google OAuth authId mismatch / forgery → rejected with 403 Forbidden", async () => {
+      (verifySupabaseToken as any).mockResolvedValue({
+        authId: "real-google-auth-id",
+        email: "googleuser@example.com",
+      });
+
+      const { authController } = await import("../src/modules/auth/controller");
+      const req: any = {
+        headers: { authorization: "Bearer valid_google_token" },
+        body: {
+          authId: "forged-victim-auth-id", // Tampering attempt
+          role: UserRole.WORKER,
+        },
+      };
+      const res: any = {};
+      const next = vi.fn();
+
+      await authController.syncGoogleProfile(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(AppError));
+      expect(next.mock.calls[0][0].statusCode).toBe(403);
+      expect(next.mock.calls[0][0].message).toContain("Identity mismatch. Provided authId does not match verified token.");
+    });
+
+    it("7.7 cross-user profile sync (email mismatch) → rejected with 403 Forbidden", async () => {
+      (verifySupabaseToken as any).mockResolvedValue({
+        authId: "real-google-auth-id",
+        email: "realowner@example.com",
+      });
+
+      const { authController } = await import("../src/modules/auth/controller");
+      const req: any = {
+        headers: { authorization: "Bearer valid_google_token" },
+        body: {
+          email: "victim@example.com", // Spoofing another user's email
+          role: UserRole.WORKER,
+        },
+      };
+      const res: any = {};
+      const next = vi.fn();
+
+      await authController.syncGoogleProfile(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(AppError));
+      expect(next.mock.calls[0][0].statusCode).toBe(403);
+      expect(next.mock.calls[0][0].message).toContain("Identity mismatch. Provided email does not match verified token.");
+    });
+
+    it("7.8 Google OAuth linking to an existing ADMIN user → rejected with 403 Forbidden", async () => {
+      (query as any)
+        .mockResolvedValueOnce({ rows: [] }) // getUserByAuthId -> null
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: "admin-user-id",
+              auth_id: "original-admin-auth",
+              email: "admin@nearvia.in",
+              role: UserRole.ADMIN,
+              is_active: true,
+            },
+          ],
+        });
+
+      const { authService } = await import("../src/modules/auth/service");
+      await expect(
+        authService.syncGoogleUser({
+          authId: "google-attacker-auth-id",
+          email: "admin@nearvia.in",
+          role: UserRole.WORKER,
+        })
+      ).rejects.toThrow("Administrative accounts cannot be claimed or linked via public OAuth profile synchronization.");
+    });
+
+    it("7.9 arbitrary email confirmation in production → rejected with 403 Forbidden", async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "production";
+      try {
+        const { authService } = await import("../src/modules/auth/service");
+        await expect(
+          authService.confirmUserEmail("victim@example.com")
+        ).rejects.toThrow("Public email confirmation is disabled in production.");
+      } finally {
+        process.env.NODE_ENV = originalEnv;
+      }
+    });
+
+    it("7.10 confirmEmail with invalid token in Authorization header → rejected with 401", async () => {
+      (verifySupabaseToken as any).mockResolvedValue(null);
+      const { authController } = await import("../src/modules/auth/controller");
+      const req: any = {
+        headers: { authorization: "Bearer invalid.expired.token" },
+        body: { email: "test@nearvia.test" },
+      };
+      const res: any = {};
+      const next = vi.fn();
+
+      await authController.confirmEmail(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(AppError));
+      expect(next.mock.calls[0][0].statusCode).toBe(401);
+    });
+
+    it("7.11 signup cannot reset existing user password → rejected with 409 Conflict", async () => {
+      (query as any).mockResolvedValueOnce({
+        rows: [{ id: "existing-user", email: "existing@nearvia.test" }],
+      });
+
+      const { authService } = await import("../src/modules/auth/service");
+      await expect(
+        authService.signUpWithEmail({
+          email: "existing@nearvia.test",
+          password: "NewPassword123!",
+          fullName: "Hacker",
+          role: UserRole.WORKER,
+        })
+      ).rejects.toThrow("An account with this email address already exists. Please log in or reset your password.");
+    });
+
+    it("7.12 blocked or inactive user → rejected with 403 Forbidden in authenticateUser", async () => {
+      (verifySupabaseToken as any).mockResolvedValue({
+        authId: "blocked-user-auth",
+        email: "blocked@nearvia.test",
+      });
+      (query as any).mockResolvedValueOnce({
+        rows: [
+          {
+            id: "user-blocked-1",
+            auth_id: "blocked-user-auth",
+            full_name: "Blocked Worker",
+            email: "blocked@nearvia.test",
+            role: UserRole.WORKER,
+            is_active: false, // Inactive / Suspended
+          },
+        ],
+      });
+
+      const req: any = { headers: { authorization: "Bearer valid_token_for_blocked_user" } };
+      const res: any = {};
+      const next = vi.fn();
+
+      await authenticateUser(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(AppError));
+      expect(next.mock.calls[0][0].statusCode).toBe(403);
+      expect(next.mock.calls[0][0].message).toContain("account has been suspended or deactivated");
+    });
+
+    it("7.13 IDOR attempt: worker accessing another worker's assignment → rejected with 403 Forbidden", async () => {
+      const mockAssignment = {
+        id: "asg-100",
+        work_opportunity_id: "job-100",
+        worker_id: "wp-victim",
+        provider_id: "pp-owner",
+        worker_user_id: "user-victim-worker",
+        provider_user_id: "user-owner-provider",
+        status: "CONFIRMED",
+        title: "Kitchen Staff",
+      };
+
+      (query as any).mockResolvedValueOnce({ rows: [mockAssignment] });
+
+      const { assignmentsService } = await import("../src/modules/assignments/service");
+
+      await expect(
+        assignmentsService.getAssignmentById("user-attacker-worker", "asg-100")
+      ).rejects.toThrow("You are not authorized to view this assignment.");
+    });
+
+    it("7.14 IDOR attempt: provider updating another provider's job opportunity → rejected with 403 Forbidden", async () => {
+      const mockJob = {
+        id: "opp-100",
+        providerId: "pp-legit-owner",
+        provider_id: "pp-legit-owner",
+        provider_user_id: "user-legit-provider",
+        status: "DRAFT",
+        title: "Original Job",
+        category_id: "cat-1",
+      };
+
+      (query as any)
+        .mockResolvedValueOnce({ rows: [mockJob] }) // getWorkOpportunityById
+        .mockResolvedValueOnce({ rows: [] }) // getWorkOpportunitySkills
+        .mockResolvedValueOnce({ rows: [{ id: "pp-attacker-owner" }] }); // getOrCreateProviderProfile
+
+      const { workOpportunitiesService } = await import("../src/modules/jobs/service");
+
+      await expect(
+        workOpportunitiesService.updateWorkOpportunity("opp-100", "user-attacker-provider", {
+          title: "Hijacked Job Title",
+        })
+      ).rejects.toThrow(/Unpublished draft opportunities cannot be viewed|You do not own this work opportunity/);
+    });
+
+    it("7.15 IDOR attempt: agent accessing worker details without active consent → rejected with 403 Forbidden", async () => {
+      (query as any)
+        .mockResolvedValueOnce({ rows: [{ id: "agent-profile-id" }] }) // agent_profiles
+        .mockResolvedValueOnce({ rows: [{ status: "PENDING" }] }); // consent is NOT ACTIVE
+
+      const { agentsService } = await import("../src/modules/agents/service");
+
+      await expect(
+        agentsService.getWorkerForAgent("agent-user-id", "unconsented-worker-id")
+      ).rejects.toThrow("You do not have active consent to access this worker's data");
+    });
+
+    it("7.16 privileged seed without SUPABASE_SERVICE_ROLE_KEY → fails safely without fallback", async () => {
+      const { getSeedAdminClient } = await import("../src/scripts/seed-demo");
+      const originalServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      try {
+        expect(() => getSeedAdminClient()).toThrow(
+          "Privileged seed script strictly requires SUPABASE_SERVICE_ROLE_KEY"
+        );
+      } finally {
+        if (originalServiceKey) {
+          process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceKey;
+        }
+      }
     });
   });
 });

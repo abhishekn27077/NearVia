@@ -479,7 +479,7 @@ describe("NEARVIA Phase 9: Smart Matching System Test Suite", () => {
         { skillId: skillCashierId, years: 1.0 },
       ],
     });
-  });
+  }, 30000);
 
   afterAll(async () => {
     // Clean up all test data

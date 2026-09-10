@@ -86,6 +86,40 @@ export class AvailabilityService {
     let updateSql: string;
     let updateParams: any[];
 
+    if (payload?.latitude !== undefined || payload?.longitude !== undefined) {
+      if (payload.latitude === undefined || payload.longitude === undefined) {
+        throw new AppError(
+          "Both latitude and longitude must be provided together.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+      if (
+        typeof payload.latitude !== "number" ||
+        isNaN(payload.latitude) ||
+        payload.latitude < -90 ||
+        payload.latitude > 90
+      ) {
+        throw new AppError(
+          "Latitude must be a valid number between -90 and 90 degrees.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+      if (
+        typeof payload.longitude !== "number" ||
+        isNaN(payload.longitude) ||
+        payload.longitude < -180 ||
+        payload.longitude > 180
+      ) {
+        throw new AppError(
+          "Longitude must be a valid number between -180 and 180 degrees.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+    }
+
     if (typeof payload?.latitude === "number" && typeof payload?.longitude === "number") {
       updateSql = `
         UPDATE worker_profiles

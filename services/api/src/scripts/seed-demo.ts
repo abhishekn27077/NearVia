@@ -14,19 +14,23 @@ import { query } from "../db";
 import { UserRole } from "@nearvia/types";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://localhost:54321";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "NearviaDemo2026!";
 
-if (!SUPABASE_SERVICE_KEY && process.env.NODE_ENV !== "test") {
-  console.warn("⚠️ [Seed Script] SUPABASE_SERVICE_ROLE_KEY is not defined. Admin operations will fail safely without falling back to anon key.");
+// Privileged client strictly requiring SUPABASE_SERVICE_ROLE_KEY (no fallback to anon key or placeholders)
+export function getSeedAdminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error(
+      "Privileged seed script strictly requires SUPABASE_SERVICE_ROLE_KEY to be set. Aborting to prevent unprivileged execution.",
+    );
+  }
+  return createClient(SUPABASE_URL, serviceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
-
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY || "unconfigured-service-role-key", {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
 
 interface DemoUserDef {
   email: string;
@@ -86,6 +90,17 @@ export async function seedDemoAccounts(): Promise<void> {
   console.log("====================================================");
   console.log("🚀 NEARVIA IDEMPOTENT DEMO ACCOUNT SETUP");
   console.log("====================================================");
+
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED_IN_PROD !== "true") {
+    throw new Error("Demo seed cannot run in production environment unless ALLOW_DEMO_SEED_IN_PROD is set to true.");
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NODE_ENV === "test") {
+    console.warn("⚠️ [Seed Script] Skipping seed in test environment without SUPABASE_SERVICE_ROLE_KEY.");
+    return;
+  }
+
+  const supabaseAdmin = getSeedAdminClient();
 
   // 1. Fetch existing Supabase Auth users to check idempotency
   const { data: userList, error: listErr } = await supabaseAdmin.auth.admin.listUsers();

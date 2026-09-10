@@ -83,8 +83,8 @@ export async function apiFetch(
 
       if (!refreshError && refreshData.session?.access_token) {
         newToken = refreshData.session.access_token;
-      } else {
-        // Check if active user is a demo account and auto-recover
+      } else if (!import.meta.env.PROD || import.meta.env.VITE_ENABLE_DEMO_ACCOUNTS) {
+        // Check if active user is a demo account and auto-recover (development / demo environments only)
         const userJson = localStorage.getItem("nearvia_auth_user");
         if (userJson) {
           try {

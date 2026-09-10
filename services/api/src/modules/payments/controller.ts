@@ -16,12 +16,13 @@ import {
 } from "./types";
 import { AppError } from "../../middleware/errorHandler";
 import { ErrorCode } from "@nearvia/config";
+import { validateUuid, clampPagination } from "../../utils/security";
 
 export class PaymentsController {
   // ── Initiate Online Payment (Provider) ──
   async initiatePayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const assignmentId = req.params.id as string;
+      const assignmentId = validateUuid(req.params.id, "Assignment ID");
       const data = initiatePaymentSchema.parse(req.body);
       const result = await paymentsService.initiatePayment(req.user!.id, assignmentId, data);
       res.status(201).json({ success: true, data: result });
@@ -33,7 +34,7 @@ export class PaymentsController {
   // ── Initiate Cash Payment (Provider) ──
   async initiateCashPayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const assignmentId = req.params.id as string;
+      const assignmentId = validateUuid(req.params.id, "Assignment ID");
       const data = initiateCashPaymentSchema.parse(req.body);
       const result = await paymentsService.initiateCashPayment(req.user!.id, assignmentId, data);
       res.status(200).json({ success: true, data: result });
@@ -45,7 +46,7 @@ export class PaymentsController {
   // ── Confirm Cash Payment (Worker with PIN) ──
   async confirmCashPayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const assignmentId = req.params.id as string;
+      const assignmentId = validateUuid(req.params.id, "Assignment ID");
       const data = confirmCashPaymentSchema.parse(req.body);
       const result = await paymentsService.confirmCashPayment(req.user!.id, assignmentId, data);
       res.status(200).json({ success: true, data: result });
@@ -57,7 +58,7 @@ export class PaymentsController {
   // ── Confirm Payment Direct / Sandbox (Provider) ──
   async confirmPaymentDirect(req: Request, res: Response, next: NextFunction) {
     try {
-      const paymentId = req.params.id as string;
+      const paymentId = validateUuid(req.params.id, "Payment ID");
       const data = confirmPaymentSchema.parse(req.body);
       const payment = await paymentsService.confirmPaymentDirect(req.user!.id, paymentId, data);
       res.status(200).json({ success: true, data: payment });
@@ -88,7 +89,7 @@ export class PaymentsController {
   // ── Payment Receipt ──
   async getPaymentReceipt(req: Request, res: Response, next: NextFunction) {
     try {
-      const paymentId = req.params.id as string;
+      const paymentId = validateUuid(req.params.id, "Payment ID");
       const receipt = await paymentsService.getPaymentReceipt(req.user!.id, paymentId);
       res.status(200).json({ success: true, data: receipt });
     } catch (error) {
@@ -98,7 +99,7 @@ export class PaymentsController {
 
   async getAssignmentPaymentReceipt(req: Request, res: Response, next: NextFunction) {
     try {
-      const assignmentId = req.params.id as string;
+      const assignmentId = validateUuid(req.params.id, "Assignment ID");
       const receipt = await paymentsService.getAssignmentPaymentReceipt(req.user!.id, assignmentId);
       res.status(200).json({ success: true, data: receipt });
     } catch (error) {
@@ -109,7 +110,7 @@ export class PaymentsController {
   // ── Dispute Payment ──
   async disputePayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const assignmentId = req.params.id as string;
+      const assignmentId = validateUuid(req.params.id, "Assignment ID");
       const data = disputePaymentSchema.parse(req.body);
       const result = await paymentsService.disputePayment(req.user!.id, assignmentId, data);
       res.status(200).json({ success: true, data: result });
@@ -141,8 +142,7 @@ export class PaymentsController {
   // ── Worker Transactions ──
   async getWorkerTransactions(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      const { page, limit } = clampPagination(req.query, 20, 50);
       const status = req.query.status as string | undefined;
       const paymentMethod = req.query.paymentMethod as string | undefined;
       const fromDate = req.query.fromDate as string | undefined;
@@ -172,8 +172,7 @@ export class PaymentsController {
 
   async getProviderPaymentsHistory(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      const { page, limit } = clampPagination(req.query, 20, 50);
       const status = req.query.status as string | undefined;
       const paymentMethod = req.query.paymentMethod as string | undefined;
       const fromDate = req.query.fromDate as string | undefined;
@@ -203,7 +202,7 @@ export class PaymentsController {
   // ── Payment Detail ──
   async getPaymentDetail(req: Request, res: Response, next: NextFunction) {
     try {
-      const paymentId = req.params.id as string;
+      const paymentId = validateUuid(req.params.id, "Payment ID");
       const payment = await paymentsService.getPaymentDetail(req.user!.id, paymentId);
       res.status(200).json({ success: true, data: payment });
     } catch (error) {
@@ -214,7 +213,7 @@ export class PaymentsController {
   // ── Refund Payment ──
   async refundPayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const paymentId = req.params.id as string;
+      const paymentId = validateUuid(req.params.id, "Payment ID");
       const data = refundPaymentSchema.parse(req.body);
       const payment = await paymentsService.refundPayment(req.user!.id, paymentId, data);
       res.status(200).json({ success: true, data: payment });

@@ -15,6 +15,10 @@ export async function resetDemoData(): Promise<void> {
   console.log("🧹 NEARVIA SAFE DEMO DATA RESET");
   console.log("====================================================");
 
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_RESET_IN_PROD !== "true") {
+    throw new Error("Demo data reset cannot run in production environment unless ALLOW_DEMO_RESET_IN_PROD is set to true.");
+  }
+
   // 1. Remove demo job applications & assignments first to preserve foreign keys
   await query(`
     DELETE FROM applications 

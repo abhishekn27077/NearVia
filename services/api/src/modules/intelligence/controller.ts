@@ -6,6 +6,7 @@ import { Request, Response } from "express";
 import { intelligenceService } from "./service";
 import { AppError } from "../../middleware/errorHandler";
 import { ErrorCode } from "@nearvia/config";
+import { validateUuid, clampPagination } from "../../utils/security";
 
 export class IntelligenceController {
   /**
@@ -66,11 +67,8 @@ export class IntelligenceController {
       throw new AppError("Only employers can view recommended candidate rankings", 403, ErrorCode.FORBIDDEN);
     }
 
-    const id = String(req.params.id || "");
-    if (!id) {
-      throw new AppError("Opportunity ID is required", 400, ErrorCode.VALIDATION_ERROR);
-    }
-    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
+    const id = validateUuid(req.params.id, "Opportunity ID");
+    const { limit } = clampPagination(req.query, 10, 50);
 
     const candidates = await intelligenceService.getRecommendedCandidates(
       req.user.id,
@@ -96,8 +94,7 @@ export class IntelligenceController {
       throw new AppError("Only workers can access personalized job recommendations", 403, ErrorCode.FORBIDDEN);
     }
 
-    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const { page, limit } = clampPagination(req.query, 20, 50);
     const search = req.query.search as string | undefined;
     const categoryId = req.query.categoryId as string | undefined;
 

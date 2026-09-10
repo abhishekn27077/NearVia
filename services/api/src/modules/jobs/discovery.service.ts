@@ -33,15 +33,38 @@ export class DiscoveryService {
     userId: string | undefined,
     params: DiscoveryQueryParams,
   ): Promise<GeoCoordinates> {
-    if (
-      typeof params.latitude === "number" &&
-      typeof params.longitude === "number" &&
-      params.latitude >= -90 &&
-      params.latitude <= 90 &&
-      params.longitude >= -180 &&
-      params.longitude <= 180
-    ) {
-      return { latitude: params.latitude, longitude: params.longitude };
+    const hasLat = params.latitude !== undefined && params.latitude !== null;
+    const hasLng = params.longitude !== undefined && params.longitude !== null;
+
+    if (hasLat || hasLng) {
+      if (!hasLat || !hasLng) {
+        throw new AppError(
+          "Both latitude and longitude must be provided together.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
+      const lat = Number(params.latitude);
+      const lng = Number(params.longitude);
+
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        throw new AppError(
+          "Latitude must be a valid number between -90 and 90 degrees.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        throw new AppError(
+          "Longitude must be a valid number between -180 and 180 degrees.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
+      return { latitude: lat, longitude: lng };
     }
 
     if (userId) {
@@ -92,6 +115,17 @@ export class DiscoveryService {
     params: DiscoveryQueryParams,
   ): Promise<DiscoveryQueryResult> {
     const searchCenter = await this.resolveSearchCenter(userId, params);
+
+    if (params.radiusKm !== undefined && params.radiusKm !== null) {
+      const r = Number(params.radiusKm);
+      if (isNaN(r) || r <= 0) {
+        throw new AppError(
+          "Search radius must be a positive number.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+    }
 
     const radiusKm = Math.min(
       Math.max(
@@ -279,9 +313,13 @@ export class DiscoveryService {
     const total = parseInt(countResult.rows[0]?.total || "0", 10);
     const rows = dataResult.rows;
 
-    const items: DiscoveredOpportunity[] = [];
-    for (const row of rows) {
+    // Batch fetch skills for all returned opportunities in 1 single query (Eliminates N+1)
+    const rowIds = rows.map((r: any) => r.id);
+    const skillsByJobId: Record<string, WorkOpportunitySkillDetail[]> = {};
+
+    if (rowIds.length > 0) {
       const skillsRes = await query<{
+        work_opportunity_id: string;
         skill_id: string;
         skill_name: string;
         category_id: string;
@@ -289,23 +327,32 @@ export class DiscoveryService {
         is_required: boolean;
         min_experience_years: number;
       }>(
-        `SELECT wos.skill_id, s.name AS skill_name, s.category_id, c.name AS category_name,
+        `SELECT wos.work_opportunity_id, wos.skill_id, s.name AS skill_name, s.category_id, c.name AS category_name,
                 wos.is_required, wos.min_experience_years
          FROM work_opportunity_skills wos
          JOIN skills s ON wos.skill_id = s.id
          JOIN categories c ON s.category_id = c.id
-         WHERE wos.work_opportunity_id = $1`,
-        [row.id],
+         WHERE wos.work_opportunity_id = ANY($1::uuid[])`,
+        [rowIds],
       );
 
-      const skills: WorkOpportunitySkillDetail[] = skillsRes.rows.map((s) => ({
-        skillId: s.skill_id,
-        skillName: s.skill_name,
-        categoryId: s.category_id,
-        categoryName: s.category_name,
-        isRequired: s.is_required,
-        minExperienceYears: s.min_experience_years,
-      }));
+      for (const s of skillsRes.rows) {
+        const list = skillsByJobId[s.work_opportunity_id] || [];
+        list.push({
+          skillId: s.skill_id,
+          skillName: s.skill_name,
+          categoryId: s.category_id,
+          categoryName: s.category_name,
+          isRequired: s.is_required,
+          minExperienceYears: s.min_experience_years,
+        });
+        skillsByJobId[s.work_opportunity_id] = list;
+      }
+    }
+
+    const items: DiscoveredOpportunity[] = [];
+    for (const row of rows) {
+      const skills: WorkOpportunitySkillDetail[] = skillsByJobId[row.id] || [];
 
       const distanceMeters = parseFloat(row.distance_meters);
       const distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;

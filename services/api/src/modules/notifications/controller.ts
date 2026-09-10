@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from "express";
 import { notificationsService } from "./service";
 import { ApiResponse, ErrorCode } from "@nearvia/config";
 import { AppError } from "../../middleware/errorHandler";
+import { validateUuid, clampPagination } from "../../utils/security";
 
 export class NotificationsController {
   /**
@@ -22,7 +23,7 @@ export class NotificationsController {
         throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
       }
 
-      const limit = parseInt(req.query.limit as string, 10) || 20;
+      const { limit } = clampPagination(req.query, 20, 50);
       const data = await notificationsService.getMyNotifications(req.user.id, limit);
 
       const response: ApiResponse<typeof data> = {
@@ -77,11 +78,7 @@ export class NotificationsController {
         throw new AppError("Authentication required.", 401, ErrorCode.UNAUTHORIZED);
       }
 
-      const rawId = req.params.id;
-      const notificationId = Array.isArray(rawId) ? rawId[0] : rawId;
-      if (!notificationId) {
-        throw new AppError("Notification ID is required.", 400, ErrorCode.VALIDATION_ERROR);
-      }
+      const notificationId = validateUuid(req.params.id, "Notification ID");
 
       const updated = await notificationsService.markAsRead(req.user.id, notificationId);
 

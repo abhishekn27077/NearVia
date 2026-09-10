@@ -427,6 +427,13 @@ export class AuthService {
           ErrorCode.FORBIDDEN,
         );
       }
+      if (row.role === UserRole.ADMIN) {
+        throw new AppError(
+          "Administrative accounts cannot be claimed or linked via public OAuth profile synchronization.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
       if (!row.auth_id || row.auth_id === data.authId) {
         // Link authId to existing database record, PRESERVING existing role
         await query(

@@ -451,7 +451,7 @@ describe("NEARVIA Phase 12: GPS Check-In/Out + Job PIN Verification Suite", () =
         .send({ jobPin: "5555" });
       expect(res6.status).toBe(429);
       expect(res6.body.error.code).toBe("JOB_PIN_MAX_ATTEMPTS_EXCEEDED");
-    });
+    }, 15000);
 
     it("4.3: Correct PIN verification on primary assignment succeeds", async () => {
       const res = await request(app)

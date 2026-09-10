@@ -20,10 +20,11 @@ import {
   CreateWorkOpportunityInput,
   UpdateWorkOpportunityInput,
 } from "@nearvia/validation";
-import { ErrorCode } from "@nearvia/config";
-import { query } from "../../db";
+import { ErrorCode, NEARVIA_CONFIG } from "@nearvia/config";
+import { query, withTransaction } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import { providersService } from "../providers/service";
+import { notificationsService } from "../notifications/service";
 
 interface DbWorkOppRow {
   id: string;
@@ -214,6 +215,28 @@ export class WorkOpportunitiesService {
     longitude: number,
     radiusKm: number = 5,
   ): Promise<DiscoverySummaryResponse> {
+    if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+      throw new AppError(
+        "Latitude must be a valid number between -90 and 90 degrees.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+      throw new AppError(
+        "Longitude must be a valid number between -180 and 180 degrees.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (isNaN(radiusKm) || radiusKm < 0.5 || radiusKm > NEARVIA_CONFIG.HYPERLOCAL.MAX_RADIUS_KM) {
+      throw new AppError(
+        `Search radius must be between 0.5 km and ${NEARVIA_CONFIG.HYPERLOCAL.MAX_RADIUS_KM} km.`,
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
     const radiusMeters = radiusKm * 1000;
     try {
       const sql = `
@@ -735,8 +758,15 @@ export class WorkOpportunitiesService {
         updateFields.push(`orientation_provided = $${params.length}`);
       }
 
-      const sql = `UPDATE work_opportunities SET ${updateFields.join(", ")} WHERE id = $1`;
-      await query(sql, params);
+      const sql = `UPDATE work_opportunities SET ${updateFields.join(", ")} WHERE id = $1 AND status = 'DRAFT'`;
+      const updateResult = await query(sql, params);
+      if (updateResult.rowCount === 0) {
+        throw new AppError(
+          "Only opportunities in DRAFT status can be modified.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
 
       // Update skills if provided
       if (input.skills !== undefined) {
@@ -869,9 +899,16 @@ export class WorkOpportunitiesService {
     const sql = `
       UPDATE work_opportunities
       SET status = 'PUBLISHED', published_at = NOW(), updated_at = NOW()
-      WHERE id = $1
+      WHERE id = $1 AND status = 'DRAFT'
     `;
-    await query(sql, [opportunityId]);
+    const pubResult = await query(sql, [opportunityId]);
+    if (pubResult.rowCount === 0) {
+      throw new AppError(
+        `Cannot publish opportunity currently in ${opp.status} status.`,
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
     return this.getWorkOpportunityById(opportunityId, providerUserId);
   }
 
@@ -899,21 +936,95 @@ export class WorkOpportunitiesService {
 
     if (
       opp.status === WorkOpportunityStatus.COMPLETED ||
-      opp.status === WorkOpportunityStatus.CANCELLED
+      opp.status === WorkOpportunityStatus.CANCELLED ||
+      opp.status === WorkOpportunityStatus.SETTLEMENT_PENDING ||
+      opp.status === WorkOpportunityStatus.PAID
     ) {
       throw new AppError(
-        `Opportunity is already ${opp.status.toLowerCase()}.`,
+        `Opportunity cannot be cancelled in ${opp.status.toLowerCase()} status.`,
         400,
         ErrorCode.VALIDATION_ERROR,
       );
     }
 
-    const sql = `
-      UPDATE work_opportunities
-      SET status = 'CANCELLED', cancelled_at = NOW(), updated_at = NOW()
-      WHERE id = $1
-    `;
-    await query(sql, [opportunityId]);
+    // Check if there are active or completed assignments (on-site work already underway)
+    const activeAssignmentsRes = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM assignments 
+       WHERE work_opportunity_id = $1 
+         AND status IN ('CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'SETTLEMENT_PENDING')`,
+      [opportunityId],
+    );
+
+    if (parseInt(activeAssignmentsRes.rows[0]?.count || "0", 10) > 0) {
+      throw new AppError(
+        "Cannot cancel work opportunity with active or completed work in progress. Please resolve ongoing assignments or initiate a dispute.",
+        400,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    const cancelledWorkersToNotify: string[] = [];
+
+    await withTransaction(async (client) => {
+      // 1. Update work opportunity atomically
+      const cancelRes = await client.query(
+        `UPDATE work_opportunities
+         SET status = 'CANCELLED', cancelled_at = NOW(), updated_at = NOW()
+         WHERE id = $1 AND status NOT IN ('COMPLETED', 'SETTLEMENT_PENDING', 'PAID', 'CANCELLED')`,
+        [opportunityId],
+      );
+
+      if (cancelRes.rowCount === 0) {
+        throw new AppError(
+          "Opportunity cannot be cancelled from its current state.",
+          400,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
+      // 2. Cancel un-started assignments (ASSIGNED, CONFIRMED)
+      const cancelledAsns = await client.query<{ id: string; worker_id: string }>(
+        `UPDATE assignments
+         SET status = 'CANCELLED', cancelled_at = NOW(), cancelled_by = $2,
+             cancellation_reason = 'Work opportunity cancelled by employer', updated_at = NOW()
+         WHERE work_opportunity_id = $1 AND status IN ('ASSIGNED', 'CONFIRMED')
+         RETURNING id, worker_id`,
+        [opportunityId, providerUserId],
+      );
+
+      for (const asn of cancelledAsns.rows) {
+        const wRes = await client.query<{ user_id: string }>(
+          "SELECT user_id FROM worker_profiles WHERE id = $1",
+          [asn.worker_id],
+        );
+        if (wRes.rows[0]?.user_id) {
+          cancelledWorkersToNotify.push(wRes.rows[0].user_id);
+        }
+      }
+
+      // 3. Mark pending and shortlisted applications as rejected
+      await client.query(
+        `UPDATE applications
+         SET status = 'REJECTED', decision_notes = 'Work opportunity cancelled by employer',
+             responded_at = NOW(), updated_at = NOW()
+         WHERE work_opportunity_id = $1 AND status IN ('PENDING', 'SHORTLISTED')`,
+        [opportunityId],
+      );
+    });
+
+    // Notify cancelled assignment workers asynchronously
+    for (const workerUserId of cancelledWorkersToNotify) {
+      notificationsService
+        .createNotification(
+          workerUserId,
+          "ASSIGNMENT_CANCELLED",
+          `Shift Cancelled: ${opp.title}`,
+          `The employer cancelled '${opp.title}'. Your schedule has been freed up.`,
+          { workOpportunityId: opportunityId },
+        )
+        .catch(() => {});
+    }
+
     return this.getWorkOpportunityById(opportunityId, providerUserId);
   }
 
