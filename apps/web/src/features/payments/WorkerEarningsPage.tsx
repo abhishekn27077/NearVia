@@ -25,6 +25,12 @@ interface EarningsSummary {
   totalEarnedPaise: number;
   pendingSettlement: number;
   pendingSettlementPaise: number;
+  cashEarnings?: number;
+  cashEarningsPaise?: number;
+  onlineEarnings?: number;
+  onlineEarningsPaise?: number;
+  disputedEarnings?: number;
+  disputedEarningsPaise?: number;
   completedPaymentsCount: number;
   pendingPaymentsCount: number;
 }
@@ -185,6 +191,39 @@ export const WorkerEarningsPage: React.FC = () => {
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-black text-xs">
                   30D
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Method Separation */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="p-5 rounded-2xl card-premium flex items-center justify-between border-emerald-100/80">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-caption-refined">
+                    💵 Cash Confirmed Payouts
+                  </span>
+                  <span className="text-2xl font-black text-slate-900 font-display-title">
+                    {formatCurrencyINR(summary?.cashEarnings || 0)}
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Physical cash verified via PIN</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center font-black text-xs">
+                  CASH
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl card-premium flex items-center justify-between border-indigo-100/80">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-caption-refined">
+                    💳 Digital / Online Payouts (Demo)
+                  </span>
+                  <span className="text-2xl font-black text-slate-900 font-display-title">
+                    {formatCurrencyINR(summary?.onlineEarnings || 0)}
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Razorpay Sandbox test settlement</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center font-black text-xs">
+                  TEST
                 </div>
               </div>
             </div>

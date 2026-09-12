@@ -1,21 +1,31 @@
 import { z } from "zod";
+import { reviewSchema as valReviewSchema } from "@nearvia/validation";
 
-export const reviewSchema = z.object({
-  rating: z.number().int().min(1).max(5),
-  comments: z.string().max(1000).optional(),
-});
-
+export const reviewSchema = valReviewSchema;
 export type ReviewInput = z.infer<typeof reviewSchema>;
+
+export type ReputationStatus = "NEW" | "ESTABLISHED" | "VETERAN";
 
 export interface TrustProfile {
   id: string;
   role: string;
   fullName: string;
-  averageRating: number;
-  totalRatingsCount: number;
-  completedTasksCount: number;
-  verified: boolean;
   avatarUrl?: string;
+  // Real rating signals (null / 0 if no reviews exist)
+  averageRating: number | null;
+  totalRatingsCount: number;
+  hasRatingHistory: boolean;
+  // Authoritative completion & reliability signals
+  completedTasksCount: number;
+  completedJobs: number;
+  completionRate: number | null;
+  reliabilityScore: number | null;
+  onTimeCheckInRate?: number | null;
+  reputationStatus: ReputationStatus;
+  // Identity & verification
+  verified: boolean;
+  skills?: string[];
+  memberSince: string;
 }
 
 export interface ReviewResponse {

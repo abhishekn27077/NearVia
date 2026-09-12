@@ -1000,13 +1000,14 @@ export class AssignmentsService {
         );
       }
 
-      // Reset worker availability status from BUSY to AVAILABLE_NOW or OFFLINE
+      // Reset worker availability status from BUSY to AVAILABLE_NOW or OFFLINE and increment completed_tasks_count
       await client.query(
         `UPDATE worker_profiles 
          SET availability_status = CASE 
            WHEN is_available_now = TRUE AND available_until > NOW() THEN 'AVAILABLE_NOW'::availability_status
            ELSE 'OFFLINE'::availability_status
          END,
+         completed_tasks_count = completed_tasks_count + 1,
          updated_at = NOW()
          WHERE id = $1`,
         [row.worker_id],

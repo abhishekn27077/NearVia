@@ -140,6 +140,28 @@ export class AgentsController {
       next(error);
     }
   }
+
+  async getJobDetailForWorker(req: Request, res: Response, next: NextFunction) {
+    try {
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
+      const jobId = validateUuid(req.params.jobId, "Job ID");
+      const job = await agentsService.getJobDetailForWorker(req.user!.id, workerId, jobId);
+      res.status(200).json({ success: true, data: job });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAssignmentDetailForWorker(req: Request, res: Response, next: NextFunction) {
+    try {
+      const workerId = validateUuid(req.params.workerId, "Worker ID");
+      const assignmentId = validateUuid(req.params.assignmentId, "Assignment ID");
+      const assignment = await agentsService.getAssignmentDetailForWorker(req.user!.id, workerId, assignmentId);
+      res.status(200).json({ success: true, data: assignment });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const agentsController = new AgentsController();

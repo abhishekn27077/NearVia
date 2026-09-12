@@ -75,33 +75,81 @@ export class PaymentsService {
 
     const method = input.paymentMethod || "UPI";
 
-    // Insert or update pending payment_record
-    const insertRes = await query(
-      `INSERT INTO payment_records (
-         assignment_id, payer_id, payee_id, amount, amount_paise, platform_fee, platform_fee_paise,
-         net_payout, net_payout_paise, currency, status, payment_method, transaction_ref,
-         gateway_order_id, idempotency_key, notes
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'INR', 'PENDING', $10, $11, $12, $13, $14)
-       RETURNING *`,
-      [
-        assignmentId,
-        payerUserId,
-        assignment.worker_user_id,
-        amountINR,
-        amountPaise,
-        0.0,
-        platformFeePaise,
-        amountINR,
-        netPayoutPaise,
-        method,
-        order.gatewayOrderId,
-        order.gatewayOrderId,
-        input.idempotencyKey || null,
-        `Online wage payment for ${assignment.opportunity_title}`,
-      ]
+    // Check if existing payment record exists for this assignment
+    const existingPayment = await query<{ id: string; status: string }>(
+      `SELECT id, status FROM payment_records WHERE assignment_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [assignmentId]
     );
 
-    const record = insertRes.rows[0];
+    const firstExisting = existingPayment.rows[0];
+    let record: any;
+    if (firstExisting && firstExisting.status === "CONFIRMED") {
+      throw new AppError(
+        "Payment for this assignment is already confirmed",
+        400,
+        ErrorCode.PAYMENT_ALREADY_CONFIRMED
+      );
+    }
+
+    if (firstExisting && firstExisting.status === "PENDING") {
+      const updateRes = await query(
+        `UPDATE payment_records
+         SET amount = $1,
+             amount_paise = $2,
+             platform_fee = 0.00,
+             platform_fee_paise = $3,
+             net_payout = $1,
+             net_payout_paise = $4,
+             status = 'PENDING',
+             payment_method = $5,
+             gateway_order_id = $6,
+             transaction_ref = $6,
+             idempotency_key = COALESCE($7, idempotency_key),
+             notes = $8,
+             updated_at = NOW()
+         WHERE id = $9
+         RETURNING *`,
+        [
+          amountINR,
+          amountPaise,
+          platformFeePaise,
+          netPayoutPaise,
+          method,
+          order.gatewayOrderId,
+          input.idempotencyKey || null,
+          `Online wage payment for ${assignment.opportunity_title}`,
+          firstExisting.id,
+        ]
+      );
+      record = updateRes.rows[0];
+    } else {
+      const insertRes = await query(
+        `INSERT INTO payment_records (
+           assignment_id, payer_id, payee_id, amount, amount_paise, platform_fee, platform_fee_paise,
+           net_payout, net_payout_paise, currency, status, payment_method, transaction_ref,
+           gateway_order_id, idempotency_key, notes
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'INR', 'PENDING', $10, $11, $12, $13, $14)
+         RETURNING *`,
+        [
+          assignmentId,
+          payerUserId,
+          assignment.worker_user_id,
+          amountINR,
+          amountPaise,
+          0.0,
+          platformFeePaise,
+          amountINR,
+          netPayoutPaise,
+          method,
+          order.gatewayOrderId,
+          order.gatewayOrderId,
+          input.idempotencyKey || null,
+          `Online wage payment for ${assignment.opportunity_title}`,
+        ]
+      );
+      record = insertRes.rows[0];
+    }
+
     if (!record) {
       throw new AppError("Failed to create payment record", 500, ErrorCode.INTERNAL_SERVER_ERROR);
     }
@@ -331,6 +379,27 @@ export class PaymentsService {
         );
       }
 
+      // Ensure assignment is not under active dispute
+      if (assignment.payment_status === "DISPUTED") {
+        throw new AppError(
+          "Cannot confirm cash payment for an assignment under active dispute. Dispute must be resolved first.",
+          409,
+          ErrorCode.PAYMENT_DISPUTED
+        );
+      }
+
+      const openDispute = await client.query(
+        `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'INVESTIGATING', 'UNDER_REVIEW') LIMIT 1`,
+        [assignmentId]
+      );
+      if (openDispute?.rows && openDispute.rows.length > 0) {
+        throw new AppError(
+          "Cannot confirm cash payment for an assignment with an open dispute. Dispute must be resolved first.",
+          409,
+          ErrorCode.PAYMENT_DISPUTED
+        );
+      }
+
       // 2. Fetch pending cash payment record
       const payRes = await client.query<{
         id: string;
@@ -517,6 +586,31 @@ export class PaymentsService {
         return this.getPaymentDetail(payerUserId, paymentId);
       }
 
+      // Check if assignment is under active dispute
+      const assignCheck = await client.query<{ payment_status: string }>(
+        `SELECT payment_status FROM assignments WHERE id = $1`,
+        [payment.assignment_id]
+      );
+      if (assignCheck.rows[0]?.payment_status === "DISPUTED") {
+        throw new AppError(
+          "Cannot confirm payment for an assignment under active dispute. Dispute must be resolved first.",
+          409,
+          ErrorCode.PAYMENT_DISPUTED
+        );
+      }
+
+      const openDispute = await client.query(
+        `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'INVESTIGATING', 'UNDER_REVIEW') LIMIT 1`,
+        [payment.assignment_id]
+      );
+      if (openDispute?.rows && openDispute.rows.length > 0) {
+        throw new AppError(
+          "Cannot confirm payment for an assignment with an open dispute. Dispute must be resolved first.",
+          409,
+          ErrorCode.PAYMENT_DISPUTED
+        );
+      }
+
       const txRef = input.transactionRef || input.razorpayPaymentId || `tx_sb_${Date.now()}`;
       const method = input.paymentMethod || "UPI";
 
@@ -542,11 +636,13 @@ export class PaymentsService {
          SET status = 'CONFIRMED',
              payment_method = $1,
              transaction_ref = $2,
+             gateway_payment_id = COALESCE($4, gateway_payment_id),
+             gateway_signature = COALESCE($5, gateway_signature),
              recorded_at = NOW(),
              updated_at = NOW()
          WHERE id = $3
          RETURNING *`,
-        [method, txRef, paymentId]
+        [method, txRef, paymentId, input.razorpayPaymentId || null, input.razorpaySignature || null]
       );
 
       // 3. Atomically update assignment payment status and close assignment
@@ -667,9 +763,10 @@ export class PaymentsService {
           payer_id: string;
           payee_id: string;
           amount: number;
+          amount_paise: number;
           status: string;
         }>(
-          `SELECT id, assignment_id, payer_id, payee_id, amount, status
+          `SELECT id, assignment_id, payer_id, payee_id, amount, amount_paise, status
            FROM payment_records
            WHERE gateway_order_id = $1 FOR UPDATE`,
           [verified.gatewayOrderId]
@@ -678,6 +775,39 @@ export class PaymentsService {
         const payment = payRes.rows[0];
         if (!payment || payment.status === "CONFIRMED") {
           return; // Idempotent: already confirmed
+        }
+
+        // Check for webhook amount tampering against authoritative payment record
+        if (verified.amountPaise && payment.amount_paise && Number(verified.amountPaise) !== Number(payment.amount_paise)) {
+          await client.query(
+            `UPDATE payment_records
+             SET status = 'FAILED',
+                 notes = COALESCE(notes, '') || ' | Gateway webhook amount mismatch: possible tampering detected.',
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [payment.id]
+          );
+          throw new AppError(
+            `Webhook amount mismatch: expected ${payment.amount_paise} paise, received ${verified.amountPaise} paise`,
+            400,
+            ErrorCode.PAYMENT_AMOUNT_MISMATCH
+          );
+        }
+
+        // Check if assignment is under active dispute
+        const assignCheck = await client.query<{ payment_status: string }>(
+          `SELECT payment_status FROM assignments WHERE id = $1`,
+          [payment.assignment_id]
+        );
+        if (assignCheck.rows[0]?.payment_status === "DISPUTED") {
+          await client.query(
+            `UPDATE payment_records
+             SET notes = COALESCE(notes, '') || ' | Webhook received during active dispute. Settlement held pending dispute resolution.',
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [payment.id]
+          );
+          return;
         }
 
         settledPayerId = payment.payer_id;
@@ -958,6 +1088,7 @@ export class PaymentsService {
   async getWorkerEarnings(workerUserId: string): Promise<WorkerEarningsSummary> {
     const res = await query<{
       status: string;
+      payment_method: string | null;
       is_today: boolean;
       is_this_week: boolean;
       is_this_month: boolean;
@@ -966,6 +1097,7 @@ export class PaymentsService {
     }>(
       `SELECT 
          status,
+         payment_method,
          (recorded_at >= CURRENT_DATE) AS is_today,
          (recorded_at >= DATE_TRUNC('week', CURRENT_DATE)) AS is_this_week,
          (recorded_at >= DATE_TRUNC('month', CURRENT_DATE)) AS is_this_month,
@@ -973,7 +1105,7 @@ export class PaymentsService {
          COALESCE(SUM(ROUND(amount * 100)), 0) AS total_paise
        FROM payment_records
        WHERE payee_id = $1
-       GROUP BY status, is_today, is_this_week, is_this_month`,
+       GROUP BY status, payment_method, is_today, is_this_week, is_this_month`,
       [workerUserId]
     );
 
@@ -982,6 +1114,9 @@ export class PaymentsService {
     let weekEarningsPaise = 0;
     let monthEarningsPaise = 0;
     let pendingSettlementPaise = 0;
+    let cashEarningsPaise = 0;
+    let onlineEarningsPaise = 0;
+    let disputedEarningsPaise = 0;
     let completedPaymentsCount = 0;
     let pendingPaymentsCount = 0;
 
@@ -992,12 +1127,19 @@ export class PaymentsService {
       if (r.status === "CONFIRMED") {
         totalEarnedPaise += paise;
         completedPaymentsCount += count;
+        if (r.payment_method === "CASH") {
+          cashEarningsPaise += paise;
+        } else {
+          onlineEarningsPaise += paise;
+        }
         if (r.is_today) todayEarningsPaise += paise;
         if (r.is_this_week) weekEarningsPaise += paise;
         if (r.is_this_month) monthEarningsPaise += paise;
       } else if (r.status === "PENDING") {
         pendingSettlementPaise += paise;
         pendingPaymentsCount += count;
+      } else if (r.status === "DISPUTED") {
+        disputedEarningsPaise += paise;
       }
     }
 
@@ -1012,6 +1154,12 @@ export class PaymentsService {
       totalEarnedPaise,
       pendingSettlement: pendingSettlementPaise / 100,
       pendingSettlementPaise,
+      cashEarnings: cashEarningsPaise / 100,
+      cashEarningsPaise,
+      onlineEarnings: onlineEarningsPaise / 100,
+      onlineEarningsPaise,
+      disputedEarnings: disputedEarningsPaise / 100,
+      disputedEarningsPaise,
       completedPaymentsCount,
       pendingPaymentsCount,
     };
@@ -1572,7 +1720,41 @@ export class PaymentsService {
       );
     }
 
+    if (assignment.payment_status === "DISPUTED") {
+      throw new AppError(
+        "Cannot initiate payment for an assignment under active dispute. The dispute must be resolved first.",
+        409,
+        ErrorCode.PAYMENT_DISPUTED
+      );
+    }
+
     if (assignment.payment_status === "CONFIRMED") {
+      throw new AppError(
+        "This assignment has already been successfully paid and confirmed",
+        400,
+        ErrorCode.PAYMENT_ALREADY_CONFIRMED
+      );
+    }
+
+    // Check for any active open dispute in the disputes table
+    const openDispute = await query(
+      `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'INVESTIGATING', 'UNDER_REVIEW') LIMIT 1`,
+      [assignmentId]
+    );
+    if (openDispute?.rows && openDispute.rows.length > 0) {
+      throw new AppError(
+        "Cannot initiate payment for an assignment with an open dispute. The dispute must be resolved first.",
+        409,
+        ErrorCode.PAYMENT_DISPUTED
+      );
+    }
+
+    // Check if there is already a CONFIRMED payment record for this assignment
+    const confirmedRecord = await query(
+      `SELECT id FROM payment_records WHERE assignment_id = $1 AND status = 'CONFIRMED' LIMIT 1`,
+      [assignmentId]
+    );
+    if (confirmedRecord?.rows && confirmedRecord.rows.length > 0) {
       throw new AppError(
         "This assignment has already been successfully paid and confirmed",
         400,

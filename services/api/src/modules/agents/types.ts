@@ -60,6 +60,48 @@ export const assistedApplicationSchema = z.object({
 
 export type AssistedApplicationInput = z.infer<typeof assistedApplicationSchema>;
 
+// ---- Assisted Job & Assignment Details ----
+export interface AssistedJobDetailResponse {
+  id: string;
+  title: string;
+  description: string;
+  workType: string;
+  categoryName: string;
+  urgency: string;
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  durationHours: number;
+  paymentAmount: number;
+  paymentType: string;
+  requiredWorkers: number;
+  assignedWorkersCount: number;
+  addressApproximate: string | null;
+  providerBusinessName: string | null;
+  providerRating: number;
+  specialInstructions?: string | null;
+}
+
+export interface AssistedAssignmentDetailResponse {
+  id: string;
+  status: string;
+  assignedAt: string;
+  confirmedAt: string | null;
+  agreedWage: number;
+  workOpportunityId: string;
+  opportunityTitle: string;
+  workType: string;
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  addressApproximate: string | null;
+  checkInWindowMinutes: number;
+  checkInDistanceMeters: number | null;
+  attendanceStatus: string | null;
+  coordinationNotes: string;
+}
+
+
 // ---- Assisted Worker Detail ----
 export interface AssistedWorkerDetail {
   workerId: string;

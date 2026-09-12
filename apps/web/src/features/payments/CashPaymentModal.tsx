@@ -245,7 +245,7 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">
-                  Protected with rate-limiting (Max 5 attempts allowed)
+                  Protected with rate-limiting (Max 3 attempts allowed)
                 </p>
               </div>
 

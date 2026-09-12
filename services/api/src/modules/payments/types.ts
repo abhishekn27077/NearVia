@@ -128,6 +128,12 @@ export interface WorkerEarningsSummary {
   totalEarnedPaise: number;
   pendingSettlement: number; // In INR
   pendingSettlementPaise: number;
+  cashEarnings?: number;
+  cashEarningsPaise?: number;
+  onlineEarnings?: number;
+  onlineEarningsPaise?: number;
+  disputedEarnings?: number;
+  disputedEarningsPaise?: number;
   completedPaymentsCount: number;
   pendingPaymentsCount: number;
 }

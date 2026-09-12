@@ -16,6 +16,8 @@ import {
   AgentProfileUpdateInput,
   AgentWorkerRelationshipResponse,
   AssistedWorkerDetail,
+  AssistedJobDetailResponse,
+  AssistedAssignmentDetailResponse,
 } from "./types";
 
 export class AgentsService {
@@ -115,6 +117,11 @@ export class AgentsService {
 
     // 2. Find worker by phone or ID
     if (workerPhone) {
+      const userRes = await query<{ id: string }>(`SELECT id FROM users WHERE phone = $1`, [workerPhone]);
+      if (userRes.rows[0]?.id === agentUserId) {
+        throw new AppError("You cannot establish an agent-worker relationship with yourself", 400, ErrorCode.VALIDATION_ERROR);
+      }
+
       const workerRes = await query<{ worker_id: string; user_id: string; full_name: string; phone: string }>(
         `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
          FROM users u
@@ -125,6 +132,11 @@ export class AgentsService {
       worker = workerRes.rows[0];
       if (!worker) throw new AppError("No worker found with this phone number", 404);
     } else if (workerId) {
+      const wpUserRes = await query<{ user_id: string }>(`SELECT user_id FROM worker_profiles WHERE id = $1`, [workerId]);
+      if (wpUserRes.rows[0]?.user_id === agentUserId) {
+        throw new AppError("You cannot establish an agent-worker relationship with yourself", 400, ErrorCode.VALIDATION_ERROR);
+      }
+
       const workerRes = await query<{ worker_id: string; user_id: string; full_name: string; phone: string }>(
         `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
          FROM worker_profiles wp
@@ -136,6 +148,11 @@ export class AgentsService {
       if (!worker) throw new AppError("No worker found with this ID", 404);
     } else {
       throw new AppError("Either workerPhone or workerId must be provided", 400);
+    }
+
+    // 2.5 Prevent self-relationship
+    if (worker.user_id === agentUserId) {
+      throw new AppError("You cannot establish an agent-worker relationship with yourself", 400, ErrorCode.VALIDATION_ERROR);
     }
 
     // 3. Check existing relationship
@@ -349,6 +366,14 @@ export class AgentsService {
   ): Promise<unknown> {
     await this.enforceActiveConsent(agentUserId, workerId);
 
+    if (consentConfirmed !== true) {
+      throw new AppError(
+        "Worker consent confirmation is required before submitting an application on their behalf",
+        400,
+        ErrorCode.VALIDATION_ERROR
+      );
+    }
+
     const agentProfileId = await this.getAgentProfileId(agentUserId);
 
     // Resolve worker user ID
@@ -470,6 +495,119 @@ export class AgentsService {
       endTime: r.end_time,
       address: r.address_approximate,
     }));
+  }
+
+  async getJobDetailForWorker(
+    agentUserId: string,
+    workerId: string,
+    jobId: string
+  ): Promise<AssistedJobDetailResponse> {
+    await this.enforceActiveConsent(agentUserId, workerId);
+
+    const res = await query(
+      `SELECT wo.id, wo.title, wo.description, wo.work_type, c.name AS category_name,
+              wo.urgency, wo.work_date, wo.start_time, wo.end_time, wo.duration_hours,
+              wo.payment_amount, wo.payment_type, wo.workers_needed, wo.workers_assigned,
+              wo.address_approximate, wo.instructions AS special_instructions,
+              pp.business_name AS provider_business_name, pp.average_rating AS provider_rating
+       FROM work_opportunities wo
+       JOIN categories c ON wo.category_id = c.id
+       JOIN provider_profiles pp ON wo.provider_id = pp.id
+       WHERE wo.id = $1 AND wo.status IN ('PUBLISHED', 'PARTIALLY_FILLED')`,
+      [jobId]
+    );
+    const row = res.rows[0];
+    if (!row) {
+      throw new AppError("Work opportunity not found or no longer active", 404, ErrorCode.NOT_FOUND);
+    }
+
+    const agentProfileId = await this.getAgentProfileId(agentUserId);
+    await this.recordAudit(
+      agentProfileId,
+      workerId,
+      jobId,
+      "JOB_DETAIL_EXPLAINED",
+      `Agent reviewed job details to explain to worker: ${row.title}`
+    );
+
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      workType: row.work_type,
+      categoryName: row.category_name,
+      urgency: row.urgency,
+      workDate: row.work_date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      durationHours: parseFloat(row.duration_hours) || 0,
+      paymentAmount: parseFloat(row.payment_amount) || 0,
+      paymentType: row.payment_type,
+      requiredWorkers: row.workers_needed,
+      assignedWorkersCount: row.workers_assigned,
+      addressApproximate: row.address_approximate,
+      providerBusinessName: row.provider_business_name,
+      providerRating: parseFloat(row.provider_rating) || 5.0,
+      specialInstructions: row.special_instructions,
+    };
+  }
+
+  async getAssignmentDetailForWorker(
+    agentUserId: string,
+    workerId: string,
+    assignmentId: string
+  ): Promise<AssistedAssignmentDetailResponse> {
+    await this.enforceActiveConsent(agentUserId, workerId);
+
+    const res = await query(
+      `SELECT a.id, a.status, a.assigned_at, a.agreed_wage,
+              wo.id AS work_opportunity_id, wo.title, wo.work_type, wo.work_date,
+              wo.start_time, wo.end_time, wo.address_approximate,
+              a.checked_in_at, a.completed_at
+       FROM assignments a
+       JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
+       WHERE a.id = $1 AND a.worker_id = $2`,
+      [assignmentId, workerId]
+    );
+    const row = res.rows[0];
+    if (!row) {
+      throw new AppError("Assignment not found for this assisted worker", 404, ErrorCode.ASSIGNMENT_NOT_FOUND);
+    }
+
+    const agentProfileId = await this.getAgentProfileId(agentUserId);
+    await this.recordAudit(
+      agentProfileId,
+      workerId,
+      row.work_opportunity_id,
+      "ASSIGNMENT_COORDINATION_VIEWED",
+      `Agent coordinated assignment schedule: ${row.title} (${row.status})`
+    );
+
+    let coordinationNotes = "Assist worker to arrive 15 minutes prior to scheduled start time.";
+    if (row.status === "COMPLETED") {
+      coordinationNotes = "Shift completed. Help worker verify receipt of cash or digital payment.";
+    } else if (row.status === "CHECKED_IN") {
+      coordinationNotes = "Worker is currently checked in and on site.";
+    }
+
+    return {
+      id: row.id,
+      status: row.status,
+      assignedAt: row.assigned_at,
+      confirmedAt: row.checked_in_at ? row.assigned_at : null,
+      agreedWage: parseFloat(row.agreed_wage) || 0,
+      workOpportunityId: row.work_opportunity_id,
+      opportunityTitle: row.title,
+      workType: row.work_type,
+      workDate: row.work_date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      addressApproximate: row.address_approximate,
+      checkInWindowMinutes: 30,
+      checkInDistanceMeters: null,
+      attendanceStatus: row.checked_in_at ? "CHECKED_IN" : "PENDING",
+      coordinationNotes,
+    };
   }
 
   // ──────────────────────────────────────────────────

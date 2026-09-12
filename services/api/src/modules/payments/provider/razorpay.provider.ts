@@ -135,7 +135,7 @@ export class RazorpayPaymentProvider implements PaymentProvider {
     secret?: string;
   }): boolean {
     const keySecret = params.secret || process.env.RAZORPAY_KEY_SECRET || this.defaultSecret;
-    if (!keySecret) return false;
+    if (!keySecret || !params.signature || !params.orderId || !params.paymentId) return false;
 
     const data = `${params.orderId}|${params.paymentId}`;
     const expectedSignature = crypto

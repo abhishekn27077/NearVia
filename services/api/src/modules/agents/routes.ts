@@ -31,14 +31,16 @@ router.post("/workers/:workerId/revoke", (req, res, next) => agentsController.re
 // ── Assisted Worker View ──
 router.get("/workers/:workerId", (req, res, next) => agentsController.getWorkerDetail(req, res, next));
 
-// ── Assisted Discovery ──
+// ── Assisted Discovery & Job Explanation ──
 router.get("/workers/:workerId/work", (req, res, next) => agentsController.getWorkForWorker(req, res, next));
+router.get("/workers/:workerId/work/:jobId", (req, res, next) => agentsController.getJobDetailForWorker(req, res, next));
 
 // ── Assisted Application ──
 router.post("/workers/:workerId/apply", (req, res, next) => agentsController.submitAssistedApplication(req, res, next));
 
-// ── Worker Applications & Assignments (read-only) ──
+// ── Worker Applications & Assignments (read-only for coordination) ──
 router.get("/workers/:workerId/applications", (req, res, next) => agentsController.getWorkerApplications(req, res, next));
 router.get("/workers/:workerId/assignments", (req, res, next) => agentsController.getWorkerAssignments(req, res, next));
+router.get("/workers/:workerId/assignments/:assignmentId", (req, res, next) => agentsController.getAssignmentDetailForWorker(req, res, next));
 
 export const agentsRouter: Router = router;

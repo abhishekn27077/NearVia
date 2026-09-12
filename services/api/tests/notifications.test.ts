@@ -33,7 +33,9 @@ describe("Notifications Service Unit Tests", () => {
   });
 
   it("should mark a single notification as read", async () => {
-    vi.spyOn(db, "query").mockResolvedValueOnce({ rowCount: 1, rows: [] } as any);
+    vi.spyOn(db, "query")
+      .mockResolvedValueOnce({ rows: [{ id: "n-1", recipient_id: "u-1" }], rowCount: 1 } as any)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] } as any);
 
     const updated = await notificationsService.markAsRead("u-1", "n-1");
     expect(updated).toBe(true);

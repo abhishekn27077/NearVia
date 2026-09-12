@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Shield,
   Layers,
+  X,
 } from "lucide-react";
 
 interface WorkerDetail {
@@ -72,6 +73,24 @@ export const AgentWorkerDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState(false);
+
+  // Assignment Coordination modal state
+  const [selectedCoordination, setSelectedCoordination] = useState<any | null>(null);
+
+  const handleCoordinate = async (assignmentId: string) => {
+    try {
+      const token = localStorage.getItem("nearvia_auth_token");
+      const res = await fetch(`/api/v1/agents/workers/${workerId}/assignments/${assignmentId}`, {
+        headers: { Authorization: token ? `Bearer ${token}` : "" },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSelectedCoordination(data.data);
+      }
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     if (!workerId) return;
@@ -293,21 +312,108 @@ export const AgentWorkerDetailPage: React.FC = () => {
               {assignments.map((asg) => (
                 <div
                   key={asg.id}
-                  className="p-3.5 rounded-xl bg-slate-900/50 border border-slate-700/60 flex items-center justify-between"
+                  className="p-3.5 rounded-xl bg-slate-900/50 border border-slate-700/60 flex items-center justify-between gap-2"
                 >
                   <div>
                     <h4 className="font-semibold text-white text-xs">{asg.opportunityTitle}</h4>
                     <span className="text-xs text-slate-400">{asg.workDate} · Agreed: ₹{asg.agreedWage}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    {asg.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      {asg.status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCoordinate(asg.id)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-cyan-300 border border-slate-700 transition"
+                    >
+                      Coordinate
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* Shift Coordination Modal */}
+      {selectedCoordination && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 relative">
+            <button
+              onClick={() => setSelectedCoordination(null)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  {selectedCoordination.status}
+                </span>
+                <span className="text-xs text-slate-400">· {selectedCoordination.workType}</span>
+              </div>
+              <h2 className="text-xl font-bold text-white">{selectedCoordination.opportunityTitle}</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Assisting Worker: <strong className="text-white">{worker.fullName}</strong>
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <h4 className="font-bold text-white uppercase text-[11px] tracking-wider text-emerald-400">Shift Schedule & Wages</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-slate-400 block">Agreed Wage:</span>
+                    <strong className="text-sm font-black text-emerald-400">₹{selectedCoordination.agreedWage}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Work Date:</span>
+                    <strong className="text-white">{selectedCoordination.workDate}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Shift Timing:</span>
+                    <span className="text-slate-200">{new Date(selectedCoordination.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(selectedCoordination.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Attendance:</span>
+                    <span className="text-slate-200">{selectedCoordination.attendanceStatus}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-1.5">
+                <h4 className="font-bold text-white uppercase text-[11px] tracking-wider text-emerald-400">Reporting Location</h4>
+                <p className="text-slate-300 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>{selectedCoordination.addressApproximate}</span>
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-1.5">
+                <h4 className="font-bold text-white uppercase text-[11px] tracking-wider text-cyan-400">Agent Coordination Guidance</h4>
+                <p className="text-slate-300 leading-relaxed">{selectedCoordination.coordinationNotes}</p>
+                <div className="mt-2 p-2 rounded-lg bg-slate-900/80 border border-slate-700 text-[11px] text-slate-400">
+                  <strong className="text-white block mb-0.5">Worker Sovereignty Note:</strong>
+                  Only the assigned worker can confirm and check-in to shifts using their own device or verification code.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSelectedCoordination(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

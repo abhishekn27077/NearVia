@@ -11,6 +11,7 @@ import {
   Search,
   Send,
   X,
+  Info,
 } from "lucide-react";
 
 interface DiscoveredJob {
@@ -56,6 +57,25 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  // Explain Job modal state
+  const [explainJob, setExplainJob] = useState<any | null>(null);
+
+  const handleExplainJob = async (jobId: string) => {
+    try {
+      const token = localStorage.getItem("nearvia_auth_token");
+      const res = await fetch(`/api/v1/agents/workers/${workerId}/work/${jobId}`, {
+        headers: { Authorization: token ? `Bearer ${token}` : "" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to load job details");
+      }
+      setExplainJob(data.data);
+    } catch (err: any) {
+      alert(err.message || "Failed to load job details");
+    }
+  };
 
   // Load worker details & nearby jobs
   const fetchDiscovery = async () => {
@@ -297,17 +317,122 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex items-center gap-2">
                 <button
+                  type="button"
+                  onClick={() => handleExplainJob(job.id)}
+                  className="flex-1 py-2.5 bg-slate-700/60 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 border border-slate-600/50"
+                >
+                  <Info className="w-3.5 h-3.5 text-cyan-400" />
+                  Explain Job
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleOpenApplyModal(job)}
-                  className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/10"
+                  className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/10"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  Assist Application for {workerName || "Worker"}
+                  Assist Apply
                 </button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Explain Job Details Modal */}
+      {explainJob && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setExplainJob(null)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  {explainJob.workType}
+                </span>
+                <span className="text-xs text-slate-400">· {explainJob.categoryName}</span>
+              </div>
+              <h2 className="text-xl font-bold text-white">{explainJob.title}</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Explaining shift details for: <strong className="text-white">{workerName}</strong>
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <h4 className="font-bold text-white uppercase text-[11px] tracking-wider text-cyan-400">Compensation & Timings</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-slate-400 block">Wages Offered:</span>
+                    <strong className="text-sm font-black text-white">₹{explainJob.paymentAmount} ({explainJob.paymentType})</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Work Date:</span>
+                    <strong className="text-white">{explainJob.workDate} ({explainJob.durationHours} hrs)</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Shift Hours:</span>
+                    <span className="text-slate-200">{new Date(explainJob.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(explainJob.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Workers Needed:</span>
+                    <span className="text-slate-200">{explainJob.assignedWorkersCount}/{explainJob.requiredWorkers} assigned</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-1.5">
+                <h4 className="font-bold text-white uppercase text-[11px] tracking-wider text-cyan-400">Location & Provider</h4>
+                <p className="text-slate-300 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>Approx: {explainJob.addressApproximate}</span>
+                </p>
+                {explainJob.providerBusinessName && (
+                  <p className="text-slate-400">
+                    Employer: <strong className="text-slate-200">{explainJob.providerBusinessName}</strong> (★ {explainJob.providerRating})
+                  </p>
+                )}
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-1.5">
+                <h4 className="font-bold text-white uppercase text-[11px] tracking-wider text-cyan-400">Job Description</h4>
+                <p className="text-slate-300 whitespace-pre-line leading-relaxed">{explainJob.description}</p>
+                {explainJob.specialInstructions && (
+                  <div className="mt-2 pt-2 border-t border-slate-700 text-amber-300">
+                    <strong>Special Instructions:</strong> {explainJob.specialInstructions}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setExplainJob(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const jobToApply = opportunities.find((o) => o.id === explainJob.id);
+                  setExplainJob(null);
+                  if (jobToApply) handleOpenApplyModal(jobToApply);
+                }}
+                className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-500/10 flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Proceed to Apply</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

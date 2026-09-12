@@ -485,7 +485,11 @@ export const ProviderDashboardPage: React.FC = () => {
               Employer Rating
             </div>
             <div className="text-2xl font-black text-slate-900 font-display flex items-center space-x-1.5">
-              <span>★ {Number(reputation?.averageRating || 5.0).toFixed(1)}</span>
+              <span>
+                {reputation?.totalRatingsCount && reputation.totalRatingsCount > 0
+                  ? `★ ${Number(reputation.averageRating).toFixed(1)}`
+                  : "★ New"}
+              </span>
               <span className="text-xs font-medium text-slate-400">
                 ({reputation?.totalRatingsCount || 0})
               </span>

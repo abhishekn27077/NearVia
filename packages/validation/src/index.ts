@@ -6,3 +6,4 @@ export * from "./providers.schema.js";
 export * from "./applications.schema.js";
 export * from "./assignments.schema.js";
 export * from "./safety.schema.js";
+export * from "./reviews.schema.js";

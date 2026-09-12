@@ -393,7 +393,11 @@ export const WorkerDashboardPage: React.FC = () => {
               Customer Rating
             </div>
             <div className="text-2xl font-black text-slate-900 font-display-title flex items-center space-x-1.5">
-              <span>★ {Number(stats?.averageRating || 5.0).toFixed(1)}</span>
+              <span>
+                {stats?.totalRatingsCount && stats.totalRatingsCount > 0
+                  ? `★ ${Number(stats.averageRating).toFixed(1)}`
+                  : "★ New"}
+              </span>
               <span className="text-xs font-medium text-slate-400">
                 ({stats?.totalRatingsCount || 0})
               </span>

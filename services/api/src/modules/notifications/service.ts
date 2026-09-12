@@ -160,7 +160,7 @@ export class NotificationsService {
   }
 
   /**
-   * Create a new notification for a recipient with automatic deduplication.
+   * Create a new notification for a recipient with automatic deduplication and sensitive data filtering.
    */
   public async createNotification(
     recipientId: string,
@@ -170,9 +170,13 @@ export class NotificationsService {
     data: Record<string, any> = {},
   ): Promise<string> {
     try {
-      const eventId = data.eventId || null;
-      const workOppId = data.workOpportunityId || null;
-      const assignmentId = data.assignmentId || null;
+      const sanitizedTitle = sanitizeText(title);
+      const sanitizedMessage = sanitizeText(message);
+      const sanitizedData = sanitizeNotificationData(data);
+
+      const eventId = sanitizedData.eventId || null;
+      const workOppId = sanitizedData.workOpportunityId || null;
+      const assignmentId = sanitizedData.assignmentId || null;
 
       // 1. Explicit eventId idempotency check
       if (eventId) {
@@ -208,7 +212,7 @@ export class NotificationsService {
         `INSERT INTO notifications (recipient_id, type, title, message, data, is_read, created_at)
          VALUES ($1, $2, $3, $4, $5, FALSE, NOW())
          RETURNING id`,
-        [recipientId, type, title, message, JSON.stringify(data)],
+        [recipientId, type, sanitizedTitle, sanitizedMessage, JSON.stringify(sanitizedData)],
       );
       return res?.rows?.[0]?.id || "";
     } catch (err: any) {
@@ -220,4 +224,83 @@ export class NotificationsService {
   }
 }
 
+export const NotificationType = {
+  NEW_APPLICATION: "NEW_APPLICATION",
+  APPLICATION_ACCEPTED: "APPLICATION_ACCEPTED",
+  APPLICATION_REJECTED: "APPLICATION_REJECTED",
+  APPLICATION_WITHDRAWN: "APPLICATION_WITHDRAWN",
+  APPLICATION_SHORTLISTED: "APPLICATION_SHORTLISTED",
+  ASSIGNMENT_CREATED: "ASSIGNMENT_CREATED",
+  ASSIGNMENT_CANCELLED: "ASSIGNMENT_CANCELLED",
+  WORKER_CONFIRMED: "WORKER_CONFIRMED",
+  WORKER_CHECKED_IN: "WORKER_CHECKED_IN",
+  JOB_PIN_VERIFIED: "JOB_PIN_VERIFIED",
+  SHIFT_CHECKED_OUT: "SHIFT_CHECKED_OUT",
+  SHIFT_COMPLETED: "SHIFT_COMPLETED",
+  COMPLETION_CONFIRMED: "COMPLETION_CONFIRMED",
+  PAYMENT_INITIATED: "PAYMENT_INITIATED",
+  PAYMENT_ESCROWED: "PAYMENT_ESCROWED",
+  PAYMENT_RELEASED: "PAYMENT_RELEASED",
+  PAYMENT_SETTLED: "PAYMENT_SETTLED",
+  CASH_PAID: "CASH_PAID",
+  PAYMENT_DISPUTED: "PAYMENT_DISPUTED",
+  NEW_REVIEW: "NEW_REVIEW",
+  DISPUTE_OPENED: "DISPUTE_OPENED",
+  DISPUTE_RESOLVED: "DISPUTE_RESOLVED",
+  REPORT_STATUS_UPDATED: "REPORT_STATUS_UPDATED",
+  AGENT_ACCESS_REQUEST: "AGENT_ACCESS_REQUEST",
+  AGENT_REQUEST_ACCEPTED: "AGENT_REQUEST_ACCEPTED",
+  AGENT_ACCESS_REVOKED: "AGENT_ACCESS_REVOKED",
+  AGENT_ASSISTED_APPLICATION: "AGENT_ASSISTED_APPLICATION",
+  AGENT_WORKER_HIRED: "AGENT_WORKER_HIRED",
+  NEW_MESSAGE: "NEW_MESSAGE",
+  SHIFT_REMINDER: "SHIFT_REMINDER",
+} as const;
+
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
+
+const SENSITIVE_KEYS = new Set([
+  "password",
+  "token",
+  "secret",
+  "auth_token",
+  "refreshtoken",
+  "privateaddress",
+  "private_address",
+  "fulladdress",
+  "full_address",
+  "pin",
+  "otp",
+  "bankaccount",
+  "bank_account",
+  "ifsc",
+  "authid",
+  "auth_id",
+]);
+
+function sanitizeNotificationData(data: Record<string, any>): Record<string, any> {
+  if (!data || typeof data !== "object") return {};
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    const lowerKey = key.toLowerCase();
+    if (SENSITIVE_KEYS.has(lowerKey)) {
+      continue; // omit sensitive keys completely
+    }
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      sanitized[key] = sanitizeNotificationData(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
+function sanitizeText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/bearer\s+[a-zA-Z0-9._-]+/gi, "[REDACTED_TOKEN]")
+    .replace(/(?:password|secret|token)\s*[:=]\s*[^\s,]+/gi, "[REDACTED]");
+}
+
 export const notificationsService = new NotificationsService();
+

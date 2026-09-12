@@ -197,6 +197,18 @@ export const ProviderPaymentsPage: React.FC = () => {
           </div>
         )}
 
+        {/* Sandbox Notice Banner */}
+        <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-900 font-black text-[10px] uppercase shrink-0">
+              DEMO / TEST
+            </span>
+            <span className="font-medium">
+              Digital payments run in Razorpay Sandbox Test Mode. Real settlements can be completed directly on-site via Cash with 4-digit PIN verification.
+            </span>
+          </div>
+        </div>
+
         {/* Pending Settlements Section */}
         <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-card space-y-6">
           <div className="flex items-center justify-between">
@@ -263,7 +275,7 @@ export const ProviderPaymentsPage: React.FC = () => {
                       className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm disabled:opacity-50"
                     >
                       <CreditCard className="w-4 h-4 text-orange-400" />
-                      <span>{onlinePayingId === item.assignmentId ? "Processing..." : "💳 Pay Online"}</span>
+                      <span>{onlinePayingId === item.assignmentId ? "Processing..." : "💳 Pay Online (Demo)"}</span>
                     </button>
                   </div>
                 </div>

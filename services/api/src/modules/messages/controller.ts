@@ -3,10 +3,16 @@ import { z } from "zod";
 import { messagesService } from "./service";
 import { UserRole } from "@nearvia/types";
 
-const createConversationSchema = z.object({
-  workOpportunityId: z.string().uuid("Invalid workOpportunityId format"),
-  workerUserId: z.string().uuid("Invalid workerUserId format").optional(),
-});
+const createConversationSchema = z
+  .object({
+    workOpportunityId: z.string().uuid("Invalid workOpportunityId format").optional(),
+    workerUserId: z.string().uuid("Invalid workerUserId format").optional(),
+    agentUserId: z.string().uuid("Invalid agentUserId format").optional(),
+  })
+  .refine(
+    (data) => !!data.workOpportunityId || !!data.workerUserId || !!data.agentUserId,
+    { message: "Either workOpportunityId or target participant userId must be provided." },
+  );
 
 const sendMessageSchema = z.object({
   content: z.string().trim().min(1, "Message content cannot be empty").max(2000, "Message exceeds 2000 characters"),
@@ -28,6 +34,7 @@ export class MessagesController {
         userRole,
         parsed.workOpportunityId,
         parsed.workerUserId,
+        parsed.agentUserId,
       );
 
       res.status(200).json({

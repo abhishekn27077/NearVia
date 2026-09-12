@@ -627,6 +627,32 @@ export class ApplicationsService {
       );
     }
 
+    // Trigger in-app notification to Provider
+    try {
+      const res = await query<{ provider_user_id: string; job_title: string; worker_name: string; work_opportunity_id: string }>(
+        `SELECT pp.user_id AS provider_user_id, wo.title AS job_title, uw.full_name AS worker_name, a.work_opportunity_id
+         FROM applications a
+         JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
+         JOIN provider_profiles pp ON wo.provider_id = pp.id
+         JOIN worker_profiles wp ON a.worker_id = wp.id
+         JOIN users uw ON wp.user_id = uw.id
+         WHERE a.id = $1`,
+        [applicationId],
+      );
+      const row = res.rows[0];
+      if (row?.provider_user_id) {
+        await notificationsService.createNotification(
+          row.provider_user_id,
+          "APPLICATION_WITHDRAWN",
+          `Applicant Withdrawn: ${row.job_title}`,
+          `${row.worker_name} has withdrawn their application for '${row.job_title}'.`,
+          { workOpportunityId: row.work_opportunity_id, applicationId, reason: reason || "Withdrawn by candidate" },
+        );
+      }
+    } catch (e) {
+      console.error("Failed to notify provider of application withdrawal:", e);
+    }
+
     return this.getApplicationById(workerUserId, applicationId);
   }
 

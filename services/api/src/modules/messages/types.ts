@@ -4,16 +4,19 @@
 
 export interface ConversationItem {
   id: string;
-  workOpportunityId: string;
+  workOpportunityId?: string;
   opportunityTitle: string;
   workerId: string;
   workerUserId: string;
   workerFullName: string;
   workerAvatarUrl?: string;
-  providerId: string;
-  providerUserId: string;
-  providerFullName: string;
+  providerId?: string;
+  providerUserId?: string;
+  providerFullName?: string;
   providerBusinessName?: string;
+  agentId?: string;
+  agentUserId?: string;
+  agentFullName?: string;
   lastMessageText?: string;
   lastMessageAt: string;
   unreadCount: number;
@@ -38,6 +41,8 @@ export interface SendMessageInput {
 }
 
 export interface CreateConversationInput {
-  workOpportunityId: string;
+  workOpportunityId?: string;
   workerUserId?: string;
+  agentUserId?: string;
 }
+
