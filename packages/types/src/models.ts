@@ -303,6 +303,7 @@ export interface MatchScoreBreakdown {
   durationScore: number; // 0–100 (10% weight)
   categoryScore: number; // 0–100 (5% weight)
   urgencyScore: number; // 0–100 (5% weight)
+  trustScore?: number; // 0–100 (optional employer trust / verification factor)
 }
 
 export interface MatchExplanation {
@@ -905,7 +906,105 @@ export interface WorkforceRadarSummary {
   radiusKm: number;
   categoryCounts: WorkforceRadarCategoryCount[];
   clusters: WorkforceRadarCluster[];
+  availableTalent?: {
+    id: string;
+    primarySkill: string;
+    rating: number;
+    totalRatings: number;
+    completedTasks: number;
+    verifiedBadge: boolean;
+    phoneVerified: boolean;
+    distanceKm: number;
+    areaName: string;
+    isAvailableNow: boolean;
+  }[];
 }
+
+export interface WorkforceRadarHotspot {
+  id: string;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+  activeOpportunitiesCount: number;
+  activeWorkersCount: number;
+  supplyDemandRatio: number;
+  topCategories: string[];
+  avgWage?: number;
+  urgencyTier: "CRITICAL_SHORTAGE" | "HIGH_DEMAND" | "BALANCED" | "LOW";
+}
+
+export interface WorkerRadarData {
+  role: "WORKER";
+  searchCenter: GeoCoordinates;
+  radiusKm: number;
+  activeOpportunitiesCount: number;
+  matchedJobDemandCount: number;
+  demandByCategory: {
+    categoryId: string;
+    categoryName: string;
+    activeJobsCount: number;
+    avgWage: number;
+    urgentCount: number;
+  }[];
+  demandBySkill: {
+    skillId: string;
+    skillName: string;
+    jobsDemandingCount: number;
+  }[];
+  hotspots: WorkforceRadarHotspot[];
+  recentCompletedJobsCount: number;
+}
+
+export interface ProviderRadarData extends WorkforceRadarSummary {
+  role: "PROVIDER";
+  competingOpenJobsCount: number;
+  localWageAverages: {
+    categoryId: string;
+    categoryName: string;
+    avgWage: number;
+    medianWage: number;
+  }[];
+}
+
+export interface AgentRadarData {
+  role: "AGENT";
+  searchCenter: GeoCoordinates;
+  radiusKm: number;
+  totalLinkedWorkers: number;
+  onlineLinkedWorkers: number;
+  linkedSkillsDemandCount: number;
+  topDemandedSkillsForLinked: {
+    skillName: string;
+    jobsCount: number;
+  }[];
+  hotspots: WorkforceRadarHotspot[];
+  categoryCounts: {
+    categoryId: string;
+    categoryName: string;
+    openJobsCount: number;
+  }[];
+}
+
+export interface AdminRadarData {
+  role: "ADMIN";
+  searchCenter: GeoCoordinates;
+  radiusKm: number;
+  totalActiveJobs: number;
+  totalAvailableWorkers: number;
+  supplyDemandRatio: number;
+  recentCompletedJobsCount: number;
+  categorySupplyDemand: {
+    categoryId: string;
+    categoryName: string;
+    activeJobsCount: number;
+    availableWorkersCount: number;
+    ratio: number;
+    status: "SHORTAGE" | "BALANCED" | "SURPLUS";
+  }[];
+  hotspots: WorkforceRadarHotspot[];
+}
+
+export type RadarResponse = WorkerRadarData | ProviderRadarData | AgentRadarData | AdminRadarData;
 
 export interface PreferredWorkerRecord {
   id: string;
@@ -1127,3 +1226,98 @@ export interface JobMatchesResponse {
   totalMatches: number;
   matches: SmartMatchCandidate[];
 }
+
+// ------------------------------------------------------------------------------
+// Phase 17: Admin Operations Analytics & Intelligence Contracts
+// ------------------------------------------------------------------------------
+
+export interface AdminMarketplaceAnalytics {
+  jobsByCategory: {
+    categoryId: string;
+    categoryName: string;
+    count: number;
+    avgWage: number;
+  }[];
+  jobsByType: {
+    workType: "TASK" | "SHIFT" | "JOB";
+    count: number;
+  }[];
+  jobsByStatus: {
+    status: string;
+    count: number;
+  }[];
+  conversionFunnel: {
+    publishedJobs: number;
+    totalApplications: number;
+    totalAssignments: number;
+    completedAssignments: number;
+    applicationToHireRate: number;
+    assignmentCompletionRate: number;
+  };
+  completionRatePercentage: number;
+  cancellationRatePercentage: number;
+  activeWorkforceActivity: {
+    onlineWorkersCount: number;
+    activeProvidersCount: number;
+  };
+}
+
+export interface AdminTrustSafetyAnalytics {
+  verifications: {
+    pending: number;
+    approved: number;
+    rejected: number;
+    total: number;
+  };
+  ratingsOverview: {
+    averageRating: number;
+    totalReviews: number;
+    fiveStarCount: number;
+    fourStarCount: number;
+    threeStarOrLessCount: number;
+  };
+  reportsByReason: {
+    reason: string;
+    count: number;
+  }[];
+  reportsByStatus: {
+    status: string;
+    count: number;
+  }[];
+  disputesByReason: {
+    reason: string;
+    count: number;
+  }[];
+  disputesByStatus: {
+    status: string;
+    count: number;
+  }[];
+  unresolvedIncidentsCount: number;
+  moderationBacklogCount: number;
+}
+
+export interface AdminPaymentAnalytics {
+  cashSettlements: {
+    settledVolume: number;
+    settledVolumePaise: number;
+    count: number;
+  };
+  sandboxOnlinePayments: {
+    isSandbox: true;
+    volume: number;
+    volumePaise: number;
+    count: number;
+    disclaimer: string;
+  };
+  pendingSettlements: {
+    count: number;
+    pendingVolume: number;
+  };
+  disputedPayments: {
+    count: number;
+    disputedVolume: number;
+  };
+  failedPaymentsCount: number;
+  totalTransactionsCount: number;
+}
+

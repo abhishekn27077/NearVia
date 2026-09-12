@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import { ApplicationDetail, ApplicationStatus } from "@nearvia/types";
 import { formatCurrencyINR, formatScheduleRange } from "../../utils";
+import { useLanguage } from "../../context/LanguageContext";
 
 export const WorkerApplicationsPage: React.FC = () => {
+  const { t } = useLanguage();
   const [applications, setApplications] = useState<ApplicationDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export const WorkerApplicationsPage: React.FC = () => {
   }, []);
 
   const handleWithdraw = async (applicationId: string) => {
-    if (!window.confirm("Are you sure you want to withdraw this application?")) {
+    if (!window.confirm(t.withdrawPrompt)) {
       return;
     }
     setWithdrawingId(applicationId);
@@ -83,35 +85,35 @@ export const WorkerApplicationsPage: React.FC = () => {
         return (
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center space-x-1">
             <Clock className="w-3.5 h-3.5" />
-            <span>Pending Review</span>
+            <span>{t.statusPendingReview}</span>
           </span>
         );
       case ApplicationStatus.SHORTLISTED:
         return (
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center space-x-1">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Shortlisted ✨</span>
+            <span>{t.statusShortlisted}</span>
           </span>
         );
       case ApplicationStatus.ACCEPTED:
         return (
           <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Hired & Assigned 🎉</span>
+            <span>{t.accepted}</span>
           </span>
         );
       case ApplicationStatus.REJECTED:
         return (
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center space-x-1">
             <XCircle className="w-3.5 h-3.5" />
-            <span>Declined</span>
+            <span>{t.statusDeclined}</span>
           </span>
         );
       case ApplicationStatus.WITHDRAWN:
         return (
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 flex items-center space-x-1">
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Withdrawn</span>
+            <span>{t.statusWithdrawn}</span>
           </span>
         );
       default:
@@ -131,13 +133,13 @@ export const WorkerApplicationsPage: React.FC = () => {
           <div className="space-y-1">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-bold border border-orange-100 mb-1">
               <Briefcase className="w-3.5 h-3.5" />
-              <span>Application Tracker</span>
+              <span>{t.applicationsTitle}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-display">
-              Your Work Applications
+              {t.applicationsTitle}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-xl">
-              Track status, shortlisted notifications, and employer selections in real-time.
+              {t.applicationsSubtitle}
             </p>
           </div>
 
@@ -145,7 +147,7 @@ export const WorkerApplicationsPage: React.FC = () => {
             to="/worker/find-work"
             className="px-5 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black transition-all shadow-md shadow-orange-600/20 flex items-center space-x-2 self-start sm:self-auto shrink-0"
           >
-            <span>Explore 5 KM Work</span>
+            <span>{t.exploreWork}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -153,11 +155,11 @@ export const WorkerApplicationsPage: React.FC = () => {
         {/* Filter Pills */}
         <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
           {[
-            { label: "All Applications", value: "ALL" },
-            { label: "Pending", value: ApplicationStatus.PENDING },
-            { label: "Shortlisted", value: ApplicationStatus.SHORTLISTED },
-            { label: "Hired 🎉", value: ApplicationStatus.ACCEPTED },
-            { label: "Declined", value: ApplicationStatus.REJECTED },
+            { label: t.filterAll, value: "ALL" },
+            { label: t.statusPendingReview, value: ApplicationStatus.PENDING },
+            { label: t.statusShortlisted, value: ApplicationStatus.SHORTLISTED },
+            { label: t.accepted, value: ApplicationStatus.ACCEPTED },
+            { label: t.statusDeclined, value: ApplicationStatus.REJECTED },
           ].map((tab) => (
             <button
               key={tab.value}
@@ -298,7 +300,7 @@ export const WorkerApplicationsPage: React.FC = () => {
                           disabled={withdrawingId === app.id}
                           className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 text-xs font-bold transition-colors disabled:opacity-50"
                         >
-                          {withdrawingId === app.id ? "Withdrawing..." : "Withdraw Application"}
+                          {withdrawingId === app.id ? t.loading : t.withdrawApplication}
                         </button>
                       ) : null}
                     </div>

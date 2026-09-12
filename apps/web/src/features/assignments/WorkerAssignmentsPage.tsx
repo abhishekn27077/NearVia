@@ -15,10 +15,12 @@ import {
 import { AssignmentDetail, AssignmentStatus } from "@nearvia/types";
 import { formatCurrencyINR, formatScheduleRange } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { webConfig } from "../../config";
 
 export const WorkerAssignmentsPage: React.FC = () => {
   const { token } = useAuth();
+  const { t } = useLanguage();
   const [assignments, setAssignments] = useState<AssignmentDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,28 +57,28 @@ export const WorkerAssignmentsPage: React.FC = () => {
         return (
           <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center space-x-1 animate-pulse">
             <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>🎉 Hired • Tap to Confirm</span>
+            <span>{t.hiredTapToConfirm}</span>
           </span>
         );
       case AssignmentStatus.CONFIRMED:
         return (
           <span className="px-3 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center space-x-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-            <span>Confirmed • Ready for Arrival</span>
+            <span>{t.confirmedReadyForArrival}</span>
           </span>
         );
       case AssignmentStatus.IN_PROGRESS:
         return (
           <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200 flex items-center space-x-1 animate-pulse">
             <Clock className="w-3.5 h-3.5" />
-            <span>Shift In Progress</span>
+            <span>{t.shiftInProgress}</span>
           </span>
         );
       case AssignmentStatus.COMPLETED:
         return (
           <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Shift Completed</span>
+            <span>{t.shiftCompletedBadge}</span>
           </span>
         );
       default:
@@ -96,10 +98,10 @@ export const WorkerAssignmentsPage: React.FC = () => {
           <div className="space-y-1">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-bold border border-orange-100 mb-1">
               <Briefcase className="w-3.5 h-3.5" />
-              <span>Shift Dispatch & Execution</span>
+              <span>{t.shiftDispatch}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-display">
-              Active Shift Assignments
+              {t.myActiveShifts}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-xl">
               Confirmed work sessions with GPS directions, attendance verification, and same-day payout.
@@ -110,7 +112,7 @@ export const WorkerAssignmentsPage: React.FC = () => {
             to="/worker/find-work"
             className="px-5 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black transition-all shadow-md shadow-orange-600/20 flex items-center space-x-2 self-start sm:self-auto shrink-0"
           >
-            <span>Find More Shifts</span>
+            <span>{t.findWork}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

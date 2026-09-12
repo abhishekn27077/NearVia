@@ -7,6 +7,8 @@ import {
   formatDate,
   getSpeechLanguageCode,
   buildJobNarrationText,
+  getLocalizedAssignmentStatus,
+  getLocalizedApplicationStatus,
 } from "../../../apps/web/src/context/translations";
 
 describe("Phase 17: Multilingual + Accessibility Verification Suite", () => {
@@ -15,8 +17,8 @@ describe("Phase 17: Multilingual + Accessibility Verification Suite", () => {
   describe("1. Translation Dictionary Parity & Completeness", () => {
     const englishKeys = Object.keys(TRANSLATIONS.en) as (keyof typeof TRANSLATIONS.en)[];
 
-    it("should have at least 90 comprehensive translation keys in English dictionary", () => {
-      expect(englishKeys.length).toBeGreaterThanOrEqual(90);
+    it("should have at least 140 comprehensive translation keys in English dictionary", () => {
+      expect(englishKeys.length).toBeGreaterThanOrEqual(140);
     });
 
     it("should have 100% key parity in Kannada (kn) dictionary with zero missing keys", () => {
@@ -57,6 +59,9 @@ describe("Phase 17: Multilingual + Accessibility Verification Suite", () => {
       expect(kannadaScriptRegex.test(kannadaDict.cashPayment)).toBe(true);
       expect(kannadaScriptRegex.test(kannadaDict.safetyCenter)).toBe(true);
       expect(kannadaScriptRegex.test(kannadaDict.agentPortal)).toBe(true);
+      expect(kannadaScriptRegex.test(kannadaDict.earningsToday)).toBe(true);
+      expect(kannadaScriptRegex.test(kannadaDict.settlementPin)).toBe(true);
+      expect(kannadaScriptRegex.test(kannadaDict.hiredTapToConfirm)).toBe(true);
     });
 
     it("should contain authentic Devanagari Unicode script in Hindi translations", () => {
@@ -69,6 +74,9 @@ describe("Phase 17: Multilingual + Accessibility Verification Suite", () => {
       expect(devanagariScriptRegex.test(hindiDict.cashPayment)).toBe(true);
       expect(devanagariScriptRegex.test(hindiDict.safetyCenter)).toBe(true);
       expect(devanagariScriptRegex.test(hindiDict.agentPortal)).toBe(true);
+      expect(devanagariScriptRegex.test(hindiDict.earningsToday)).toBe(true);
+      expect(devanagariScriptRegex.test(hindiDict.settlementPin)).toBe(true);
+      expect(devanagariScriptRegex.test(hindiDict.hiredTapToConfirm)).toBe(true);
     });
   });
 
@@ -139,7 +147,30 @@ describe("Phase 17: Multilingual + Accessibility Verification Suite", () => {
     });
   });
 
-  describe("6. Voice Read-Aloud Narration & Speech Codes", () => {
+  describe("6. Dynamic Status Badge Helpers", () => {
+    it("should translate assignment statuses across English, Kannada, and Hindi", () => {
+      expect(getLocalizedAssignmentStatus("ASSIGNED", "en")).toBe(TRANSLATIONS.en.hiredTapToConfirm);
+      expect(getLocalizedAssignmentStatus("ASSIGNED", "kn")).toBe(TRANSLATIONS.kn.hiredTapToConfirm);
+      expect(getLocalizedAssignmentStatus("ASSIGNED", "hi")).toBe(TRANSLATIONS.hi.hiredTapToConfirm);
+
+      expect(getLocalizedAssignmentStatus("CONFIRMED", "en")).toBe(TRANSLATIONS.en.confirmedReadyForArrival);
+      expect(getLocalizedAssignmentStatus("IN_PROGRESS", "kn")).toBe(TRANSLATIONS.kn.shiftInProgress);
+      expect(getLocalizedAssignmentStatus("COMPLETED", "hi")).toBe(TRANSLATIONS.hi.shiftCompletedBadge);
+    });
+
+    it("should translate application statuses across English, Kannada, and Hindi", () => {
+      expect(getLocalizedApplicationStatus("PENDING", "en")).toBe(TRANSLATIONS.en.statusPendingReview);
+      expect(getLocalizedApplicationStatus("PENDING", "kn")).toBe(TRANSLATIONS.kn.statusPendingReview);
+      expect(getLocalizedApplicationStatus("PENDING", "hi")).toBe(TRANSLATIONS.hi.statusPendingReview);
+
+      expect(getLocalizedApplicationStatus("SHORTLISTED", "en")).toBe(TRANSLATIONS.en.statusShortlisted);
+      expect(getLocalizedApplicationStatus("ACCEPTED", "kn")).toBe(TRANSLATIONS.kn.accepted);
+      expect(getLocalizedApplicationStatus("REJECTED", "hi")).toBe(TRANSLATIONS.hi.statusDeclined);
+      expect(getLocalizedApplicationStatus("WITHDRAWN", "en")).toBe(TRANSLATIONS.en.statusWithdrawn);
+    });
+  });
+
+  describe("7. Voice Read-Aloud Narration & Speech Codes", () => {
     it("should map languages to correct BCP 47 speech synthesis codes", () => {
       expect(getSpeechLanguageCode("en")).toBe("en-IN");
       expect(getSpeechLanguageCode("kn")).toBe("kn-IN");
@@ -204,7 +235,7 @@ describe("Phase 17: Multilingual + Accessibility Verification Suite", () => {
     });
   });
 
-  describe("7. Low-Literacy & Accessibility Standards (WCAG 2.2 AA)", () => {
+  describe("8. Low-Literacy & Accessibility Standards (WCAG 2.2 AA)", () => {
     it("should verify touch target size requirements (>= 44px min-height/min-width)", () => {
       // WCAG 2.2 Criterion 2.5.8 Target Size (Minimum) is 24x24 CSS px; NearVia enforces 44-48px
       const minTouchTargetPx = 44;
@@ -231,6 +262,9 @@ describe("Phase 17: Multilingual + Accessibility Verification Suite", () => {
       expect(TRANSLATIONS.en.emergencyNotice).toContain("112");
       expect(TRANSLATIONS.kn.emergencyNotice).toContain("112");
       expect(TRANSLATIONS.hi.emergencyNotice).toContain("112");
+      expect(TRANSLATIONS.en.nationalEmergency112).toContain("112");
+      expect(TRANSLATIONS.kn.nationalEmergency112).toContain("112");
+      expect(TRANSLATIONS.hi.nationalEmergency112).toContain("112");
     });
   });
 });

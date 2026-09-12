@@ -13,7 +13,6 @@ import {
   Zap,
   Wallet,
   CreditCard,
-  ShieldAlert,
   MessageSquare,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -38,7 +37,11 @@ export const Header: React.FC = () => {
         {/* Brand Logo & Tagline */}
         <div className="flex items-center space-x-6">
           <Link
-            to={user ? `/${user.role.toLowerCase()}/dashboard` : "/"}
+            to={
+              user && user.role !== UserRole.ADMIN
+                ? `/${user.role.toLowerCase()}/dashboard`
+                : "/"
+            }
             className="flex items-center space-x-2.5 group btn-tactile"
             aria-label="NEARVIA Home"
           >
@@ -53,7 +56,7 @@ export const Header: React.FC = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-600"></span>
               </div>
               <p className="text-[10px] font-bold text-slate-500 font-caption-refined mt-0.5">
-                Work Within Reach
+                {t.brandTagline}
               </p>
             </div>
           </Link>
@@ -65,7 +68,7 @@ export const Header: React.FC = () => {
               <>
                 <Link
                   to="/find-work"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                     location.pathname.startsWith("/find-work") || location.pathname.startsWith("/worker/find-work")
                       ? "bg-blue-50 text-blue-700 border border-blue-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -76,7 +79,7 @@ export const Header: React.FC = () => {
                 </Link>
                 <Link
                   to="/register"
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500"
                 >
                   <PlusCircle className="w-3.5 h-3.5 text-orange-600" />
                   <span>{t.postWork}</span>
@@ -89,7 +92,7 @@ export const Header: React.FC = () => {
               <>
                 <Link
                   to="/worker/find-work"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                     location.pathname.startsWith("/worker/find-work")
                       ? "bg-blue-50 text-blue-700 border border-blue-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -100,7 +103,7 @@ export const Header: React.FC = () => {
                 </Link>
                 <Link
                   to="/worker/assignments"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                     location.pathname.startsWith("/worker/assignments")
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -111,36 +114,36 @@ export const Header: React.FC = () => {
                 </Link>
                 <Link
                   to="/worker/availability"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-600 ${
                     location.pathname.startsWith("/worker/availability")
                       ? "bg-amber-50 text-amber-700 border border-amber-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Available Now</span>
+                  <span>{t.availableNow}</span>
                 </Link>
                 <Link
                   to="/worker/earnings"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-600 ${
                     location.pathname.startsWith("/worker/earnings")
                       ? "bg-purple-50 text-purple-700 border border-purple-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <Wallet className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Earnings</span>
+                  <span>{t.earnings}</span>
                 </Link>
                 <Link
                   to="/messages"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                     location.pathname.startsWith("/messages")
                       ? "bg-blue-50 text-blue-700 border border-blue-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Messages</span>
+                  <span>{t.messages}</span>
                 </Link>
               </>
             )}
@@ -150,7 +153,7 @@ export const Header: React.FC = () => {
               <>
                 <Link
                   to="/provider/work/new"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 ${
                     location.pathname === "/provider/work/new"
                       ? "bg-orange-50 text-orange-700 border border-orange-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -161,7 +164,7 @@ export const Header: React.FC = () => {
                 </Link>
                 <Link
                   to="/provider/work"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500 ${
                     location.pathname === "/provider/work"
                       ? "bg-slate-100 text-slate-900 border border-slate-300 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -172,25 +175,25 @@ export const Header: React.FC = () => {
                 </Link>
                 <Link
                   to="/provider/payments"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                     location.pathname === "/provider/payments"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Wage Settlements</span>
+                  <span>{t.wageSettlements}</span>
                 </Link>
                 <Link
                   to="/messages"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                     location.pathname.startsWith("/messages")
                       ? "bg-blue-50 text-blue-700 border border-blue-200/80 shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Messages</span>
+                  <span>{t.messages}</span>
                 </Link>
               </>
             )}
@@ -199,44 +202,17 @@ export const Header: React.FC = () => {
             {user?.role === UserRole.AGENT && (
               <Link
                 to="/agent/dashboard"
-                className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-600 ${
                   location.pathname.startsWith("/agent")
                     ? "bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-xs"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Agent Portal</span>
+                <span>{t.agentPortal}</span>
               </Link>
             )}
 
-            {/* 5. ADMIN ROLE NAVIGATION */}
-            {user?.role === UserRole.ADMIN && (
-              <>
-                <Link
-                  to="/admin/dashboard"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    location.pathname === "/admin/dashboard"
-                      ? "bg-rose-50 text-rose-700 border border-rose-200/80 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Command Center</span>
-                </Link>
-                <Link
-                  to="/admin/work"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    location.pathname.startsWith("/admin/work")
-                      ? "bg-slate-100 text-slate-900 border border-slate-300 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  <Building className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Marketplace</span>
-                </Link>
-              </>
-            )}
           </nav>
         </div>
 
@@ -294,7 +270,7 @@ export const Header: React.FC = () => {
                     ? "/provider/profile"
                     : user.role === UserRole.AGENT
                     ? "/agent/dashboard"
-                    : "/admin/dashboard"
+                    : "/"
                 }
                 className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-900 text-xs font-bold transition-colors"
               >

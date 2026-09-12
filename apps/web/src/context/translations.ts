@@ -16,6 +16,16 @@ export interface Translations {
   profile: string;
   messages: string;
   notifications: string;
+  home: string;
+  shifts: string;
+  workers: string;
+  myWork: string;
+  findJobs: string;
+  admin: string;
+  earnings: string;
+  wageSettlements: string;
+  commandCenter: string;
+  marketplace: string;
 
   // Auth & Roles
   phoneLabel: string;
@@ -72,6 +82,16 @@ export interface Translations {
   requirements: string;
   urgent: string;
   startingSoon: string;
+  hours: string;
+  kmAway: string;
+  distance: string;
+  schedule: string;
+  employer: string;
+  locateOnMap: string;
+  directions: string;
+  filterAll: string;
+  filterActive: string;
+  filterCompleted: string;
 
   // Applications & Hiring
   submitApplication: string;
@@ -84,6 +104,16 @@ export interface Translations {
   hired: string;
   agentAssisted: string;
   assistedByAgent: string;
+  statusPendingReview: string;
+  statusShortlisted: string;
+  statusDeclined: string;
+  statusWithdrawn: string;
+  withdrawApplication: string;
+  withdrawPrompt: string;
+  withdrawSuccess: string;
+  applicationsTitle: string;
+  applicationsSubtitle: string;
+  exploreWork: string;
 
   // Assignments & Shift Execution
   myActiveShifts: string;
@@ -102,6 +132,13 @@ export interface Translations {
   statusInProgress: string;
   statusCompleted: string;
   statusClosed: string;
+  shiftDispatch: string;
+  hiredTapToConfirm: string;
+  confirmedReadyForArrival: string;
+  shiftInProgress: string;
+  shiftCompletedBadge: string;
+  confirmAttendancePrompt: string;
+  enterPinToVerify: string;
 
   // Payments & Settlement
   settlementPending: string;
@@ -114,6 +151,18 @@ export interface Translations {
   amountPaid: string;
   wageBreakdown: string;
   downloadReceipt: string;
+  cashHandoverNotice: string;
+  settlementPin: string;
+  enterPinToConfirm: string;
+  generatePin: string;
+  copyPin: string;
+  pinCopied: string;
+  confirmCashReceipt: string;
+  handoverCashPrompt: string;
+  paymentCompleted: string;
+  earningsToday: string;
+  earningsMonth: string;
+  totalEarnings: string;
 
   // Worker Actions & Status
   availableNow: string;
@@ -128,6 +177,11 @@ export interface Translations {
   fileDispute: string;
   disputePending: string;
   disputeResolved: string;
+  nationalEmergency112: string;
+  womenHelpline1091: string;
+  policeAmbulance: string;
+  safetyHelplineTitle: string;
+  safetyHelplineDesc: string;
 
   // Agent Marketplace
   agentPortal: string;
@@ -135,6 +189,14 @@ export interface Translations {
   activeWorkers: string;
   assistedApplications: string;
   consentNotice: string;
+
+  // Messaging & Notifications
+  noConversations: string;
+  typeMessage: string;
+  send: string;
+  markAllAsRead: string;
+  noNotifications: string;
+  unread: string;
 
   // Common Actions & Errors
   save: string;
@@ -172,6 +234,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     profile: "My Profile",
     messages: "Messages",
     notifications: "Notifications",
+    home: "Home",
+    shifts: "Shifts",
+    workers: "Workers",
+    myWork: "My Work",
+    findJobs: "Find Jobs",
+    admin: "Admin",
+    earnings: "Earnings",
+    wageSettlements: "Wage Settlements",
+    commandCenter: "Command Center",
+    marketplace: "Marketplace",
 
     // Auth & Roles
     phoneLabel: "Phone Number",
@@ -228,6 +300,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     requirements: "Requirements",
     urgent: "URGENT",
     startingSoon: "STARTING SOON",
+    hours: "Hours",
+    kmAway: "km away",
+    distance: "Distance",
+    schedule: "Schedule",
+    employer: "Employer",
+    locateOnMap: "Locate on Map",
+    directions: "Directions",
+    filterAll: "All",
+    filterActive: "Active",
+    filterCompleted: "Completed",
 
     // Applications & Hiring
     submitApplication: "Apply for Job",
@@ -240,6 +322,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     hired: "Hired 🎉",
     agentAssisted: "Agent-Assisted",
     assistedByAgent: "Assisted by trusted local Agent",
+    statusPendingReview: "Pending Review",
+    statusShortlisted: "Shortlisted ✨",
+    statusDeclined: "Declined",
+    statusWithdrawn: "Withdrawn",
+    withdrawApplication: "Withdraw Application",
+    withdrawPrompt: "Are you sure you want to withdraw this application?",
+    withdrawSuccess: "Application successfully withdrawn.",
+    applicationsTitle: "Your Work Applications",
+    applicationsSubtitle: "Track status, shortlisted notifications, and employer selections in real-time.",
+    exploreWork: "Explore 5 KM Work",
 
     // Assignments & Shift Execution
     myActiveShifts: "My Active Shifts",
@@ -258,6 +350,13 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     statusInProgress: "In Progress",
     statusCompleted: "Completed",
     statusClosed: "Settled & Closed",
+    shiftDispatch: "Shift Dispatch & Execution",
+    hiredTapToConfirm: "🎉 Hired • Tap to Confirm",
+    confirmedReadyForArrival: "Confirmed • Ready for Arrival",
+    shiftInProgress: "Shift In Progress",
+    shiftCompletedBadge: "Shift Completed",
+    confirmAttendancePrompt: "Please confirm your attendance",
+    enterPinToVerify: "Enter 4-digit PIN for verification",
 
     // Payments & Settlement
     settlementPending: "Settlement Pending",
@@ -270,6 +369,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     amountPaid: "Amount Paid",
     wageBreakdown: "Wage Breakdown",
     downloadReceipt: "Download Receipt",
+    cashHandoverNotice: "Hand over cash in person upon work completion and obtain verification PIN.",
+    settlementPin: "Settlement PIN",
+    enterPinToConfirm: "Enter PIN to Confirm",
+    generatePin: "Generate PIN",
+    copyPin: "Copy PIN",
+    pinCopied: "PIN Copied!",
+    confirmCashReceipt: "Confirm Cash Receipt",
+    handoverCashPrompt: "Hand over exact cash amount to the worker.",
+    paymentCompleted: "Payment Completed",
+    earningsToday: "Today's Earnings",
+    earningsMonth: "This Month's Earnings",
+    totalEarnings: "Total Earnings",
 
     // Worker Actions & Status
     availableNow: "Available Now",
@@ -284,6 +395,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     fileDispute: "File a Dispute",
     disputePending: "Dispute Under Investigation",
     disputeResolved: "Dispute Resolved",
+    nationalEmergency112: "National Emergency: 112",
+    womenHelpline1091: "Women Helpline: 1091",
+    policeAmbulance: "Police: 100 / Ambulance: 108",
+    safetyHelplineTitle: "NEARVIA 24/7 Safety & Emergency Guidance",
+    safetyHelplineDesc: "NEARVIA strictly moderates fraud, harassment, and wage issues. For immediate physical danger or medical emergencies, contact emergency services.",
 
     // Agent Marketplace
     agentPortal: "Agent Portal",
@@ -291,6 +407,14 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     activeWorkers: "Active Workers",
     assistedApplications: "Assisted Applications",
     consentNotice: "Worker has granted permission to Agent to assist with NearVia.",
+
+    // Messaging & Notifications
+    noConversations: "No conversations yet",
+    typeMessage: "Type a message...",
+    send: "Send",
+    markAllAsRead: "Mark all as read",
+    noNotifications: "No notifications",
+    unread: "Unread",
 
     // Common Actions & Errors
     save: "Save",
@@ -327,6 +451,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     profile: "ನನ್ನ ಪ್ರೊಫೈಲ್",
     messages: "ಸಂದೇಶಗಳು",
     notifications: "ಸೂಚನೆಗಳು",
+    home: "ಮುಖಪುಟ",
+    shifts: "ಪಾಳಿಗಳು",
+    workers: "ಕೆಲಸಗಾರರು",
+    myWork: "ನನ್ನ ಕೆಲಸ",
+    findJobs: "ಕೆಲಸ ಹುಡುಕಿ",
+    admin: "ನಿರ್ವಾಹಕ",
+    earnings: "ಗಳಿಕೆ",
+    wageSettlements: "ಸಂಬಳ ಇತ್ಯರ್ಥ",
+    commandCenter: "ನಿಯಂತ್ರಣ ಕೊಠಡಿ",
+    marketplace: "ಮಾರುಕಟ್ಟೆ",
 
     // Auth & Roles
     phoneLabel: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
@@ -383,6 +517,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     requirements: "ಅಗತ್ಯತೆಗಳು",
     urgent: "ತುರ್ತು",
     startingSoon: "ಶೀಘ್ರದಲ್ಲೇ ಪ್ರಾರಂಭ",
+    hours: "ಗಂಟೆಗಳು",
+    kmAway: "ಕಿ.ಮೀ ದೂರದಲ್ಲಿದೆ",
+    distance: "ದೂರ",
+    schedule: "ಸಮಯ",
+    employer: "ಉದ್ಯೋಗದಾತ",
+    locateOnMap: "ನಕ್ಷೆಯಲ್ಲಿ ನೋಡಿ",
+    directions: "ದಾರಿ ತಿಳಿಯಿರಿ",
+    filterAll: "ಎಲ್ಲವೂ",
+    filterActive: "ಸಕ್ರಿಯ",
+    filterCompleted: "ಪೂರ್ಣಗೊಂಡಿದೆ",
 
     // Applications & Hiring
     submitApplication: "ಕೆಲಸಕ್ಕೆ ಅರ್ಜಿ ಹಾಕಿ",
@@ -395,6 +539,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     hired: "ನೇಮಕಗೊಂಡಿದೆ 🎉",
     agentAssisted: "ಏಜೆಂಟ್ ನೆರವು",
     assistedByAgent: "ಸ್ಥಳೀಯ ಏಜೆಂಟ್ ಸಹಾಯದಿಂದ ಅರ್ಜಿ ಸಲ್ಲಿಸಲಾಗಿದೆ",
+    statusPendingReview: "ಪರಿಶೀಲನೆ ಬಾಕಿ ಇದೆ",
+    statusShortlisted: "ಆಯ್ಕೆ ಪಟ್ಟಿಯಲ್ಲಿದೆ ✨",
+    statusDeclined: "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
+    statusWithdrawn: "ಹಿಂಪಡೆಯಲಾಗಿದೆ",
+    withdrawApplication: "ಅರ್ಜಿ ಹಿಂಪಡೆಯಿರಿ",
+    withdrawPrompt: "ನೀವು ನಿಜವಾಗಿಯೂ ಈ ಅರ್ಜಿಯನ್ನು ಹಿಂಪಡೆಯಲು ಬಯಸುವಿರಾ?",
+    withdrawSuccess: "ಅರ್ಜಿಯನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಹಿಂಪಡೆಯಲಾಗಿದೆ.",
+    applicationsTitle: "ನಿಮ್ಮ ಕೆಲಸದ ಅರ್ಜಿಗಳು",
+    applicationsSubtitle: "ಸ್ಥಿತಿ, ಆಯ್ಕೆ ಮತ್ತು ಉದ್ಯೋಗದಾತರ ನಿರ್ಧಾರಗಳನ್ನು ನೇರವಾಗಿ ಪರಿಶೀಲಿಸಿ.",
+    exploreWork: "5 ಕಿ.ಮೀ ಕೆಲಸ ಹುಡುಕಿ",
 
     // Assignments & Shift Execution
     myActiveShifts: "ನನ್ನ ಸಕ್ರಿಯ ಪಾಳಿಗಳು",
@@ -413,6 +567,13 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     statusInProgress: "ಪ್ರಗತಿಯಲ್ಲಿದೆ",
     statusCompleted: "ಪೂರ್ಣಗೊಂಡಿದೆ",
     statusClosed: "ಇತ್ಯರ್ಥಗೊಂಡಿದೆ",
+    shiftDispatch: "ಪಾಳಿ ನಿರ್ವಹಣೆ ಮತ್ತು ಹಾಜರಾತಿ",
+    hiredTapToConfirm: "🎉 ನೇಮಕಗೊಂಡಿದೆ • ದೃಢೀಕರಿಸಿ",
+    confirmedReadyForArrival: "ದೃಢಪಟ್ಟಿದೆ • ಹಾಜರಾತಿಗೆ ಸಿದ್ಧ",
+    shiftInProgress: "ಕೆಲಸ ನಡೆಯುತ್ತಿದೆ",
+    shiftCompletedBadge: "ಕೆಲಸ ಪೂರ್ಣಗೊಂಡಿದೆ",
+    confirmAttendancePrompt: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹಾಜರಾತಿಯನ್ನು ದೃಢೀಕರಿಸಿ",
+    enterPinToVerify: "ದೃಢೀಕರಣಕ್ಕಾಗಿ 4-ಅಂಕಿಯ ಪಿನ್ ಹಾಕಿ",
 
     // Payments & Settlement
     settlementPending: "ಪಾವತಿ ಬಾಕಿ ಇದೆ",
@@ -425,6 +586,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     amountPaid: "ಪಾವತಿಸಿದ ಮೊತ್ತ",
     wageBreakdown: "ಸಂಬಳದ ವಿವರ",
     downloadReceipt: "ರಶೀದಿ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ",
+    cashHandoverNotice: "ಕೆಲಸ ಮುಗಿದ ನಂತರ ನಗದು ಹಸ್ತಾಂತರಿಸಿ ಮತ್ತು ಪಿನ್ ಪಡೆಯಿರಿ.",
+    settlementPin: "ಇತ್ಯರ್ಥ ಪಿನ್ (PIN)",
+    enterPinToConfirm: "ದೃಢೀಕರಿಸಲು ಪಿನ್ ನಮೂದಿಸಿ",
+    generatePin: "ಪಿನ್ ರಚಿಸಿ",
+    copyPin: "ಪಿನ್ ನಕಲಿಸಿ",
+    pinCopied: "ಪಿನ್ ನಕಲಿಸಲಾಗಿದೆ!",
+    confirmCashReceipt: "ನಗದು ಸ್ವೀಕರಿಸಿದ್ದನ್ನು ದೃಢೀಕರಿಸಿ",
+    handoverCashPrompt: "ಕೆಲಸಗಾರರಿಗೆ ಸರಿಯಾದ ಮೊತ್ತವನ್ನು ನಗದಾಗಿ ನೀಡಿ.",
+    paymentCompleted: "ಪಾವತಿ ಪೂರ್ಣಗೊಂಡಿದೆ",
+    earningsToday: "ಇಂದಿನ ಗಳಿಕೆ",
+    earningsMonth: "ಈ ತಿಂಗಳ ಗಳಿಕೆ",
+    totalEarnings: "ಒಟ್ಟು ಗಳಿಕೆ",
 
     // Worker Actions & Status
     availableNow: "ಈಗ ಲಭ್ಯವಿದೆ",
@@ -439,6 +612,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     fileDispute: "ತಕರಾರು ದಾಖಲಿಸಿ",
     disputePending: "ತಕರಾರು ಪರಿಶೀಲನೆಯಲ್ಲಿದೆ",
     disputeResolved: "ತಕರಾರು ಇತ್ಯರ್ಥವಾಗಿದೆ",
+    nationalEmergency112: "ರಾಷ್ಟ್ರೀಯ ತುರ್ತು: 112",
+    womenHelpline1091: "ಮಹಿಳಾ ಸಹಾಯವಾಣಿ: 1091",
+    policeAmbulance: "ಪೊಲೀಸ್: 100 / ಆಂಬ್ಯುಲೆನ್ಸ್: 108",
+    safetyHelplineTitle: "NEARVIA 24/7 ಸುರಕ್ಷತಾ ಮಾರ್ಗದರ್ಶನ",
+    safetyHelplineDesc: "ವಂಚನೆ, ಕಿರುಕುಳ ಅಥವಾ ಸುರಕ್ಷತಾ ಸಮಸ್ಯೆಗಳಿಗೆ ತಕ್ಷಣ ತುರ್ತು ಸೇವೆಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ.",
 
     // Agent Marketplace
     agentPortal: "ಏಜೆಂಟ್ ಪೋರ್ಟಲ್",
@@ -446,6 +624,14 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     activeWorkers: "ಸಕ್ರಿಯ ಕೆಲಸಗಾರರು",
     assistedApplications: "ನೆರವಿನ ಅರ್ಜಿಗಳು",
     consentNotice: "ಕೆಲಸಗಾರರು ಏಜೆಂಟ್ ಸಹಾಯಕ್ಕೆ ಒಪ್ಪಿಗೆ ನೀಡಿದ್ದಾರೆ.",
+
+    // Messaging & Notifications
+    noConversations: "ಯಾವುದೇ ಸಂಭಾಷಣೆಗಳಿಲ್ಲ",
+    typeMessage: "ಸಂದೇಶ ಬರೆಯಿರಿ...",
+    send: "ಕಳುಹಿಸಿ",
+    markAllAsRead: "ಎಲ್ಲವನ್ನೂ ಓದಿದಂತೆ ಗುರುತಿಸಿ",
+    noNotifications: "ಯಾವುದೇ ಸೂಚನೆಗಳಿಲ್ಲ",
+    unread: "ಓದದಿರುವುದು",
 
     // Common Actions & Errors
     save: "ಉಳಿಸಿ",
@@ -482,6 +668,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     profile: "मेरी प्रोफ़ाइल",
     messages: "संदेश",
     notifications: "सूचनाएं",
+    home: "होम",
+    shifts: "शिफ्ट्स",
+    workers: "कामगार",
+    myWork: "मेरा काम",
+    findJobs: "काम खोजें",
+    admin: "एडमिन",
+    earnings: "कमाई",
+    wageSettlements: "मजदूरी निपटान",
+    commandCenter: "कमांड सेंटर",
+    marketplace: "मार्केटप्लेस",
 
     // Auth & Roles
     phoneLabel: "मोबाइल नंबर",
@@ -538,6 +734,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     requirements: "ज़रूरतें",
     urgent: "जरूरी",
     startingSoon: "जल्द शुरू",
+    hours: "घंटे",
+    kmAway: "कि.मी दूरी पर",
+    distance: "दूरी",
+    schedule: "समय",
+    employer: "मालिक / ठेकेदार",
+    locateOnMap: "नक्शे पर देखें",
+    directions: "रास्ता देखें",
+    filterAll: "सभी",
+    filterActive: "सक्रिय",
+    filterCompleted: "पूर्ण",
 
     // Applications & Hiring
     submitApplication: "काम के लिए आवेदन करें",
@@ -550,6 +756,16 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     hired: "नियुक्त 🎉",
     agentAssisted: "एजेंट सहायता",
     assistedByAgent: "स्थानीय एजेंट की सहायता से आवेदन किया गया",
+    statusPendingReview: "जांच जारी है",
+    statusShortlisted: "शॉर्टलिस्टेड ✨",
+    statusDeclined: "अस्वीकृत",
+    statusWithdrawn: "वापस लिया गया",
+    withdrawApplication: "आवेदन वापस लें",
+    withdrawPrompt: "क्या आप वाकई यह आवेदन वापस लेना चाहते हैं?",
+    withdrawSuccess: "आवेदन सफलतापूर्वक वापस लिया गया।",
+    applicationsTitle: "आपके काम के आवेदन",
+    applicationsSubtitle: "स्थिति, चयन और काम से जुड़ी हर सूचना सीधे देखें।",
+    exploreWork: "5 KM काम खोजें",
 
     // Assignments & Shift Execution
     myActiveShifts: "मेरी सक्रिय शिफ्ट्स",
@@ -568,6 +784,13 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     statusInProgress: "जारी है",
     statusCompleted: "पूर्ण",
     statusClosed: "निपटारा पूर्ण",
+    shiftDispatch: "शिफ्ट संचालन व उपस्थिति",
+    hiredTapToConfirm: "🎉 नियुक्त • पुष्टि करने के लिए दबाएं",
+    confirmedReadyForArrival: "पुष्टि की गई • पहुंचने के लिए तैयार",
+    shiftInProgress: "काम जारी है",
+    shiftCompletedBadge: "काम पूर्ण",
+    confirmAttendancePrompt: "कृपया अपनी उपस्थिति की पुष्टि करें",
+    enterPinToVerify: "सत्यापन के लिए 4 अंकों का पिन डालें",
 
     // Payments & Settlement
     settlementPending: "भुगतान बाकी है",
@@ -580,6 +803,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     amountPaid: "भुगतान की गई राशि",
     wageBreakdown: "मजदूरी का विवरण",
     downloadReceipt: "रसीद डाउनलोड करें",
+    cashHandoverNotice: "काम समाप्त होने पर नकद भुगतान करें और पिन प्राप्त करें।",
+    settlementPin: "निपटान पिन (PIN)",
+    enterPinToConfirm: "पुष्टि के लिए पिन डालें",
+    generatePin: "पिन बनाएं",
+    copyPin: "पिन कॉपी करें",
+    pinCopied: "पिन कॉपी हो गया!",
+    confirmCashReceipt: "नकद प्राप्ति की पुष्टि करें",
+    handoverCashPrompt: "कामगार को सही राशि नकद में दें।",
+    paymentCompleted: "भुगतान पूर्ण",
+    earningsToday: "आज की कमाई",
+    earningsMonth: "इस महीने की कमाई",
+    totalEarnings: "कुल कमाई",
 
     // Worker Actions & Status
     availableNow: "अभी उपलब्ध",
@@ -594,6 +829,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     fileDispute: "विवाद दर्ज करें",
     disputePending: "विवाद जांच में है",
     disputeResolved: "विवाद सुलझ गया",
+    nationalEmergency112: "राष्ट्रीय आपातकाल: 112",
+    womenHelpline1091: "महिला हेल्पलाइन: 1091",
+    policeAmbulance: "पुलिस: 100 / एम्बुलेंस: 108",
+    safetyHelplineTitle: "NEARVIA 24/7 सुरक्षा व आपातकालीन सहायता",
+    safetyHelplineDesc: "धोखाधड़ी, उत्पीड़न या सुरक्षा समस्याओं के लिए तुरंत आपातकालीन सेवाओं से संपर्क करें।",
 
     // Agent Marketplace
     agentPortal: "एजेंट पोर्टल",
@@ -601,6 +841,14 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     activeWorkers: "सक्रिय कामगार",
     assistedApplications: "सहायता प्राप्त आवेदन",
     consentNotice: "कामगार ने एजेंट को सहायता की अनुमति दी है।",
+
+    // Messaging & Notifications
+    noConversations: "कोई बातचीत नहीं है",
+    typeMessage: "संदेश लिखें...",
+    send: "भेजें",
+    markAllAsRead: "सभी पढ़े गए चिह्नित करें",
+    noNotifications: "कोई सूचना नहीं है",
+    unread: "अपठित",
 
     // Common Actions & Errors
     save: "सहेजें",
@@ -716,4 +964,52 @@ export const buildJobNarrationText = (
   if (job.description) str += `Details: ${job.description}. `;
   if (job.requirements) str += `Requirements: ${job.requirements}.`;
   return str.trim();
+};
+
+/**
+ * Localized Dynamic Status Badges for Assignments
+ */
+export const getLocalizedAssignmentStatus = (
+  status: string,
+  language: Language = "en"
+): string => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+  switch (status) {
+    case "ASSIGNED":
+      return t.hiredTapToConfirm;
+    case "CONFIRMED":
+      return t.confirmedReadyForArrival;
+    case "IN_PROGRESS":
+      return t.shiftInProgress;
+    case "COMPLETED":
+      return t.shiftCompletedBadge;
+    case "CLOSED":
+      return t.statusClosed;
+    default:
+      return status;
+  }
+};
+
+/**
+ * Localized Dynamic Status Badges for Applications
+ */
+export const getLocalizedApplicationStatus = (
+  status: string,
+  language: Language = "en"
+): string => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+  switch (status) {
+    case "PENDING":
+      return t.statusPendingReview;
+    case "SHORTLISTED":
+      return t.statusShortlisted;
+    case "ACCEPTED":
+      return t.accepted;
+    case "REJECTED":
+      return t.statusDeclined;
+    case "WITHDRAWN":
+      return t.statusWithdrawn;
+    default:
+      return status;
+  }
 };

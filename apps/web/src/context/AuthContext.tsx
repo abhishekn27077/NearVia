@@ -10,26 +10,23 @@ import { AuthUserContext, UserRole } from "@nearvia/types";
 import { webConfig } from "../config";
 import { supabase } from "../lib/supabaseClient";
 
-export const DEMO_CREDENTIALS = {
+export const DEMO_CREDENTIALS: Partial<
+  Record<UserRole, { email: string; password?: string; label: string }>
+> = {
   [UserRole.WORKER]: {
     email: "demo.worker@nearvia.test",
-    password: "NearviaDemo2026!",
+    password: import.meta.env.VITE_DEMO_PASSWORD || "",
     label: "Demo Worker (Suresh Patel)",
   },
   [UserRole.PROVIDER]: {
     email: "demo.provider@nearvia.test",
-    password: "NearviaDemo2026!",
+    password: import.meta.env.VITE_DEMO_PASSWORD || "",
     label: "Demo Provider (Indiranagar Bakery)",
   },
   [UserRole.AGENT]: {
     email: "demo.agent@nearvia.test",
-    password: "NearviaDemo2026!",
+    password: import.meta.env.VITE_DEMO_PASSWORD || "",
     label: "Demo Agent (Sunita Rao)",
-  },
-  [UserRole.ADMIN]: {
-    email: "admin@nearvia.in",
-    password: "NearviaDemo2026!",
-    label: "Demo Admin",
   },
 };
 
@@ -351,8 +348,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       throw new Error("Demo accounts are strictly disabled in production builds.");
     }
     const creds = DEMO_CREDENTIALS[role];
-    if (!creds) {
-      throw new Error(`No demo account configured for role: ${role}`);
+    if (!creds || !creds.password) {
+      throw new Error(`No demo account credentials configured for role: ${role}`);
     }
     return signInWithEmailPassword(creds.email, creds.password);
   };

@@ -107,6 +107,12 @@ router.put(
   validateRequest(updateProfileSchema),
   (req, res, next) => authController.updateProfile(req, res, next),
 );
+router.patch(
+  "/profile",
+  authenticateUser,
+  validateRequest(updateProfileSchema),
+  (req, res, next) => authController.updateProfile(req, res, next),
+);
 
 // Protected: Logout acknowledgment
 router.post("/logout", authenticateUser, (req, res, next) =>

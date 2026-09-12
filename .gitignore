@@ -39,6 +39,14 @@ service-account*.json
 gitleaks*
 gitleaks-report.json
 
+# Local Database & Data Dumps
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz
+*.bak
+
 
 # Logs
 logs

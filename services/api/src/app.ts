@@ -26,9 +26,21 @@ export function createApp(): Express {
     }),
   );
   const isProduction = process.env.NODE_ENV === "production";
-  const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000,http://localhost:5173")
-    .split(",")
-    .map((o) => o.trim());
+  const defaultOrigins = isProduction
+    ? [
+        "https://nearvia.in",
+        "https://app.nearvia.in",
+        "https://admin.nearvia.in",
+      ]
+    : [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+      ];
+  const configuredOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean)
+    : [];
+  const allowedOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigins]));
 
   app.use(
     cors({
@@ -38,7 +50,7 @@ export function createApp(): Express {
         if (!isProduction || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
           return callback(null, true);
         }
-        return callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
+        return callback(null, false);
       },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
@@ -115,6 +127,14 @@ export function createApp(): Express {
         timestamp: new Date().toISOString(),
       });
     }
+  });
+
+  // Anti-caching headers for API endpoints (protects personal data, tokens, and financial records)
+  app.use(NEARVIA_CONFIG.API_PREFIX, (_req, res, next) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    next();
   });
 
   // API Version 1 Router

@@ -64,9 +64,9 @@ describe("Prompt 2: PostgreSQL, Supabase & RLS Final Security Audit Suite", () =
     testWorkerUserId = workUserRes.rows[0].id;
 
     const workProfRes = await query<{ id: string }>(
-      `INSERT INTO worker_profiles (user_id, location, address_approximate, is_available_now)
-       VALUES ($1, ST_SetSRID(ST_MakePoint(77.5950, 12.9720), 4326)::geography, 'Indiranagar 100ft', TRUE)
-       ON CONFLICT (user_id) DO UPDATE SET is_available_now = TRUE
+      `INSERT INTO worker_profiles (user_id, location, address_approximate, is_available_now, availability_status, availability_updated_at, updated_at)
+       VALUES ($1, ST_SetSRID(ST_MakePoint(77.5950, 12.9720), 4326)::geography, 'Indiranagar 100ft', TRUE, 'AVAILABLE_NOW', NOW(), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET is_available_now = TRUE, availability_status = 'AVAILABLE_NOW', availability_updated_at = NOW(), updated_at = NOW()
        RETURNING id`,
       [testWorkerUserId],
     );

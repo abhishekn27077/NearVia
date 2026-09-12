@@ -259,7 +259,7 @@ export const WorkerProfilePage: React.FC = () => {
                   {profile?.fullName || user?.fullName || "Verified Worker"}
                 </h1>
                 {user?.identityVerified && (
-                  <span className="p-1 rounded-full bg-blue-50 text-blue-600" title="Aadhaar KYC Verified">
+                  <span className="p-1 rounded-full bg-blue-50 text-blue-600" title="Identity Verified (Self/Reference)">
                     <BadgeCheck className="w-5 h-5" />
                   </span>
                 )}
@@ -273,7 +273,7 @@ export const WorkerProfilePage: React.FC = () => {
               <div className="flex flex-wrap gap-2 pt-1">
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-extrabold border border-emerald-200 inline-flex items-center space-x-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Mobile OTP Verified</span>
+                  <span>Mobile Confirmed</span>
                 </span>
 
                 <span
@@ -284,7 +284,7 @@ export const WorkerProfilePage: React.FC = () => {
                   }`}
                 >
                   <BadgeCheck className="w-3.5 h-3.5" />
-                  <span>{user?.identityVerified ? "Aadhaar KYC Verified" : "Identity Pending"}</span>
+                  <span>{user?.identityVerified ? "Identity Verified" : "Identity Pending"}</span>
                 </span>
 
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-extrabold border border-slate-200 inline-flex items-center space-x-1">
@@ -447,7 +447,7 @@ export const WorkerProfilePage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Mobile Number (OTP Verified)
+                  Mobile Number (Verified)
                 </label>
                 <div className="relative">
                   <input

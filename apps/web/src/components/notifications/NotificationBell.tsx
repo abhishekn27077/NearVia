@@ -16,6 +16,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { webConfig } from "../../config";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -33,6 +34,7 @@ interface NotificationItem {
 
 export const NotificationBell: React.FC = () => {
   const { token, user } = useAuth();
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -207,11 +209,7 @@ export const NotificationBell: React.FC = () => {
     }
 
     if (n.type?.includes("DISPUTE") || n.type?.includes("REPORT")) {
-      if (user?.role === "ADMIN") {
-        navigate("/admin");
-      } else {
-        navigate("/disputes");
-      }
+      navigate("/disputes");
       return;
     }
   };
@@ -227,8 +225,8 @@ export const NotificationBell: React.FC = () => {
           setIsOpen((prev) => !prev);
           if (!isOpen) fetchNotifications();
         }}
-        aria-label="Notifications"
-        className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+        aria-label={t.notifications}
+        className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 min-h-[40px] min-w-[40px]"
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -245,11 +243,11 @@ export const NotificationBell: React.FC = () => {
           <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center space-x-2">
               <span className="font-extrabold text-sm text-slate-900 font-display">
-                Notifications
+                {t.notifications}
               </span>
               {unreadCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-black">
-                  {unreadCount} new
+                  {unreadCount} {t.unread}
                 </span>
               )}
             </div>
@@ -258,10 +256,10 @@ export const NotificationBell: React.FC = () => {
                 type="button"
                 onClick={handleMarkAllAsRead}
                 disabled={isLoading}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center space-x-1 focus-visible:ring-2 focus-visible:ring-blue-600 rounded-lg p-1"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
-                <span>Mark all read</span>
+                <span>{t.markAllAsRead}</span>
               </button>
             )}
           </div>
@@ -271,7 +269,7 @@ export const NotificationBell: React.FC = () => {
             {notifications.length === 0 ? (
               <div className="p-8 text-center space-y-2 text-slate-400">
                 <Bell className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
-                <p className="text-xs font-bold text-slate-600">No notifications yet</p>
+                <p className="text-xs font-bold text-slate-600">{t.noNotifications}</p>
                 <p className="text-[11px] text-slate-400">
                   Updates about shifts, applications, and payouts will appear here.
                 </p>
@@ -320,9 +318,9 @@ export const NotificationBell: React.FC = () => {
             <Link
               to={user.role === "PROVIDER" ? "/provider/dashboard" : "/worker/dashboard"}
               onClick={() => setIsOpen(false)}
-              className="text-xs font-bold text-slate-600 hover:text-blue-600 transition-colors inline-flex items-center space-x-1"
+              className="text-xs font-bold text-slate-600 hover:text-blue-600 transition-colors inline-flex items-center space-x-1 p-1 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-600"
             >
-              <span>Go to Dashboard</span>
+              <span>{t.dashboard}</span>
               <ExternalLink className="w-3 h-3" />
             </Link>
           </div>

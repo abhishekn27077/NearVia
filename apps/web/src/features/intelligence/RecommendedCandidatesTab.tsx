@@ -31,7 +31,7 @@ export const RecommendedCandidatesTab: React.FC<RecommendedCandidatesTabProps> =
   const fetchCandidates = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token") || "";
+      const token = localStorage.getItem("nearvia_auth_token") || localStorage.getItem("token") || "";
       const res = await fetch(`/api/v1/intelligence/jobs/${workOpportunityId}/candidates`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -131,7 +131,7 @@ export const RecommendedCandidatesTab: React.FC<RecommendedCandidatesTabProps> =
                       </h4>
                       {cand.verifiedBadge && (
                         <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold px-1.5 py-0.2 rounded-full">
-                          KYC Verified
+                          ID Verified
                         </span>
                       )}
                     </div>

@@ -43,6 +43,8 @@ export interface AdminDashboardMetrics {
   totalProviders: number;
   totalAgents: number;
   publishedWorkCount: number;
+  cancelledWorkCount: number;
+  totalApplicationsCount: number;
   activeAssignmentsCount: number;
   completedAssignmentsCount: number;
   pendingVerificationsCount: number;
@@ -50,6 +52,8 @@ export interface AdminDashboardMetrics {
   openDisputesCount: number;
   confirmedPaymentsVolumePaise: number;
   confirmedPaymentsVolume: number;
+  cashSettledVolume: number;
+  sandboxSettledVolume: number;
   pendingPaymentsCount: number;
   recentAuditLogs: any[];
 }

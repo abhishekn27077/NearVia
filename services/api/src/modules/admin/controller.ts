@@ -235,6 +235,33 @@ export class AdminController {
     }
   }
 
+  public async getMarketplaceAnalytics(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await analyticsService.getMarketplaceAnalytics();
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async getTrustAndSafetyAnalytics(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await analyticsService.getTrustAndSafetyAnalytics();
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async getPaymentAnalytics(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await analyticsService.getPaymentAnalytics();
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   public async getPlatformEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { page, limit } = clampPagination(req.query, 25, 100);

@@ -30,6 +30,8 @@ const envSchema = z
     MSG91_SENDER_ID: z.string().optional(),
     MSG91_API_URL: z.string().default("https://control.msg91.com/api/v5/otp"),
     ALLOW_MOCK_OTP_IN_PRODUCTION: z.string().optional(),
+    ALLOW_DEMO_SEED_IN_PROD: z.string().optional(),
+    ALLOW_DEMO_RESET_IN_PROD: z.string().optional(),
     PAYMENT_MODE: z.enum(["demo", "sandbox", "production"]).default("demo"),
     RAZORPAY_KEY_ID: z.string().optional(),
     RAZORPAY_KEY_SECRET: z.string().optional(),

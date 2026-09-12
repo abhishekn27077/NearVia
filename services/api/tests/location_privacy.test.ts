@@ -71,10 +71,15 @@ describe("NEARVIA: PostGIS / Location / Privacy Hardening Suite (Prompt 4)", () 
     await query(`DELETE FROM users WHERE auth_id LIKE '${P4_PREFIX}%'`);
 
     // 2. Resolve Category and Skill
-    const catRes = await query<{ id: string }>(`SELECT id FROM categories LIMIT 1`);
-    testCategoryId = catRes.rows[0]?.id || "00000000-0000-0000-0000-000000000001";
-    const skillRes = await query<{ id: string }>(`SELECT id FROM skills WHERE category_id = $1 LIMIT 1`, [testCategoryId]);
-    testSkillId = skillRes.rows[0]?.id || "00000000-0000-0000-0000-000000000002";
+    const skillRes = await query<{ id: string; category_id: string }>(`SELECT id, category_id FROM skills LIMIT 1`);
+    testSkillId = skillRes.rows[0]?.id;
+    testCategoryId = skillRes.rows[0]?.category_id;
+    if (!testSkillId) {
+      const catRes = await query<{ id: string }>(`SELECT id FROM categories LIMIT 1`);
+      testCategoryId = catRes.rows[0]?.id;
+      const newSkill = await query<{ id: string }>(`INSERT INTO skills (name, category_id) VALUES ('General Labor', $1) RETURNING id`, [testCategoryId]);
+      testSkillId = newSkill.rows[0]?.id;
+    }
 
     // 3. Create Provider User & Profile
     const provUserRes = await query<{ id: string }>(

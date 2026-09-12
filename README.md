@@ -180,9 +180,11 @@ For local demonstration and viva examination, use the following pre-seeded test 
 | **Priya Sharma** | `PROVIDER` | `+919876543210` | `123456` | `/provider/dashboard` |
 | **Ramesh Kumar** | `WORKER` | `+919876543211` | `123456` | `/worker/dashboard` |
 | **Anil Verma** | `AGENT` | `+919876543212` | `123456` | `/agent/dashboard` |
-| **Platform Officer** | `ADMIN` | `+919876543213` | `123456` | `/admin/dashboard` |
 
 *(Note: In production environments, mock OTP is rejected by fail-fast startup assertions).*
+
+> [!NOTE]
+> **Admin Console Access**: The Admin Console is an isolated application running on `http://localhost:5174/login`. Initial administrator accounts are provisioned via CLI (`npm run admin:create -- --email <admin-email>`) requiring direct database credentials. No administrative accounts or credentials are built into public web portals.
 
 ---
 

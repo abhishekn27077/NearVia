@@ -30,7 +30,13 @@ adminRouter.get("/users/:id", (req, res, next) =>
 adminRouter.put("/users/:id/status", (req, res, next) =>
   adminController.updateUserStatus(req, res, next),
 );
+adminRouter.patch("/users/:id/status", (req, res, next) =>
+  adminController.updateUserStatus(req, res, next),
+);
 adminRouter.put("/users/:id/role", (req, res, next) =>
+  adminController.updateUserRole(req, res, next),
+);
+adminRouter.patch("/users/:id/role", (req, res, next) =>
   adminController.updateUserRole(req, res, next),
 );
 
@@ -73,8 +79,17 @@ adminRouter.get("/audit-logs", (req, res, next) =>
 adminRouter.get("/analytics/overview", (req, res, next) =>
   adminController.getOverviewAnalytics(req, res, next),
 );
+adminRouter.get("/analytics/marketplace", (req, res, next) =>
+  adminController.getMarketplaceAnalytics(req, res, next),
+);
 adminRouter.get("/analytics/health", (req, res, next) =>
   adminController.getMarketplaceHealth(req, res, next),
+);
+adminRouter.get("/analytics/trust-safety", (req, res, next) =>
+  adminController.getTrustAndSafetyAnalytics(req, res, next),
+);
+adminRouter.get("/analytics/payments", (req, res, next) =>
+  adminController.getPaymentAnalytics(req, res, next),
 );
 adminRouter.get("/analytics/events", (req, res, next) =>
   adminController.getPlatformEvents(req, res, next),

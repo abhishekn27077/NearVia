@@ -6,29 +6,30 @@ import {
   User,
   PlusCircle,
   IndianRupee,
-  ShieldCheck,
   Building,
   Home,
   Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { UserRole } from "@nearvia/types";
 
 export const NearviaBottomNav: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
 
   const getNavItems = () => {
     if (!user) {
       return [
         {
-          label: "Home",
+          label: t.home,
           to: "/",
           icon: Home,
           isActive: location.pathname === "/",
         },
         {
-          label: "Find Work",
+          label: t.findWork,
           to: "/find-work",
           icon: Compass,
           isActive:
@@ -36,7 +37,7 @@ export const NearviaBottomNav: React.FC = () => {
             location.pathname.startsWith("/worker/find-work"),
         },
         {
-          label: "Sign In",
+          label: t.logIn,
           to: "/login",
           icon: User,
           isActive: location.pathname === "/login" || location.pathname === "/register",
@@ -48,19 +49,19 @@ export const NearviaBottomNav: React.FC = () => {
       case UserRole.WORKER:
         return [
           {
-            label: "Home",
+            label: t.home,
             to: "/worker/dashboard",
             icon: Home,
             isActive: location.pathname === "/worker/dashboard",
           },
           {
-            label: "Find Work",
+            label: t.findWork,
             to: "/worker/find-work",
             icon: Compass,
             isActive: location.pathname.startsWith("/worker/find-work"),
           },
           {
-            label: "Shifts",
+            label: t.shifts,
             to: "/worker/assignments",
             icon: Briefcase,
             isActive:
@@ -68,13 +69,13 @@ export const NearviaBottomNav: React.FC = () => {
               location.pathname.startsWith("/worker/applications"),
           },
           {
-            label: "Earnings",
+            label: t.earnings,
             to: "/worker/earnings",
             icon: IndianRupee,
             isActive: location.pathname.startsWith("/worker/earnings"),
           },
           {
-            label: "Profile",
+            label: t.profile,
             to: "/worker/profile",
             icon: User,
             isActive:
@@ -87,13 +88,13 @@ export const NearviaBottomNav: React.FC = () => {
       case UserRole.PROVIDER:
         return [
           {
-            label: "Home",
+            label: t.home,
             to: "/provider/dashboard",
             icon: Home,
             isActive: location.pathname === "/provider/dashboard",
           },
           {
-            label: "My Work",
+            label: t.myWork,
             to: "/provider/work",
             icon: Building,
             isActive:
@@ -101,20 +102,20 @@ export const NearviaBottomNav: React.FC = () => {
               location.pathname.startsWith("/provider/work/"),
           },
           {
-            label: "Post Work",
+            label: t.postWork,
             to: "/provider/work/new",
             icon: PlusCircle,
             isAction: true,
             isActive: location.pathname === "/provider/work/new",
           },
           {
-            label: "Shifts",
+            label: t.shifts,
             to: "/provider/assignments",
             icon: Briefcase,
             isActive: location.pathname.startsWith("/provider/assignments"),
           },
           {
-            label: "Profile",
+            label: t.profile,
             to: "/provider/profile",
             icon: User,
             isActive: location.pathname.startsWith("/provider/profile"),
@@ -124,51 +125,35 @@ export const NearviaBottomNav: React.FC = () => {
       case UserRole.AGENT:
         return [
           {
-            label: "Home",
+            label: t.home,
             to: "/agent/dashboard",
             icon: Home,
             isActive: location.pathname === "/agent/dashboard",
           },
           {
-            label: "Workers",
+            label: t.workers,
             to: "/agent/dashboard",
             icon: Users,
             isActive: location.pathname.startsWith("/agent/workers"),
           },
           {
-            label: "Find Jobs",
+            label: t.findJobs,
             to: "/worker/find-work",
             icon: Compass,
             isActive: location.pathname.startsWith("/worker/find-work"),
           },
           {
-            label: "Profile",
+            label: t.profile,
             to: "/agent/dashboard",
             icon: User,
             isActive: false,
           },
         ];
 
-      case UserRole.ADMIN:
-        return [
-          {
-            label: "Admin",
-            to: "/admin/dashboard",
-            icon: ShieldCheck,
-            isActive: location.pathname.startsWith("/admin"),
-          },
-          {
-            label: "Find Work",
-            to: "/worker/find-work",
-            icon: Compass,
-            isActive: location.pathname.startsWith("/worker/find-work"),
-          },
-        ];
-
       default:
         return [
           {
-            label: "Home",
+            label: t.home,
             to: "/",
             icon: Home,
             isActive: location.pathname === "/",

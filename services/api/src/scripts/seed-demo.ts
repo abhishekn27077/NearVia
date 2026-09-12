@@ -14,7 +14,9 @@ import { query } from "../db";
 import { UserRole } from "@nearvia/types";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://localhost:54321";
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "NearviaDemo2026!";
+const DEMO_PASSWORD =
+  process.env.DEMO_PASSWORD ||
+  (process.env.NODE_ENV === "test" ? "TestEnvDemoPassword!2026" : "");
 
 // Privileged client strictly requiring SUPABASE_SERVICE_ROLE_KEY (no fallback to anon key or placeholders)
 export function getSeedAdminClient() {
@@ -75,7 +77,7 @@ const DEMO_USERS: DemoUserDef[] = [
     longitude: 77.6408,
   },
   {
-    email: "admin@nearvia.test",
+    email: process.env.ADMIN_SEED_EMAIL || "admin@nearvia.test",
     fullName: "Platform Admin (Demo)",
     phone: "+919876543299",
     role: UserRole.ADMIN,
@@ -113,6 +115,10 @@ export async function seedDemoAccounts(): Promise<void> {
 
   for (const def of DEMO_USERS) {
     let authId = "";
+    const userPassword =
+      def.role === UserRole.ADMIN
+        ? process.env.ADMIN_SEED_PASSWORD || DEMO_PASSWORD
+        : DEMO_PASSWORD;
     const existing = existingAuthUsers.find(
       (u) => u.email?.toLowerCase() === def.email.toLowerCase()
     );
@@ -121,7 +127,7 @@ export async function seedDemoAccounts(): Promise<void> {
       authId = existing.id;
       // Update password & metadata to ensure confirmed status
       const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(authId, {
-        password: DEMO_PASSWORD,
+        password: userPassword,
         email_confirm: true,
         user_metadata: {
           full_name: def.fullName,
@@ -135,7 +141,7 @@ export async function seedDemoAccounts(): Promise<void> {
       // Create new Supabase Auth user
       const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: def.email,
-        password: DEMO_PASSWORD,
+        password: userPassword,
         email_confirm: true,
         user_metadata: {
           full_name: def.fullName,

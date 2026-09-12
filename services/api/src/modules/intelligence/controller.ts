@@ -4,6 +4,7 @@
 
 import { Request, Response } from "express";
 import { intelligenceService } from "./service";
+import { radarService } from "./radar.service";
 import { AppError } from "../../middleware/errorHandler";
 import { ErrorCode } from "@nearvia/config";
 import { validateUuid, clampPagination } from "../../utils/security";
@@ -139,6 +140,35 @@ export class IntelligenceController {
     res.status(200).json({
       success: true,
       data: hotspots,
+    });
+  }
+
+  /**
+   * GET /api/v1/intelligence/radar
+   * GET /api/v1/radar
+   * Workforce Radar & Demand Intelligence (Role-specific, privacy-safe)
+   */
+  async getRadar(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+      throw new AppError("Authentication required for workforce radar", 401, ErrorCode.UNAUTHORIZED);
+    }
+
+    const lat = req.query.latitude ? parseFloat(req.query.latitude as string) : req.query.lat ? parseFloat(req.query.lat as string) : undefined;
+    const lng = req.query.longitude ? parseFloat(req.query.longitude as string) : req.query.lng ? parseFloat(req.query.lng as string) : undefined;
+    const radiusKm = req.query.radius ? parseFloat(req.query.radius as string) : req.query.radiusKm ? parseFloat(req.query.radiusKm as string) : 5.0;
+    const categoryId = req.query.categoryId as string | undefined;
+
+    const radar = await radarService.getRadar(
+      { id: req.user.id, role: req.user.role },
+      lat,
+      lng,
+      radiusKm,
+      categoryId
+    );
+
+    res.status(200).json({
+      success: true,
+      data: radar,
     });
   }
 }

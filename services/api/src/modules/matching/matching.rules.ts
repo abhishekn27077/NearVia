@@ -50,6 +50,8 @@ export interface MatchingContextInput {
     durationHours: number;
     distanceKm: number;
     skills: WorkOpportunitySkillDetail[];
+    providerVerified?: boolean;
+    isPreferredWorker?: boolean;
   };
 }
 
@@ -442,6 +444,9 @@ export function computeMatchExplanation(
     worker.isAvailableNow,
   );
 
+  // 7. Employer Trust & Verification
+  const trustScore = opportunity.providerVerified ? 100 : 70;
+
   const breakdown: MatchScoreBreakdown = {
     skillScore: skillEval.score,
     availabilityScore: availEval.score,
@@ -449,11 +454,12 @@ export function computeMatchExplanation(
     durationScore: durEval.score,
     categoryScore: catEval.score,
     urgencyScore: urgEval.score,
+    trustScore,
   };
 
   const weights = NEARVIA_CONFIG.MATCHING_WEIGHTS;
 
-  const rawWeightedScore =
+  let rawWeightedScore =
     breakdown.skillScore * weights.SKILL_COMPATIBILITY +
     breakdown.availabilityScore * weights.AVAILABILITY_FIT +
     breakdown.distanceScore * weights.DISTANCE_PROXIMITY +
@@ -461,7 +467,15 @@ export function computeMatchExplanation(
     breakdown.categoryScore * weights.CATEGORY_PREFERENCE +
     breakdown.urgencyScore * weights.URGENCY_RELEVANCE;
 
-  const score = Math.min(Math.max(Math.round(rawWeightedScore), 0), 100);
+  // Preferred worker affinity boost (+5%)
+  if (opportunity.isPreferredWorker) {
+    rawWeightedScore += 5;
+  }
+
+  // Hard eligibility rule: If required trade skills are missing, score must be 0
+  const finalScore = !skillEval.isHardEligible
+    ? 0
+    : Math.min(Math.max(Math.round(rawWeightedScore), 0), 100);
 
   // Aggregate positive reasons and constructive limitations
   const reasons: string[] = [
@@ -473,6 +487,14 @@ export function computeMatchExplanation(
     ...urgEval.reasons,
   ];
 
+  if (opportunity.providerVerified) {
+    reasons.unshift("Verified employer");
+  }
+
+  if (opportunity.isPreferredWorker) {
+    reasons.unshift("❤️ Preferred worker for this employer");
+  }
+
   const limitations: string[] = [
     ...skillEval.limitations,
     ...availEval.limitations,
@@ -483,7 +505,7 @@ export function computeMatchExplanation(
   ];
 
   return {
-    score,
+    score: finalScore,
     breakdown,
     reasons: Array.from(new Set(reasons)).slice(0, 5), // Top 5 relevant reasons
     limitations: Array.from(new Set(limitations)).slice(0, 3),

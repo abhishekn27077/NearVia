@@ -228,6 +228,12 @@ export class MatchingService {
       opportunity.location,
     );
 
+    const prefRes = await query<{ provider_id: string }>(
+      `SELECT provider_id FROM preferred_workers WHERE provider_id = $1 AND worker_id = (SELECT id FROM worker_profiles WHERE user_id = $2)`,
+      [opportunity.providerId, workerUserId],
+    );
+    const isPreferredWorker = prefRes.rows.length > 0;
+
     const matchInput: MatchingContextInput = {
       worker: {
         userId: workerUserId,
@@ -250,6 +256,12 @@ export class MatchingService {
         durationHours: opportunity.durationHours,
         distanceKm,
         skills: opportunity.skills,
+        providerVerified: Boolean(
+          opportunity.providerVerified ||
+            opportunity.providerBusinessVerified ||
+            opportunity.providerIdentityVerified,
+        ),
+        isPreferredWorker,
       },
     };
 

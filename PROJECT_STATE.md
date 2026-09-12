@@ -4,11 +4,11 @@
 > **Project Name**: NEARVIA  
 > **Tagline**: _Work Within Reach_  
 > **Project Type**: Hyperlocal Quick-Work Marketplace (5 KM Proximity + Immediate Shift Execution + Deterministic Matching)  
-> **Last Updated**: 2026-08-31  
-> **System Build Status**: `100% BUILD PASSING (npm run build & npx tsc --noEmit: 0 errors, 166/166 Unit & Integration Tests Passing across 19 Suites, 8/8 E2E Database Phases Passing)`  
+> **Last Updated**: 2026-09-12  
+> **System Build Status**: `100% BUILD PASSING (npm run build & npm run typecheck: 0 errors, 679/679 Unit & Integration Tests Passing across 52 Suites, 8/8 E2E Database Phases Passing, 29/29 Migrations Applied)`  
 > **Current Design Status**: `Modern Warm White Card Design System (#FAFAF9 / bg-white border-slate-200 shadow-card rounded-3xl) + Multilingual (EN, ಕನ್ನಡ, हिंदी) + Web Speech API Voice Search & Speech Synthesis`
-| **Red-Team QA** | `✅ Completed 2026-08-30 | 20/20 pages load | 4 roles tested | Phase 10 endpoints verified | No console errors` |
-| **Critical Fixes Applied** | `✅ Admin login fixed (admin@nearvia.in) | ✅ Phase 10 attendance complete | ✅ Premium design added | ✅ Build/test verified` |
+| **Deployment Readiness** | `✅ Completed (Prompt 18) | ₹0 Free-Tier Cloud Ready | No Paid Infrastructure | Zero Secret Leakage` |
+| **Critical Fixes Applied** | `✅ Env templates (.env.example) | ✅ Error & DB log sanitization | ✅ First-admin CLI | ✅ 29 idempotent migrations | ✅ SPA rewrites` |
 
 ---
 
@@ -18,20 +18,27 @@
 
 | Component | Directory | Port | Command |
 |---|---|---|---|
-| **Web Client (React 19 + Vite 6)** | `d:/NearVia/apps/web` | `5173` | `npx vite --port 5173` |
-| **REST API Server (Express + PostGIS)** | `d:/NearVia/services/api` | `4000` | `npm run dev` |
-| **Type Checking / Build** | `d:/NearVia/apps/web` | - | `npx tsc --noEmit` or `npm run build` |
+| **Public Web Client (React 19 + Vite 6)** | `d:/NearVia/apps/web` | `5173` | `npm run dev:web` |
+| **Admin Console Client (React 19 + Vite 6)** | `d:/NearVia/apps/admin` | `5174` | `npm run dev:admin` |
+| **REST API Server (Express + PostGIS)** | `d:/NearVia/services/api` | `4000` | `npm run dev:api` |
+| **Type Checking / Build** | All workspaces | - | `npm run typecheck` or `npm run build` |
 
-### 1.2 Seeded Test Accounts (Local / Staging)
+### 1.2 Seeded Public Test Accounts (Local / Staging)
 
-All accounts share the default password: **`NearviaDemo2026!`**
+Worker, Provider, and Agent demo accounts use the password configured via `DEMO_PASSWORD` in your local `.env` (or `VITE_DEMO_PASSWORD` for local frontend quick-login):
 
-| Role | Email | Password | Primary Routes Accessible |
+| Role | Email | Password Configuration | Primary Routes Accessible (Port 5173) |
 |---|---|---|---|
-| **Worker** | `demo.worker@nearvia.test` | `NearviaDemo2026!` | `/worker/dashboard`, `/worker/find-work`, `/worker/applications`, `/worker/assignments`, `/worker/availability`, `/worker/skills`, `/worker/transactions` |
-| **Provider (Employer)** | `demo.provider@nearvia.test` | `NearviaDemo2026!` | `/provider/dashboard`, `/provider/work`, `/provider/work/new`, `/provider/assignments`, `/provider/payments` |
-| **Agent (Community)** | `demo.agent@nearvia.test` | `NearviaDemo2026!` | `/agent/dashboard`, `/agent/workers`, `/agent/assisted-apply` |
-| **Admin** | `admin@nearvia.test` | `NearviaDemo2026!` | `/admin/dashboard`, `/admin/users`, `/admin/work`, `/admin/verifications`, `/admin/audit-logs` |
+| **Worker** | `demo.worker@nearvia.test` | Configured via `DEMO_PASSWORD` | `/worker/dashboard`, `/worker/find-work`, `/worker/applications`, `/worker/assignments`, `/worker/availability`, `/worker/skills`, `/worker/transactions` |
+| **Provider (Employer)** | `demo.provider@nearvia.test` | Configured via `DEMO_PASSWORD` | `/provider/dashboard`, `/provider/work`, `/provider/work/new`, `/provider/assignments`, `/provider/payments` |
+| **Agent (Community)** | `demo.agent@nearvia.test` | Configured via `DEMO_PASSWORD` | `/agent/dashboard`, `/agent/workers`, `/agent/assisted-apply` |
+
+> [!NOTE]
+> **Admin Console Security & Access (Port 5174)**:
+> - Admin accounts are **never** provisioned through public signup.
+> - The Admin Console runs on an isolated port (`http://localhost:5174/login`) with isolated session storage (`nearvia_admin_auth_token`).
+> - Access requires Supabase Auth email/password credentials with the server-verified role `ADMIN` in the `users` table.
+> - Public web app (`http://localhost:5173`) contains 0 admin links, routes, or credentials.
 
 ---
 

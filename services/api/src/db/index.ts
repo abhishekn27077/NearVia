@@ -55,14 +55,19 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   try {
     const res = await pool.query<T>(text, params);
     const duration = Date.now() - start;
-    if (env.NODE_ENV !== "test") {
+    if (env.NODE_ENV === "development") {
       console.log(
         `[DB] Executed query in ${duration}ms, rows: ${res.rowCount}`,
       );
     }
     return res;
   } catch (error) {
-    console.error(`[DB Error] Query failed: ${text}`, error);
+    if (env.NODE_ENV === "production") {
+      const op = text.trim().split(/\s+/).slice(0, 3).join(" ");
+      console.error(`[DB Error] Database operation failed: ${op}...`, (error as any)?.message || error);
+    } else {
+      console.error(`[DB Error] Query failed: ${text}`, error);
+    }
     throw error;
   }
 }

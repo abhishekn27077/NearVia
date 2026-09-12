@@ -18,6 +18,7 @@ import {
   Star,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { webConfig } from "../../config";
 
 interface RecommendedJob {
@@ -89,6 +90,7 @@ interface DashboardStats {
 
 export const WorkerDashboardPage: React.FC = () => {
   const { user, token, verifyMobile, verifyIdentity, refreshProfile } = useAuth();
+  const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
@@ -265,17 +267,17 @@ export const WorkerDashboardPage: React.FC = () => {
             />
             <span>
               {isTogglingAvailability
-                ? "Updating Status..."
+                ? t.loading
                 : isOnline
-                ? "Go Offline"
-                : "Go Online Now ⚡"}
+                ? t.goOffline
+                : `${t.availableNow} ⚡`}
             </span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowConfigModal(true)}
-            className="px-4 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors"
+            className="px-4 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500"
             title="Availability & Radius Preferences"
           >
             <Sliders className="w-4 h-4 text-slate-500" />
@@ -284,10 +286,10 @@ export const WorkerDashboardPage: React.FC = () => {
 
           <Link
             to="/worker/find-work"
-            className="px-4 py-3.5 rounded-2xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-800 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors"
+            className="px-4 py-3.5 rounded-2xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-800 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500"
           >
             <Compass className="w-4 h-4 text-orange-600" />
-            <span>Explore Map</span>
+            <span>{t.findWork}</span>
           </Link>
         </div>
       </div>
@@ -298,7 +300,7 @@ export const WorkerDashboardPage: React.FC = () => {
         <div className="p-5 rounded-3xl card-premium flex items-center justify-between">
           <div>
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-caption-refined">
-              Today's Earnings
+              {t.earningsToday}
             </div>
             <div className="text-2xl font-black text-slate-900 font-display-title flex items-center">
               <span className="text-lg text-slate-400 mr-0.5">₹</span>
@@ -341,16 +343,16 @@ export const WorkerDashboardPage: React.FC = () => {
         >
           <div>
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-caption-refined">
-              Nearby Open Jobs
+              {t.findWork}
             </div>
             <div className="text-2xl font-black text-orange-600 font-display-title flex items-center space-x-1.5">
               <span>{stats?.nearbyJobsCount || 0}</span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">
-                In 5 KM
+                5 KM
               </span>
             </div>
             <div className="text-[11px] text-slate-500 font-medium mt-1 group-hover:text-orange-600 flex items-center space-x-1">
-              <span>Explore on Map</span>
+              <span>{t.findWork}</span>
               <ArrowRight className="w-3 h-3" />
             </div>
           </div>
@@ -411,6 +413,33 @@ export const WorkerDashboardPage: React.FC = () => {
             <Star className="w-6 h-6 fill-amber-500 text-amber-500" />
           </div>
         </div>
+      </div>
+
+      {/* Workforce Demand Radar Discovery Widget */}
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent border border-orange-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="p-3 rounded-2xl bg-orange-600 text-white shadow-md shadow-orange-500/20">
+            <Compass className="w-6 h-6 animate-spin-slow" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-900 font-display flex items-center space-x-2">
+              <span>Local Job Demand Radar</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 font-bold">
+                Live PostGIS
+              </span>
+            </h3>
+            <p className="text-xs text-slate-600 font-medium">
+              Explore open opportunities, skill-matched demand hotspots, and average wage benchmarks in your area.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/radar"
+          className="px-4 py-2 rounded-2xl text-xs font-black bg-orange-600 text-white hover:bg-orange-700 shadow-xs flex items-center justify-center space-x-1.5 shrink-0 transition-all active:scale-95"
+        >
+          <span>Open Demand Radar</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
       {/* 3. Active / In-Progress Assignment Immediate Action Banner */}

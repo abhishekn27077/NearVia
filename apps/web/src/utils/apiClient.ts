@@ -91,7 +91,7 @@ export async function apiFetch(
             const user = JSON.parse(userJson);
             const demoRole = user.role as UserRole;
             const creds = DEMO_CREDENTIALS[demoRole];
-            if (creds && user.email === creds.email) {
+            if (creds && creds.password && user.email === creds.email) {
               console.log("[apiClient] Auto-recovering demo session for:", creds.email);
               const { data: signInData } = await supabase.auth.signInWithPassword({
                 email: creds.email,

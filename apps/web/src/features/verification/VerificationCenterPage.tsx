@@ -111,7 +111,7 @@ export const VerificationCenterPage: React.FC = () => {
       setOtpSent(true);
       setCountdown(data.data?.cooldownSeconds || 60);
       setProviderInfo(data.data?.provider || "mock");
-      if (data.data?.provider === "mock") {
+      if (import.meta.env.DEV && data.data?.provider === "mock") {
         setOtpCode("123456");
       }
     } catch (err: any) {
@@ -139,7 +139,7 @@ export const VerificationCenterPage: React.FC = () => {
         throw new Error(data.error?.message || "Failed to resend verification code.");
       }
       setCountdown(data.data?.cooldownSeconds || 60);
-      if (data.data?.provider === "mock") {
+      if (import.meta.env.DEV && data.data?.provider === "mock") {
         setOtpCode("123456");
       }
     } catch (err: any) {
@@ -482,7 +482,10 @@ export const VerificationCenterPage: React.FC = () => {
                     />
                   </div>
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500">
-                    <span className="font-bold">Provider:</span> {providerInfo === "msg91" ? "MSG91 SMS Gateway" : "Mock Development Provider"} • Deterministic test code: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-orange-600 font-bold">123456</code>
+                    <span className="font-bold">Provider:</span> {providerInfo === "msg91" ? "MSG91 SMS Gateway" : "SMS Verification Gateway"}
+                    {import.meta.env.DEV && providerInfo === "mock" && (
+                      <span> • Deterministic test code: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-orange-600 font-bold">123456</code></span>
+                    )}
                   </div>
                   <button
                     type="button"

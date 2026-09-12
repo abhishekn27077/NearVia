@@ -10,6 +10,7 @@ import {
   Briefcase,
   RefreshCw,
   Info,
+  Compass,
 } from "lucide-react";
 
 interface WorkerRelationship {
@@ -154,17 +155,24 @@ export const AgentDashboardPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center space-x-3 shrink-0">
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100 text-center min-w-[100px]">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              to="/radar"
+              className="px-4 py-2.5 rounded-2xl bg-orange-600 text-white font-black text-xs hover:bg-orange-700 shadow-xs flex items-center space-x-1.5 transition-all"
+            >
+              <Compass className="w-4 h-4" />
+              <span>Assisted Demand Radar</span>
+            </Link>
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100 text-center min-w-[90px]">
               <div className="text-[10px] font-bold text-slate-400 uppercase">Active</div>
               <div className="text-xl font-black text-emerald-600 font-display">{activeCount}</div>
             </div>
-            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-100 text-center min-w-[100px]">
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-100 text-center min-w-[90px]">
               <div className="text-[10px] font-bold text-slate-400 uppercase">Pending</div>
               <div className="text-xl font-black text-amber-600 font-display">{pendingCount}</div>
             </div>
             {revokedCount > 0 && (
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-center min-w-[100px]">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-center min-w-[90px]">
                 <div className="text-[10px] font-bold text-slate-400 uppercase">Revoked</div>
                 <div className="text-xl font-black text-slate-500 font-display">{revokedCount}</div>
               </div>

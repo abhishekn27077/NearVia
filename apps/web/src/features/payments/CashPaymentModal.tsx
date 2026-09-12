@@ -10,7 +10,7 @@ import {
   Check,
   Clock,
 } from "lucide-react";
-import { formatCurrencyINR } from "../../utils";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface CashPaymentModalProps {
   isOpen: boolean;
@@ -33,6 +33,7 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
   userRole,
   onSuccess,
 }) => {
+  const { t, formatCurrency } = useLanguage();
   // Provider state
   const [generatedPin, setGeneratedPin] = useState<string | null>(null);
   const [pinCopied, setPinCopied] = useState(false);
@@ -58,7 +59,7 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-        body: JSON.stringify({ notes: `Cash handover for ${opportunityTitle}` }),
+        body: JSON.stringify({ notes: `Cash handover for ${opportunityTitle} (${workerName})` }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -126,16 +127,17 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900 font-display">
-                {userRole === "PROVIDER" ? "Direct Cash Settlement" : "Confirm Cash Receipt"}
+                {userRole === "PROVIDER" ? t.cashPayment : t.confirmCashReceipt}
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Amount: <strong className="text-slate-900 font-black">{formatCurrencyINR(agreedWage)}</strong>
+                {t.wage}: <strong className="text-slate-900 font-black">{formatCurrency(agreedWage)}</strong>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+            aria-label={t.close}
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500"
           >
             <X className="w-5 h-5" />
           </button>
@@ -144,20 +146,20 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
         {/* Content */}
         <div className="p-6 sm:p-8 space-y-6">
           {error && (
-            <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center space-x-2.5">
+            <div role="alert" className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center space-x-2.5">
               <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {confirmed ? (
-            <div className="py-8 text-center space-y-3">
+            <div role="status" aria-live="polite" className="py-8 text-center space-y-3">
               <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto animate-bounce">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h4 className="text-base font-black text-slate-900">Cash Payment Confirmed!</h4>
+              <h4 className="text-base font-black text-slate-900">{t.paymentCompleted}</h4>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                Receipt of {formatCurrencyINR(agreedWage)} has been officially recorded on the NEARVIA ledger.
+                {t.paid}: {formatCurrency(agreedWage)}
               </p>
             </div>
           ) : userRole === "PROVIDER" ? (
@@ -165,32 +167,32 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
             !generatedPin ? (
               <div className="space-y-5">
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 space-y-2">
-                  <p className="font-semibold text-slate-800">Direct Physical Cash Handover Steps:</p>
+                  <p className="font-semibold text-slate-800">{t.cashHandoverNotice}</p>
                   <ol className="list-decimal list-inside space-y-1 text-slate-600">
-                    <li>Generate a 4-digit Payment Verification PIN below.</li>
-                    <li>Hand over <strong className="text-slate-900">{formatCurrencyINR(agreedWage)}</strong> in physical cash to {workerName}.</li>
-                    <li>Share the 4-digit PIN with {workerName} to confirm receipt on their device.</li>
+                    <li>{t.generatePin}</li>
+                    <li>{t.handoverCashPrompt} ({formatCurrency(agreedWage)})</li>
+                    <li>{t.enterPinToConfirm}</li>
                   </ol>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-relaxed">
                   <ShieldCheck className="w-3.5 h-3.5 text-amber-700 inline mr-1" />
-                  <strong>Notice:</strong> NEARVIA records this transaction directly between employer and worker. NEARVIA does not hold custody of physical cash.
+                  <strong>Notice:</strong> NEARVIA records this transaction directly between employer and worker.
                 </div>
 
                 <button
                   onClick={handleInitiateCash}
                   disabled={loading}
-                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 min-h-[44px] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-600"
                 >
-                  {loading ? "Generating PIN..." : "💵 Generate 4-Digit Payment PIN"}
+                  {loading ? t.loading : `💵 ${t.generatePin}`}
                 </button>
               </div>
             ) : (
               <div className="space-y-6">
                 <div className="p-6 rounded-3xl bg-slate-900 text-white text-center space-y-3 shadow-lg">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">
-                    Cash Payment PIN
+                    {t.settlementPin}
                   </span>
                   <div className="text-4xl font-extrabold tracking-widest text-emerald-400 font-mono py-1">
                     {generatedPin}
@@ -198,20 +200,21 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyPin}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors"
+                    aria-label={pinCopied ? t.pinCopied : t.copyPin}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-500 min-h-[44px]"
                   >
                     {pinCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{pinCopied ? "PIN Copied!" : "Copy PIN"}</span>
+                    <span>{pinCopied ? t.pinCopied : t.copyPin}</span>
                   </button>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-1.5">
                   <h5 className="font-bold flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-emerald-600" />
-                    Waiting for Worker Confirmation
+                    {t.statusInProgress}
                   </h5>
                   <p className="text-[11px] text-emerald-800">
-                    Hand over {formatCurrencyINR(agreedWage)} cash and provide this 4-digit PIN to {workerName}. The settlement will complete automatically when they submit it.
+                    {t.handoverCashPrompt} ({formatCurrency(agreedWage)})
                   </p>
                 </div>
               </div>
@@ -221,40 +224,43 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
             <form onSubmit={handleConfirmReceipt} className="space-y-5">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 space-y-1.5">
                 <p className="font-bold text-slate-800">
-                  Received cash from your employer?
+                  {t.confirmCashReceipt}?
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Ask your employer for the 4-digit Payment PIN to verify that you received {formatCurrencyINR(agreedWage)} in cash.
+                  {t.enterPinToVerify} ({formatCurrency(agreedWage)})
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                  4-Digit Payment PIN
+                <label htmlFor="cash-settlement-pin" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                  {t.settlementPin}
                 </label>
                 <div className="relative">
                   <KeyRound className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
+                    id="cash-settlement-pin"
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     maxLength={4}
                     value={enteredPin}
                     onChange={(e) => setEnteredPin(e.target.value.replace(/\D/g, ""))}
                     placeholder="e.g. 4821"
-                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 font-mono text-xl tracking-widest text-slate-900 font-bold focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-center"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 font-mono text-xl tracking-widest text-slate-900 font-bold focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-center min-h-[44px]"
                     autoFocus
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">
-                  Protected with rate-limiting (Max 3 attempts allowed)
+                  {t.enterPinToVerify}
                 </p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || enteredPin.length < 4}
-                className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 min-h-[44px] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-600"
               >
-                {loading ? "Verifying PIN..." : "✓ Confirm Cash Received"}
+                {loading ? t.loading : `✓ ${t.confirmCashReceipt}`}
               </button>
             </form>
           )}

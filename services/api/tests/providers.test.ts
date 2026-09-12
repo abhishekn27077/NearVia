@@ -21,6 +21,12 @@ import * as db from "../src/db";
 
 vi.mock("../src/db", () => ({
   query: vi.fn(),
+  withTransaction: vi.fn(async (cb: (client: any) => Promise<any>) => {
+    const mockClient = {
+      query: (sql: string, params?: any[]) => (db.query as any)(sql, params),
+    };
+    return await cb(mockClient);
+  }),
   pool: { end: vi.fn() },
 }));
 

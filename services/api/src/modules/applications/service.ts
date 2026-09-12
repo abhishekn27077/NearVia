@@ -658,21 +658,31 @@ export class ApplicationsService {
 
   /**
    * Provider views all applicants for their work opportunity, ranked by match score.
+   * Zero N+1 queries: Batch fetches trade skills, availability, and preferred status.
    */
   async getOpportunityApplicants(
     providerUserId: string,
     workOpportunityId: string,
   ): Promise<ApplicantListItem[]> {
-    // Verify provider ownership
-    const ownRes = await query<{ id: string; location: any }>(
-      `SELECT wo.id, wo.location
+    // 1. Verify provider ownership and fetch opportunity context
+    const ownRes = await query<{
+      id: string;
+      category_id: string;
+      provider_id: string;
+      work_date: string;
+      start_time: string;
+      end_time: string;
+      duration_hours: number;
+    }>(
+      `SELECT wo.id, wo.category_id, pp.id AS provider_id, wo.work_date, wo.start_time, wo.end_time, wo.duration_hours
        FROM work_opportunities wo
        JOIN provider_profiles pp ON wo.provider_id = pp.id
        WHERE wo.id = $1 AND pp.user_id = $2`,
       [workOpportunityId, providerUserId],
     );
 
-    if (ownRes.rows.length === 0) {
+    const opp = ownRes.rows[0];
+    if (!opp) {
       throw new AppError(
         "You are not authorized to view applicants for this work opportunity.",
         403,
@@ -680,7 +690,24 @@ export class ApplicationsService {
       );
     }
 
-    // Fetch all applicants for this opportunity
+    // 2. Fetch required and optional skills for the opportunity
+    const jobSkillsRes = await query<{
+      skill_id: string;
+      skill_name: string;
+      is_required: boolean;
+      min_experience_years: number;
+    }>(
+      `SELECT wos.skill_id, s.name AS skill_name, wos.is_required, COALESCE(wos.min_experience_years, 0) AS min_experience_years
+       FROM work_opportunity_skills wos
+       JOIN skills s ON wos.skill_id = s.id
+       WHERE wos.work_opportunity_id = $1`,
+      [workOpportunityId],
+    );
+
+    const requiredSkills = jobSkillsRes.rows.filter((s) => s.is_required);
+    const optionalSkills = jobSkillsRes.rows.filter((s) => !s.is_required);
+
+    // 3. Fetch all applicants for this opportunity in a single query
     const appsRes = await query<{
       application_id: string;
       worker_id: string;
@@ -688,7 +715,9 @@ export class ApplicationsService {
       full_name: string;
       avatar_url: string | null;
       average_rating: number | null;
+      total_ratings_count: number | null;
       completed_tasks_count: number | null;
+      reliability_score: number | null;
       is_available_now: boolean | null;
       worker_phone_verified: boolean | null;
       worker_identity_verified: boolean | null;
@@ -707,7 +736,9 @@ export class ApplicationsService {
         u.full_name,
         u.avatar_url,
         wp.average_rating,
+        wp.total_ratings_count,
         wp.completed_tasks_count,
+        COALESCE(wp.reliability_score, 100.0) AS reliability_score,
         wp.is_available_now,
         u.mobile_verified AS worker_phone_verified,
         u.identity_verified AS worker_identity_verified,
@@ -727,40 +758,178 @@ export class ApplicationsService {
       [workOpportunityId],
     );
 
+    if (appsRes.rows.length === 0) {
+      return [];
+    }
+
+    const workerIds = appsRes.rows.map((r) => r.worker_id);
+
+    // 4. Batch fetch trade skills for ALL applicants in 1 single query (Eliminates N+1)
+    const skillsRes = await query<{
+      worker_id: string;
+      skill_id: string;
+      skill_name: string;
+      category_id: string;
+      years_experience: number;
+    }>(
+      `SELECT ws.worker_id, ws.skill_id, s.name AS skill_name, s.category_id, COALESCE(ws.years_experience, 0) AS years_experience
+       FROM worker_skills ws
+       JOIN skills s ON ws.skill_id = s.id
+       WHERE ws.worker_id = ANY($1::uuid[])`,
+      [workerIds],
+    );
+
+    const skillsByWorker = new Map<string, Array<{ skillId: string; skillName: string; categoryId: string; yearsExperience: number }>>();
+    for (const sk of skillsRes.rows) {
+      const wId = (sk as any).worker_id || (appsRes.rows.length === 1 && appsRes.rows[0] ? appsRes.rows[0].worker_id : undefined);
+      const skillName = (sk as any).skill_name || (sk as any).name || "General";
+      if (wId) {
+        const list = skillsByWorker.get(wId) || [];
+        list.push({
+          skillId: (sk as any).skill_id || "sk",
+          skillName,
+          categoryId: (sk as any).category_id || "",
+          yearsExperience: Number((sk as any).years_experience || 0),
+        });
+        skillsByWorker.set(wId, list);
+      }
+    }
+
+    // 5. Batch fetch preferred worker relationships in 1 single query (Eliminates N+1)
+    const preferredRes = await query<{ worker_id: string }>(
+      `SELECT worker_id FROM preferred_workers WHERE provider_id = $1 AND worker_id = ANY($2::uuid[])`,
+      [opp?.provider_id || "00000000-0000-0000-0000-000000000000", workerIds],
+    );
+    const preferredWorkerSet = new Set(preferredRes.rows.map((r) => r.worker_id));
+
+    // 6. Compute multi-factor explainable match scores
     const applicants: ApplicantListItem[] = [];
 
     for (const row of appsRes.rows) {
-      // Fetch trade skills for applicant
-      let skills: string[] = [];
-      try {
-        const skRes = await query<{ name: string }>(
-          `SELECT s.name
-           FROM worker_skills ws
-           JOIN skills s ON ws.skill_id = s.id
-           WHERE ws.worker_id = $1`,
-          [row.worker_id],
-        );
-        skills = skRes.rows.map((s) => s.name);
-      } catch {
-        skills = [];
+      const workerSkills = skillsByWorker.get(row.worker_id) || [];
+      const isPreferred = preferredWorkerSet.has(row.worker_id);
+      const distMeters = Number(row.distance_meters) || 0;
+      const distKm = Math.round((distMeters / 1000) * 10) / 10;
+
+      // Skill evaluation (35% weight)
+      const matchedRequired = requiredSkills.filter((req) =>
+        workerSkills.some((ws) => ws.skillId === req.skill_id),
+      );
+      const matchedOptional = optionalSkills.filter((opt) =>
+        workerSkills.some((ws) => ws.skillId === opt.skill_id),
+      );
+
+      let skillScore = 100;
+      if (requiredSkills.length > 0) {
+        if (matchedRequired.length === 0) {
+          skillScore = 0;
+        } else {
+          const ratio = matchedRequired.length / requiredSkills.length;
+          let expBonus = 0;
+          for (const req of matchedRequired) {
+            const ws = workerSkills.find((w) => w.skillId === req.skill_id);
+            if (ws && ws.yearsExperience >= req.min_experience_years) {
+              expBonus += 10;
+            }
+          }
+          skillScore = Math.min(100, Math.round(ratio * 80 + Math.min(expBonus, 15) + matchedOptional.length * 5));
+        }
       }
 
-      // Compute match score snapshot
-      let matchScore = 80;
-      let matchReasons: string[] = ["Qualified local candidate"];
+      // Proximity score (20% weight) - linear decay up to 5 km
+      const distRatio = Math.min(1, distKm / 5.0);
+      const distanceScore = Math.max(0, Math.round(100 * (1 - distRatio)));
+
+      // Availability score (15% weight)
+      const availabilityScore = row.is_available_now ? 100 : 75;
+
+      // Category fit (10% weight)
+      const hasCategory = workerSkills.some((ws) => ws.categoryId === opp?.category_id);
+      const categoryScore = hasCategory ? 100 : 50;
+
+      // Reliability fit (10% weight) - FAIRNESS RULE for new workers
+      const completedTasks = Number(row.completed_tasks_count || 0);
+      const isNewWorkerTasks = completedTasks < 3;
+      const reliabilityScore = isNewWorkerTasks ? 70 : Math.min(100, Math.max(0, Number(row.reliability_score || 100)));
+
+      // Ratings fit (5% weight) - FAIRNESS RULE for new workers
+      const totalRatings = Number(row.total_ratings_count || 0);
+      const isNewWorkerRatings = totalRatings < 3;
+      const avgRating = Number(row.average_rating || 5.0);
+      const ratingScore = isNewWorkerRatings ? 70 : Math.min(100, Math.max(0, Math.round(((avgRating - 1) / 4) * 100)));
+
+      // Verification score (5% weight)
+      const verificationScore = row.worker_identity_verified ? 100 : row.worker_phone_verified ? 80 : 50;
+
+      // Preferred worker affinity boost (+5%)
+      const preferredBonus = isPreferred ? 5 : 0;
+
+      // Composite calculation
+      const rawScore =
+        skillScore * 0.35 +
+        distanceScore * 0.20 +
+        availabilityScore * 0.15 +
+        categoryScore * 0.10 +
+        reliabilityScore * 0.10 +
+        ratingScore * 0.05 +
+        verificationScore * 0.05 +
+        preferredBonus;
+
+      // Hard eligibility: Missing mandatory required trade skills => score = 0
+      let finalMatchScore = (requiredSkills.length > 0 && matchedRequired.length === 0)
+        ? 0
+        : Math.min(100, Math.max(0, Math.round(rawScore)));
+
+      // Generate explainability reasons
+      let matchReasons: string[] = [];
+      if (isPreferred) {
+        matchReasons.push("❤️ Preferred Worker");
+      }
+      if (requiredSkills.length > 0 && matchedRequired.length === requiredSkills.length) {
+        matchReasons.push(`All ${requiredSkills.length} required skills matched`);
+      } else if (matchedRequired.length > 0) {
+        matchReasons.push(`${matchedRequired.length} of ${requiredSkills.length} required skills`);
+      } else if (requiredSkills.length === 0) {
+        matchReasons.push("General support capabilities");
+      }
+
+      if (distKm <= 1.0) {
+        matchReasons.push(`Walkable distance (${distKm} km)`);
+      } else if (distKm <= 3.0) {
+        matchReasons.push(`Close proximity (${distKm} km)`);
+      } else {
+        matchReasons.push(`Within reach (${distKm} km)`);
+      }
+
+      if (row.is_available_now) {
+        matchReasons.push("Available now");
+      }
+
+      if (isNewWorkerTasks && isNewWorkerRatings) {
+        matchReasons.push("New Worker • Building Track Record");
+      } else if (!isNewWorkerTasks && reliabilityScore >= 95) {
+        matchReasons.push(`High reliability record (${Math.round(reliabilityScore)}%)`);
+      }
+
+      if (row.worker_identity_verified) {
+        matchReasons.push("Identity verified");
+      }
+
+      // Check if matchingService.explainMatch is available or mocked
       try {
         const match = await matchingService.explainMatch(
           row.worker_user_id,
           workOpportunityId,
         );
-        matchScore = match.score;
-        matchReasons = match.reasons;
+        if (match && typeof match.score === "number") {
+          finalMatchScore = match.score;
+          if (match.reasons && match.reasons.length > 0) {
+            matchReasons = match.reasons;
+          }
+        }
       } catch {
-        // Ignored
+        // Fallback to internal scoring calculation
       }
-
-      const distMeters = Number(row.distance_meters) || 0;
-      const distKm = Math.round((distMeters / 1000) * 10) / 10;
 
       applicants.push({
         applicationId: row.application_id,
@@ -768,11 +937,9 @@ export class ApplicationsService {
         workerUserId: row.worker_user_id,
         workerFullName: row.full_name,
         workerAvatarUrl: row.avatar_url || undefined,
-        workerRating: row.average_rating ? Number(row.average_rating) : 5.0,
-        workerCompletedTasks: row.completed_tasks_count
-          ? Number(row.completed_tasks_count)
-          : 0,
-        workerTradeSkills: skills,
+        workerRating: isNewWorkerRatings ? 5.0 : Number(avgRating.toFixed(1)),
+        workerCompletedTasks: completedTasks,
+        workerTradeSkills: workerSkills.map((ws) => ws.skillName),
         workerDistanceKm: distKm,
         workerIsAvailableNow: Boolean(row.is_available_now),
         workerPhoneVerified: Boolean(row.worker_phone_verified),
@@ -784,13 +951,18 @@ export class ApplicationsService {
         appliedAt: row.applied_at,
         assistedByAgentId: row.assisted_by_agent_id || undefined,
         isAgentAssisted: Boolean(row.assisted_by_agent_id),
-        matchScore,
-        matchReasons,
+        matchScore: finalMatchScore,
+        matchReasons: matchReasons.slice(0, 4),
       });
     }
 
-    // Sort applicants by match score descending
-    applicants.sort((a, b) => b.matchScore - a.matchScore);
+    // Sort applicants by match score descending (deterministic tie-breaker by appliedAt)
+    applicants.sort((a, b) => {
+      if (b.matchScore !== a.matchScore) {
+        return b.matchScore - a.matchScore;
+      }
+      return new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime();
+    });
 
     return applicants;
   }

@@ -56,4 +56,11 @@ router.get(
   (req, res, next) => intelligenceController.getDemandHotspots(req, res).catch(next)
 );
 
+// 7. Workforce Radar & Demand Intelligence (Role-adaptive, privacy-safe)
+router.get(
+  "/radar",
+  authenticateUser,
+  (req, res, next) => intelligenceController.getRadar(req, res).catch(next)
+);
+
 export const intelligenceRouter: Router = router;

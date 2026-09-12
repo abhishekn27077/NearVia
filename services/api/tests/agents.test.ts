@@ -295,7 +295,8 @@ describe("Phase 13: Agent-Assisted Job Access Module", () => {
         workerProfileId,
         "job-123",
         850,
-        "Worker is skilled and punctual"
+        "Worker is skilled and punctual",
+        true
       );
 
       expect(app.id).toBe("app-999");

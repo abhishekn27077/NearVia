@@ -74,6 +74,13 @@ describe("NEARVIA Prompt 11: Notifications & Messaging Hardening Test Suite", ()
          OR reviewee_id IN (SELECT id FROM users WHERE auth_id LIKE 'p11_%')`
       );
       await query(
+        `DELETE FROM payment_records WHERE assignment_id IN (
+          SELECT id FROM assignments WHERE work_opportunity_id IN (
+            SELECT id FROM work_opportunities WHERE title LIKE '%[P11_TEST]%'
+          )
+        )`
+      );
+      await query(
         `DELETE FROM assignments WHERE work_opportunity_id IN (
           SELECT id FROM work_opportunities WHERE title LIKE '%[P11_TEST]%'
         )`

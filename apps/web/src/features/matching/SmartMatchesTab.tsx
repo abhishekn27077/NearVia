@@ -126,7 +126,7 @@ export const SmartMatchesTab: React.FC<SmartMatchesTabProps> = ({
             )}
           </div>
           <p className="text-xs text-slate-500 font-medium">
-            Deterministic ranking based on trade skills, live availability, and proximity.
+            Deterministic ranking based on trade skills, live availability, and proximity • Recommended match (not guaranteed).
           </p>
         </div>
 

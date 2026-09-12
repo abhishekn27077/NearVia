@@ -340,120 +340,101 @@ export class PaymentsService {
     assignmentId: string,
     input: ConfirmCashPaymentInput
   ): Promise<PaymentRecordResponse> {
-    return await withTransaction(async (client) => {
-      // 1. Fetch assignment details
-      const assignRes = await client.query<{
-        id: string;
-        status: string;
-        agreed_wage: number;
-        payment_status: string;
-        work_opportunity_id: string;
-        worker_user_id: string;
-        provider_user_id: string;
-        opportunity_title: string;
-      }>(
-        `SELECT 
-           a.id, a.status, a.agreed_wage, a.payment_status, a.work_opportunity_id,
-           w.user_id AS worker_user_id,
-           p.user_id AS provider_user_id,
-           wo.title AS opportunity_title
-         FROM assignments a
-         JOIN worker_profiles w ON a.worker_id = w.id
-         JOIN provider_profiles p ON a.provider_id = p.id
-         JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
-         WHERE a.id = $1`,
-        [assignmentId]
-      );
-
-      const assignment = assignRes.rows[0];
-      if (!assignment) {
-        throw new AppError("Assignment not found", 404, ErrorCode.NOT_FOUND);
-      }
-
-      // Authorization: caller must be the assigned worker
-      if (assignment.worker_user_id !== workerUserId) {
-        throw new AppError(
-          "Only the assigned worker can confirm cash receipt",
-          403,
-          ErrorCode.UNAUTHORIZED_PAYMENT_ACTION
-        );
-      }
-
-      // Ensure assignment is not under active dispute
-      if (assignment.payment_status === "DISPUTED") {
-        throw new AppError(
-          "Cannot confirm cash payment for an assignment under active dispute. Dispute must be resolved first.",
-          409,
-          ErrorCode.PAYMENT_DISPUTED
-        );
-      }
-
-      const openDispute = await client.query(
-        `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'INVESTIGATING', 'UNDER_REVIEW') LIMIT 1`,
-        [assignmentId]
-      );
-      if (openDispute?.rows && openDispute.rows.length > 0) {
-        throw new AppError(
-          "Cannot confirm cash payment for an assignment with an open dispute. Dispute must be resolved first.",
-          409,
-          ErrorCode.PAYMENT_DISPUTED
-        );
-      }
-
-      // 2. Fetch pending cash payment record
-      const payRes = await client.query<{
-        id: string;
-        payment_pin: string | null;
-        payment_pin_attempts: number;
-        status: string;
-        amount: number;
-      }>(
-        `SELECT id, payment_pin, payment_pin_attempts, status, amount
-         FROM payment_records
-         WHERE assignment_id = $1`,
-        [assignmentId]
-      );
-
-      const payment = payRes.rows[0];
-      if (!payment) {
-        throw new AppError(
-          "No cash payment transaction initiated for this assignment",
-          404,
-          ErrorCode.NOT_FOUND
-        );
-      }
-
-      if (payment.status === "CONFIRMED") {
-        throw new AppError(
-          "Cash payment has already been confirmed",
-          400,
-          ErrorCode.PAYMENT_ALREADY_CONFIRMED
-        );
-      }
-
-      // Check existing attempts limit
-      if ((payment.payment_pin_attempts || 0) >= 3) {
-        throw new AppError(
-          "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
-          429,
-          ErrorCode.PAYMENT_PIN_MAX_ATTEMPTS_EXCEEDED
-        );
-      }
-
-      // Validate PIN
-      const pinToVerify = (input.paymentPin || (input as any).pin || "").trim();
-      if (!payment.payment_pin || payment.payment_pin !== pinToVerify) {
-        const updateAttempts = await client.query<{ payment_pin_attempts: number }>(
-          `UPDATE payment_records
-           SET payment_pin_attempts = payment_pin_attempts + 1,
-               updated_at = NOW()
-           WHERE id = $1
-           RETURNING payment_pin_attempts`,
-          [payment.id]
+    let failedPinPaymentId: string | null = null;
+    try {
+      return await withTransaction(async (client) => {
+        // 1. Fetch assignment details
+        const assignRes = await client.query<{
+          id: string;
+          status: string;
+          agreed_wage: number;
+          payment_status: string;
+          work_opportunity_id: string;
+          worker_user_id: string;
+          provider_user_id: string;
+          opportunity_title: string;
+        }>(
+          `SELECT 
+             a.id, a.status, a.agreed_wage, a.payment_status, a.work_opportunity_id,
+             w.user_id AS worker_user_id,
+             p.user_id AS provider_user_id,
+             wo.title AS opportunity_title
+           FROM assignments a
+           JOIN worker_profiles w ON a.worker_id = w.id
+           JOIN provider_profiles p ON a.provider_id = p.id
+           JOIN work_opportunities wo ON a.work_opportunity_id = wo.id
+           WHERE a.id = $1`,
+          [assignmentId]
         );
 
-        const nextAttempts = updateAttempts?.rows?.[0]?.payment_pin_attempts ?? 1;
-        if (nextAttempts >= 3) {
+        const assignment = assignRes.rows[0];
+        if (!assignment) {
+          throw new AppError("Assignment not found", 404, ErrorCode.NOT_FOUND);
+        }
+
+        // Authorization: caller must be the assigned worker
+        if (assignment.worker_user_id !== workerUserId) {
+          throw new AppError(
+            "Only the assigned worker can confirm cash receipt",
+            403,
+            ErrorCode.UNAUTHORIZED_PAYMENT_ACTION
+          );
+        }
+
+        // Ensure assignment is not under active dispute
+        if (assignment.payment_status === "DISPUTED") {
+          throw new AppError(
+            "Cannot confirm cash payment for an assignment under active dispute. Dispute must be resolved first.",
+            409,
+            ErrorCode.PAYMENT_DISPUTED
+          );
+        }
+
+        const openDispute = await client.query(
+          `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'UNDER_REVIEW') LIMIT 1`,
+          [assignmentId]
+        );
+        if (openDispute?.rows && openDispute.rows.length > 0) {
+          throw new AppError(
+            "Cannot confirm cash payment for an assignment with an open dispute. Dispute must be resolved first.",
+            409,
+            ErrorCode.PAYMENT_DISPUTED
+          );
+        }
+
+        // 2. Fetch pending cash payment record
+        const payRes = await client.query<{
+          id: string;
+          payment_pin: string | null;
+          payment_pin_attempts: number;
+          status: string;
+          amount: number;
+        }>(
+          `SELECT id, payment_pin, payment_pin_attempts, status, amount
+           FROM payment_records
+           WHERE assignment_id = $1`,
+          [assignmentId]
+        );
+
+        const payment = payRes.rows[0];
+        if (!payment) {
+          throw new AppError(
+            "No cash payment transaction initiated for this assignment",
+            404,
+            ErrorCode.NOT_FOUND
+          );
+        }
+
+        if (payment.status === "CONFIRMED") {
+          throw new AppError(
+            "Cash payment has already been confirmed",
+            400,
+            ErrorCode.PAYMENT_ALREADY_CONFIRMED
+          );
+        }
+
+        // Check existing attempts limit
+        if ((payment.payment_pin_attempts || 0) >= 3) {
           throw new AppError(
             "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
             429,
@@ -461,89 +442,124 @@ export class PaymentsService {
           );
         }
 
-        throw new AppError(
-          `Invalid Payment PIN. ${3 - nextAttempts} attempt(s) remaining.`,
-          400,
-          ErrorCode.INVALID_PAYMENT_PIN
-        );
-      }
+        // Validate PIN
+        const pinToVerify = (input.paymentPin || (input as any).pin || "").trim();
+        if (!payment.payment_pin || payment.payment_pin !== pinToVerify) {
+          failedPinPaymentId = payment.id;
+          const updateAttempts = await client.query<{ payment_pin_attempts: number }>(
+            `UPDATE payment_records
+             SET payment_pin_attempts = payment_pin_attempts + 1,
+                 updated_at = NOW()
+             WHERE id = $1
+             RETURNING payment_pin_attempts`,
+            [payment.id]
+          );
 
-      // 3. PIN matches -> Execute atomic settlement in transaction
-      const txRef = `cash_settled_${Date.now()}`;
-      // Update payment record to CONFIRMED
-      const updatePayRes = await client.query(
-        `UPDATE payment_records
-         SET status = 'CONFIRMED',
-             payment_pin_verified_at = NOW(),
-             cash_confirmed_by_payee_at = NOW(),
-             transaction_ref = $1,
-             notes = COALESCE(notes, '') || ' | Cash receipt confirmed by worker with PIN.',
-             recorded_at = NOW(),
-             updated_at = NOW()
-         WHERE id = $2
-         RETURNING *`,
-        [txRef, payment.id]
-      );
+          const nextAttempts = updateAttempts?.rows?.[0]?.payment_pin_attempts ?? ((payment.payment_pin_attempts || 0) + 1);
+          if (nextAttempts >= 3) {
+            throw new AppError(
+              "Too many failed PIN attempts. Maximum PIN verification attempts exceeded (3/3). Please re-initiate cash payment.",
+              429,
+              ErrorCode.PAYMENT_PIN_MAX_ATTEMPTS_EXCEEDED
+            );
+          }
 
-      // Update assignment to CONFIRMED and CLOSED
-      await client.query(
-        `UPDATE assignments
-         SET payment_status = 'CONFIRMED',
-             status = 'CLOSED',
-             final_wage_paid = $1,
-             payment_method = 'CASH',
-             payment_reference = $2,
-             updated_at = NOW()
-         WHERE id = $3`,
-        [payment.amount, txRef, assignmentId]
-      );
+          throw new AppError(
+            `Invalid Payment PIN. ${3 - nextAttempts} attempt(s) remaining.`,
+            400,
+            ErrorCode.INVALID_PAYMENT_PIN
+          );
+        }
 
-      // Check if all active assignments for this opportunity are completed/closed
-      const jobCheck = await client.query<{ unclosed: number }>(
-        `SELECT COUNT(*) AS unclosed
-         FROM assignments
-         WHERE work_opportunity_id = $1
-           AND status NOT IN ('CLOSED', 'CANCELLED', 'NO_SHOW')`,
-        [assignment.work_opportunity_id]
-      );
-      if (Number(jobCheck.rows[0]?.unclosed || 0) === 0) {
-        await client.query(
-          `UPDATE work_opportunities
-           SET status = 'PAID',
+        // 3. PIN matches -> Execute atomic settlement in transaction
+        const txRef = `cash_settled_${Date.now()}`;
+        // Update payment record to CONFIRMED
+        const updatePayRes = await client.query(
+          `UPDATE payment_records
+           SET status = 'CONFIRMED',
+               payment_pin_verified_at = NOW(),
+               cash_confirmed_by_payee_at = NOW(),
+               transaction_ref = $1,
+               notes = COALESCE(notes, '') || ' | Cash receipt confirmed by worker with PIN.',
+               recorded_at = NOW(),
                updated_at = NOW()
-           WHERE id = $1`,
+           WHERE id = $2
+           RETURNING *`,
+          [txRef, payment.id]
+        );
+
+        // Update assignment to CONFIRMED and CLOSED
+        await client.query(
+          `UPDATE assignments
+           SET payment_status = 'CONFIRMED',
+               status = 'CLOSED',
+               final_wage_paid = $1,
+               payment_method = 'CASH',
+               payment_reference = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [payment.amount, txRef, assignmentId]
+        );
+
+        // Check if all active assignments for this opportunity are completed/closed
+        const jobCheck = await client.query<{ unclosed: number }>(
+          `SELECT COUNT(*) AS unclosed
+           FROM assignments
+           WHERE work_opportunity_id = $1
+             AND status NOT IN ('CLOSED', 'CANCELLED', 'NO_SHOW')`,
           [assignment.work_opportunity_id]
         );
+        if (Number(jobCheck.rows[0]?.unclosed || 0) === 0) {
+          await client.query(
+            `UPDATE work_opportunities
+             SET status = 'PAID',
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [assignment.work_opportunity_id]
+          );
+        }
+
+        // Notifications
+        const amountINR = Number(payment.amount);
+        await client.query(
+          `INSERT INTO notifications (recipient_id, type, title, message, data) VALUES 
+           ($1, 'PAYMENT_SUCCESS', 'Cash Receipt Confirmed', 'You have confirmed receipt of ₹' || $3::text || ' cash.', $4),
+           ($2, 'PAYMENT_RECORDED', 'Cash Payment Confirmed', 'Worker has verified and confirmed cash payment of ₹' || $3::text || '.', $4)`,
+          [
+            workerUserId,
+            assignment.provider_user_id,
+            amountINR.toFixed(2),
+            JSON.stringify({ assignmentId, amountINR, paymentId: payment.id, method: "CASH" }),
+          ]
+        );
+
+        try {
+          await logAuditEvent({
+            actorId: workerUserId,
+            action: "CASH_PAYMENT_CONFIRMED",
+            targetEntity: "payment_records",
+            targetId: payment.id,
+            newValues: { assignmentId, amountINR, paymentMethod: "CASH", verifiedBy: "WORKER_PIN" },
+          });
+        } catch {}
+
+        const resp = this.mapRowToResponse(updatePayRes.rows[0], assignment.opportunity_title);
+        resp.disclaimer = "Cash payment was confirmed directly between provider and worker. NEARVIA does not hold custody of physical cash.";
+        return resp;
+      });
+    } finally {
+      if (failedPinPaymentId) {
+        try {
+          await query(
+            `UPDATE payment_records
+             SET payment_pin_attempts = COALESCE(payment_pin_attempts, 0) + 1,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [failedPinPaymentId]
+          );
+        } catch {}
       }
-
-      // Notifications
-      const amountINR = Number(payment.amount);
-      await client.query(
-        `INSERT INTO notifications (recipient_id, type, title, message, data) VALUES 
-         ($1, 'PAYMENT_SUCCESS', 'Cash Receipt Confirmed', 'You have confirmed receipt of ₹' || $3::text || ' cash.', $4),
-         ($2, 'PAYMENT_RECORDED', 'Cash Payment Confirmed', 'Worker has verified and confirmed cash payment of ₹' || $3::text || '.', $4)`,
-        [
-          workerUserId,
-          assignment.provider_user_id,
-          amountINR.toFixed(2),
-          JSON.stringify({ assignmentId, amountINR, paymentId: payment.id, method: "CASH" }),
-        ]
-      );
-
-      try {
-        await logAuditEvent({
-          actorId: workerUserId,
-          action: "CASH_PAYMENT_CONFIRMED",
-          targetEntity: "payment_records",
-          targetId: payment.id,
-          newValues: { assignmentId, amountINR, paymentMethod: "CASH", verifiedBy: "WORKER_PIN" },
-        });
-      } catch {}
-
-      const resp = this.mapRowToResponse(updatePayRes.rows[0], assignment.opportunity_title);
-      resp.disclaimer = "Cash payment was confirmed directly between provider and worker. NEARVIA does not hold custody of physical cash.";
-      return resp;
-    });
+    }
   }
 
   // ──────────────────────────────────────────────────
@@ -600,7 +616,7 @@ export class PaymentsService {
       }
 
       const openDispute = await client.query(
-        `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'INVESTIGATING', 'UNDER_REVIEW') LIMIT 1`,
+        `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'UNDER_REVIEW') LIMIT 1`,
         [payment.assignment_id]
       );
       if (openDispute?.rows && openDispute.rows.length > 0) {
@@ -1714,7 +1730,7 @@ export class PaymentsService {
 
     if (assignment.status !== "COMPLETED" && assignment.status !== "SETTLEMENT_PENDING") {
       throw new AppError(
-        `Cannot initiate payment for assignment in '${assignment.status}' status. Work must be verified as COMPLETED or SETTLEMENT_PENDING first.`,
+        `Cannot initiate payment for assignment in '${assignment.status}' status. Work must be verified as COMPLETED first or SETTLEMENT_PENDING.`,
         400,
         ErrorCode.PAYMENT_NOT_ELIGIBLE
       );
@@ -1738,7 +1754,7 @@ export class PaymentsService {
 
     // Check for any active open dispute in the disputes table
     const openDispute = await query(
-      `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'INVESTIGATING', 'UNDER_REVIEW') LIMIT 1`,
+      `SELECT id FROM disputes WHERE assignment_id = $1 AND status IN ('OPEN', 'UNDER_REVIEW') LIMIT 1`,
       [assignmentId]
     );
     if (openDispute?.rows && openDispute.rows.length > 0) {

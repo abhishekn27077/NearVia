@@ -5,6 +5,7 @@ import {
   sensitiveActionLimiter,
   adminLimiter,
 } from "../middleware/rateLimiter";
+import { authenticateUser } from "../middleware/auth.middleware";
 
 // Import domain module routers
 import { authRouter } from "../modules/auth";
@@ -27,7 +28,7 @@ import { disputesRouter } from "../modules/disputes";
 import { reportsRouter } from "../modules/reports";
 import { adminRouter } from "../modules/admin";
 import { messagesRouter } from "../modules/messages";
-import { intelligenceRouter } from "../modules/intelligence";
+import { intelligenceRouter, intelligenceController } from "../modules/intelligence";
 
 const router = Router();
 
@@ -65,5 +66,10 @@ router.use("/payments", sensitiveActionLimiter, paymentsRouter);
 router.use("/disputes", sensitiveActionLimiter, disputesRouter);
 router.use("/intelligence", intelligenceRouter);
 router.use("/admin", adminLimiter, adminRouter);
+
+// Unified, role-adaptive Workforce Radar & Demand Intelligence
+router.get("/radar", authenticateUser, (req, res, next) =>
+  intelligenceController.getRadar(req, res).catch(next),
+);
 
 export const apiRouter: Router = router;

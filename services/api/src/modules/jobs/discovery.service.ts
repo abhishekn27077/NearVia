@@ -147,10 +147,11 @@ export class DiscoveryService {
     ];
     let paramIndex = 4;
 
-    // Base WHERE: published opportunities, within PostGIS radius, and not expired
+    // Base WHERE: active opportunities, not filled, within PostGIS radius, and not expired
     const whereClauses: string[] = [
-      `wo.status = 'PUBLISHED'`,
+      `wo.status IN ('PUBLISHED', 'MATCHING')`,
       `wo.work_date >= CURRENT_DATE`,
+      `wo.workers_assigned < wo.workers_needed`,
       `ST_DWithin(wo.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)`,
     ];
 
@@ -417,10 +418,11 @@ export class DiscoveryService {
     let workerAvailabilitySlots: WorkerAvailabilitySlotContext[] = [];
     let workerIsAvailableNow = false;
     let workerServiceRadius = radiusKm;
+    let preferredProviderSet = new Set<string>();
 
     if (userId) {
       try {
-        const [wSkillsRes, wAvailRes, wProfRes] = await Promise.all([
+        const [wSkillsRes, wAvailRes, wProfRes, wPrefRes] = await Promise.all([
           query<{
             skill_id: string;
             name: string;
@@ -454,6 +456,13 @@ export class DiscoveryService {
             `SELECT is_available_now, service_radius_km FROM worker_profiles WHERE user_id = $1`,
             [userId],
           ),
+          query<{ provider_id: string }>(
+            `SELECT pw.provider_id
+             FROM preferred_workers pw
+             JOIN worker_profiles wp ON pw.worker_id = wp.id
+             WHERE wp.user_id = $1`,
+            [userId],
+          ),
         ]);
 
         workerSkills = wSkillsRes.rows.map((s) => ({
@@ -476,6 +485,8 @@ export class DiscoveryService {
             wProfRes.rows[0].service_radius_km || radiusKm,
           );
         }
+
+        preferredProviderSet = new Set(wPrefRes.rows.map((r) => r.provider_id));
       } catch {
         // Fallback for offline mock testing
       }
@@ -560,6 +571,8 @@ export class DiscoveryService {
           durationHours: Number(row.duration_hours),
           distanceKm: distKm,
           skills,
+          providerVerified: Boolean(row.verified_business || row.provider_identity_verified),
+          isPreferredWorker: preferredProviderSet.has(row.provider_id),
         },
       });
 

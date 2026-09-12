@@ -80,7 +80,7 @@ export const VoiceAssistantWidget: React.FC<VoiceAssistantWidgetProps> = ({
   const sendVoiceToServer = async (text: string) => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("nearvia_auth_token") || localStorage.getItem("token");
       const res = await fetch("/api/v1/intelligence/voice/process", {
         method: "POST",
         headers: {

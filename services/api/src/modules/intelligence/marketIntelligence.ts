@@ -131,42 +131,7 @@ export class MarketIntelligenceEngine {
     }
 
     if (jobsRes.rows.length === 0) {
-      // Return default hotspot structure for UI visualization
-      return [
-        {
-          id: "hotspot_blr_01",
-          locationName: "Jayanagar & BTM Cluster",
-          latitude: 12.925,
-          longitude: 77.593,
-          activeOpportunitiesCount: 14,
-          activeWorkersCount: 22,
-          supplyDemandRatio: 1.57,
-          topCategories: ["Catering", "Retail & Packing"],
-          urgencyTier: "BALANCED",
-        },
-        {
-          id: "hotspot_blr_02",
-          locationName: "Indiranagar & Domlur",
-          latitude: 12.978,
-          longitude: 77.64,
-          activeOpportunitiesCount: 28,
-          activeWorkersCount: 11,
-          supplyDemandRatio: 0.39,
-          topCategories: ["Food Preparation", "Logistics"],
-          urgencyTier: "HIGH_DEMAND",
-        },
-        {
-          id: "hotspot_blr_03",
-          locationName: "Whitefield Tech Corridor",
-          latitude: 12.969,
-          longitude: 77.749,
-          activeOpportunitiesCount: 35,
-          activeWorkersCount: 8,
-          supplyDemandRatio: 0.22,
-          topCategories: ["Facility Management", "Cleaning"],
-          urgencyTier: "CRITICAL_SHORTAGE",
-        },
-      ];
+      return [];
     }
 
     return jobsRes.rows.map((j, idx) => {

@@ -5,3 +5,4 @@ export { nlJobParser, NLJobParser } from "./nlParser";
 export { candidateMatchingEngine, CandidateMatchingEngine } from "./candidateMatching";
 export { voiceAssistanceEngine, VoiceAssistanceEngine } from "./voiceAssistance";
 export { marketIntelligenceEngine, MarketIntelligenceEngine } from "./marketIntelligence";
+export { radarService, RadarService } from "./radar.service";

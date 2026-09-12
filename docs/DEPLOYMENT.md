@@ -1,7 +1,8 @@
 # NEARVIA — DEPLOYMENT & ENVIRONMENT ARCHITECTURE GUIDE
 
-> **Document Version**: 1.0.0  
-> **Status**: Approved Staging Architecture  
+> **Document Version**: 1.1.0  
+> **Status**: Production-Ready Architectural Reference  
+> **Authoritative ₹0 Deployment Guide**: [`docs/deployment/DEPLOYMENT_GUIDE.md`](./deployment/DEPLOYMENT_GUIDE.md)  
 > **Target Audience**: DevOps Engineers, Lead Architects, System Administrators  
 
 ---

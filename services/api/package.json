@@ -10,6 +10,8 @@
     "start": "node dist/server.js",
     "seed:demo": "tsx src/scripts/seed-demo.ts",
     "reset:demo": "tsx src/scripts/reset-demo.ts",
+    "admin:create": "tsx src/scripts/create-admin.ts",
+    "db:migrate": "tsx src/scripts/migrate.ts",
     "test:e2e:workflow": "tsx src/scripts/e2e-workflow-verify.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",

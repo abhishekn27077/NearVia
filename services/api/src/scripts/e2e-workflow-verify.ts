@@ -200,6 +200,8 @@ export async function runE2EWorkflowVerification(): Promise<void> {
   // Step 8: Cleanup test job
   console.log("\n[Step 8] Cleaning up temporary E2E test records...");
   await query("DELETE FROM reviews WHERE assignment_id = $1", [assignmentId]);
+  await query("DELETE FROM payment_records WHERE assignment_id = $1", [assignmentId]);
+  await query("DELETE FROM notifications WHERE data->>'assignmentId' = $1", [assignmentId]);
   await query("DELETE FROM assignments WHERE id = $1", [assignmentId]);
   await query("DELETE FROM applications WHERE id = $1", [application.id]);
   await query("DELETE FROM work_opportunity_skills WHERE work_opportunity_id = $1", [publishedJob.id]);

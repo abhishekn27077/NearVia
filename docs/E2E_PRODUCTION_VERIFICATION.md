@@ -2,7 +2,7 @@
 
 > **Audit Execution Date:** 2026-08-28  
 > **Target Environment:** Production Architecture (React/Vite Frontend → Node.js/Express API → Supabase PostgreSQL 17 + PostGIS)  
-> **Database Host:** `db.yyyzfsmpyyagpnfrntnz.supabase.co:5432`
+> **Database Host:** `db.[PROJECT_REF].supabase.co:5432`
 
 ---
 

@@ -123,7 +123,7 @@ describe("Phase 7 — Hyperlocal Discovery & 5 KM Spatial Search Suite", () => {
         radiusKm: 5,
       });
 
-      expect(executedSql).toContain("wo.status = 'PUBLISHED'");
+      expect(executedSql).toMatch(/wo\.status (?:= 'PUBLISHED'|IN \('PUBLISHED', 'MATCHING'\))/);
       expect(executedSql).toContain("wo.work_date >= CURRENT_DATE");
     });
   });

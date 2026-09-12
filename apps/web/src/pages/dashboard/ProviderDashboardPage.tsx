@@ -17,6 +17,7 @@ import {
   Star,
   Clock,
   UserCheck,
+  Compass,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { webConfig } from "../../config";
@@ -316,22 +317,32 @@ export const ProviderDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Radius Selector Pills */}
-          <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-2xl">
-            {[3, 5, 10, 15].map((rad) => (
-              <button
-                key={rad}
-                type="button"
-                onClick={() => setSelectedRadius(rad)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all btn-tactile active:scale-95 ${
-                  selectedRadius === rad
-                    ? "bg-white text-orange-700 shadow-xs shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                {rad} KM
-              </button>
-            ))}
+          {/* Radius Selector Pills & Full Radar Link */}
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-2xl">
+              {[3, 5, 10, 15].map((rad) => (
+                <button
+                  key={rad}
+                  type="button"
+                  onClick={() => setSelectedRadius(rad)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all btn-tactile active:scale-95 ${
+                    selectedRadius === rad
+                      ? "bg-white text-orange-700 shadow-xs shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {rad} KM
+                </button>
+              ))}
+            </div>
+
+            <Link
+              to="/radar"
+              className="px-3.5 py-1.5 rounded-2xl text-xs font-black bg-orange-600 text-white hover:bg-orange-700 shadow-xs flex items-center space-x-1.5 transition-all"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Interactive Radar</span>
+            </Link>
           </div>
         </div>
 

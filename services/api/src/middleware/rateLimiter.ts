@@ -7,8 +7,8 @@ interface RateLimitRecord {
 
 const rateLimitStore = new Map<string, RateLimitRecord>();
 
-// Cleanup stale records periodically
-setInterval(() => {
+// Cleanup stale records periodically (unref so timer does not block process exit)
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, record] of rateLimitStore.entries()) {
     if (now > record.resetTime) {
@@ -16,6 +16,9 @@ setInterval(() => {
     }
   }
 }, 60_000);
+if (cleanupTimer.unref) {
+  cleanupTimer.unref();
+}
 
 export interface RateLimitOptions {
   windowMs: number;

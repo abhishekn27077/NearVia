@@ -10,7 +10,6 @@ import {
   WorkerDashboardPage,
   ProviderDashboardPage,
   AgentDashboardPage,
-  AdminDashboardPage,
 } from "../pages";
 import {
   WorkerProfilePage,
@@ -53,6 +52,7 @@ import {
 } from "../features/safety";
 import { MessagesPage } from "../features/messages";
 import { VerificationCenterPage } from "../features/verification";
+import { WorkforceRadarPage } from "../features/radar";
 
 export const router = createBrowserRouter([
   {
@@ -75,6 +75,46 @@ export const router = createBrowserRouter([
       {
         path: "share/job/:id",
         element: <ShareActiveJobPage />,
+      },
+      {
+        path: "radar",
+        element: (
+          <ProtectedRoute>
+            <WorkforceRadarPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "workforce-radar",
+        element: (
+          <ProtectedRoute>
+            <WorkforceRadarPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "worker/radar",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.WORKER]}>
+            <WorkforceRadarPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "provider/radar",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
+            <WorkforceRadarPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "agent/radar",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.AGENT]}>
+            <WorkforceRadarPage />
+          </ProtectedRoute>
+        ),
       },
       // Worker Role-Protected Routes
       {
@@ -299,14 +339,6 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[UserRole.AGENT]}>
             <AgentWorkDiscoveryPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "admin/dashboard",
-        element: (
-          <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
-            <AdminDashboardPage />
           </ProtectedRoute>
         ),
       },

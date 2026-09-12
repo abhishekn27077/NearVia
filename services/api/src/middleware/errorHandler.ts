@@ -22,6 +22,32 @@ export class AppError extends Error {
   }
 }
 
+function sanitizeErrorDetails(details: unknown): unknown {
+  if (!details) return undefined;
+  if (typeof details === "string") {
+    if (details.includes("pg_") || details.includes("SELECT ") || details.toLowerCase().includes("password")) {
+      return undefined;
+    }
+    return details;
+  }
+  if (typeof details === "object" && details !== null) {
+    const obj = details as Record<string, any>;
+    if (obj.routine || obj.table || obj.constraint || obj.schema || obj.file || obj.line || obj.detail || obj.where) {
+      return undefined;
+    }
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const lower = k.toLowerCase();
+      if (lower.includes("secret") || lower.includes("password") || lower.includes("token") || lower.includes("key")) {
+        continue;
+      }
+      clean[k] = v;
+    }
+    return clean;
+  }
+  return details;
+}
+
 export const errorHandler: ErrorRequestHandler = (
   err: Error,
   req: Request,
@@ -49,12 +75,22 @@ export const errorHandler: ErrorRequestHandler = (
 
   // Handle Known Application Domain Errors
   if (err instanceof AppError) {
+    const safeDetails = isProduction ? sanitizeErrorDetails(err.details) : err.details;
+    const safeMessage =
+      isProduction &&
+      (err.message.includes("SELECT ") ||
+        err.message.includes("FROM ") ||
+        err.message.includes("relation \"") ||
+        err.message.includes("syntax error at or near"))
+        ? "A database operation failed"
+        : err.message;
+
     const errorResponse: ApiErrorResponse & { requestId?: string } = {
       success: false,
       error: {
         code: err.code,
-        message: err.message,
-        details: err.details,
+        message: safeMessage,
+        ...(safeDetails !== undefined ? { details: safeDetails } : {}),
         timestamp: new Date().toISOString(),
       },
       ...(requestId ? { requestId } : {}),

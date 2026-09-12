@@ -94,6 +94,8 @@ export class SmartMatchingService {
       latitude: number | null;
       longitude: number | null;
       status: string;
+      workers_needed: number;
+      workers_assigned: number;
     }>(
       `SELECT 
         wo.id,
@@ -107,7 +109,9 @@ export class SmartMatchingService {
         wo.duration_hours,
         ST_Y(wo.location::geometry) AS latitude,
         ST_X(wo.location::geometry) AS longitude,
-        wo.status
+        wo.status,
+        wo.workers_needed,
+        wo.workers_assigned
        FROM work_opportunities wo
        JOIN categories c ON wo.category_id = c.id
        WHERE wo.id = $1`,
@@ -121,6 +125,22 @@ export class SmartMatchingService {
 
     if (job.latitude === null || job.longitude === null) {
       throw new AppError("Work opportunity does not have valid coordinates", 400, ErrorCode.LOCATION_REQUIRED);
+    }
+
+    // Eligibility check: If job is already filled or closed/cancelled, return 0 matches
+    if (
+      job.status === "COMPLETED" ||
+      job.status === "CANCELLED" ||
+      job.status === "CLOSED" ||
+      Number(job.workers_assigned) >= Number(job.workers_needed)
+    ) {
+      return {
+        jobId,
+        jobTitle: job.title,
+        jobCategoryName: job.category_name,
+        totalMatches: 0,
+        matches: [],
+      };
     }
 
     // 2. Enforce Provider Ownership / Authorization

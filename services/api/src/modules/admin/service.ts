@@ -56,7 +56,9 @@ export class AdminService {
       // Work opportunities summary
       query(`
         SELECT 
-          COUNT(*) FILTER (WHERE status = 'PUBLISHED') AS published_work
+          COUNT(*) FILTER (WHERE status = 'PUBLISHED') AS published_work,
+          COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled_work,
+          (SELECT COUNT(*) FROM applications) AS total_applications
         FROM work_opportunities
       `),
       // Assignments summary
@@ -88,6 +90,8 @@ export class AdminService {
       query(`
         SELECT 
           COALESCE(SUM(amount_paise) FILTER (WHERE status = 'CONFIRMED'), 0) AS confirmed_paise,
+          COALESCE(SUM(amount_paise) FILTER (WHERE status = 'CONFIRMED' AND payment_method = 'CASH'), 0) AS cash_paise,
+          COALESCE(SUM(amount_paise) FILTER (WHERE status = 'CONFIRMED' AND (payment_method != 'CASH' OR payment_method IS NULL)), 0) AS sandbox_paise,
           COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_payments
         FROM payment_records
       `),
@@ -101,15 +105,17 @@ export class AdminService {
       `),
     ]);
 
-    const uRow = usersRes.rows[0] || {};
-    const wRow = workRes.rows[0] || {};
-    const aRow = asgRes.rows[0] || {};
-    const vRow = verifRes.rows[0] || {};
-    const rRow = reportsRes.rows[0] || {};
-    const dRow = disputesRes.rows[0] || {};
-    const pRow = paymentsRes.rows[0] || {};
+    const uRow: any = usersRes.rows[0] || {};
+    const wRow: any = workRes.rows[0] || {};
+    const aRow: any = asgRes.rows[0] || {};
+    const vRow: any = verifRes.rows[0] || {};
+    const rRow: any = reportsRes.rows[0] || {};
+    const dRow: any = disputesRes.rows[0] || {};
+    const pRow: any = paymentsRes.rows[0] || {};
 
     const confirmedPaise = parseInt(pRow.confirmed_paise || "0", 10);
+    const cashPaise = parseInt(pRow.cash_paise || "0", 10);
+    const sandboxPaise = parseInt(pRow.sandbox_paise || "0", 10);
 
     return {
       totalUsers: parseInt(uRow.total_users || "0", 10),
@@ -117,6 +123,8 @@ export class AdminService {
       totalProviders: parseInt(uRow.total_providers || "0", 10),
       totalAgents: parseInt(uRow.total_agents || "0", 10),
       publishedWorkCount: parseInt(wRow.published_work || "0", 10),
+      cancelledWorkCount: parseInt(wRow.cancelled_work || "0", 10),
+      totalApplicationsCount: parseInt(wRow.total_applications || "0", 10),
       activeAssignmentsCount: parseInt(aRow.active_assignments || "0", 10),
       completedAssignmentsCount: parseInt(aRow.completed_assignments || "0", 10),
       pendingVerificationsCount: parseInt(vRow.pending_verifications || "0", 10),
@@ -124,6 +132,8 @@ export class AdminService {
       openDisputesCount: parseInt(dRow.open_disputes || "0", 10),
       confirmedPaymentsVolumePaise: confirmedPaise,
       confirmedPaymentsVolume: confirmedPaise / 100,
+      cashSettledVolume: cashPaise / 100,
+      sandboxSettledVolume: sandboxPaise / 100,
       pendingPaymentsCount: parseInt(pRow.pending_payments || "0", 10),
       recentAuditLogs: auditRes.rows.map((row) => ({
         id: row.id,
@@ -348,6 +358,14 @@ export class AdminService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<AdminUserListItem> {
+    if (adminId === targetUserId && input.role !== UserRole.ADMIN) {
+      throw new AppError(
+        "You cannot demote your own administrative account to prevent platform lockout",
+        400,
+        ErrorCode.VALIDATION_ERROR
+      );
+    }
+
     const targetUser = await query(`SELECT * FROM users WHERE id = $1`, [targetUserId]);
     const oldRow = targetUser.rows[0];
     if (!oldRow) {
