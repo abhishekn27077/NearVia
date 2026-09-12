@@ -45,7 +45,6 @@ interface AuthContextType {
     role: UserRole,
   ) => Promise<AuthUserContext>;
   loginWithDemoAccount: (role: UserRole) => Promise<AuthUserContext>;
-  loginWithMockRole: (role: UserRole) => Promise<void>;
   verifyMobile: (phone: string) => Promise<AuthUserContext>;
   verifyIdentity: (reference?: string) => Promise<AuthUserContext>;
   resendVerificationEmail: (email: string) => Promise<void>;
@@ -328,9 +327,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (!signInError && signInData.session) {
         setToken(signInData.session.access_token);
         setUser(userProfile);
-      } else if (email.trim().toLowerCase().endsWith("@nearvia.test")) {
-        setToken(`mock_token_${userProfile.authId}`);
-        setUser(userProfile);
       }
 
       return userProfile;
@@ -352,10 +348,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       throw new Error(`No demo account credentials configured for role: ${role}`);
     }
     return signInWithEmailPassword(creds.email, creds.password);
-  };
-
-  const loginWithMockRole = async (role: UserRole): Promise<void> => {
-    await loginWithDemoAccount(role);
   };
 
   const verifyMobile = async (phone: string): Promise<AuthUserContext> => {
@@ -448,7 +440,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         signInWithEmailPassword,
         signUpWithEmailPassword,
         loginWithDemoAccount,
-        loginWithMockRole,
         verifyMobile,
         verifyIdentity,
         resendVerificationEmail,

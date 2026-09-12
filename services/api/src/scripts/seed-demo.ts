@@ -14,9 +14,7 @@ import { query } from "../db";
 import { UserRole } from "@nearvia/types";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://localhost:54321";
-const DEMO_PASSWORD =
-  process.env.DEMO_PASSWORD ||
-  (process.env.NODE_ENV === "test" ? "TestEnvDemoPassword!2026" : "");
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "";
 
 // Privileged client strictly requiring SUPABASE_SERVICE_ROLE_KEY (no fallback to anon key or placeholders)
 export function getSeedAdminClient() {
@@ -114,11 +112,24 @@ export async function seedDemoAccounts(): Promise<void> {
   const existingAuthUsers = userList?.users || [];
 
   for (const def of DEMO_USERS) {
-    let authId = "";
+    if (def.role === UserRole.ADMIN) {
+      if (!process.env.ADMIN_SEED_PASSWORD) {
+        console.log(`ℹ️ [Seed] ADMIN_SEED_PASSWORD not set. Skipping Admin account seed (${def.email}).`);
+        continue;
+      }
+    } else {
+      if (!DEMO_PASSWORD) {
+        console.warn(`⚠️ [Seed] DEMO_PASSWORD environment variable not set. Skipping demo user seed (${def.email}).`);
+        continue;
+      }
+    }
+
     const userPassword =
       def.role === UserRole.ADMIN
-        ? process.env.ADMIN_SEED_PASSWORD || DEMO_PASSWORD
+        ? process.env.ADMIN_SEED_PASSWORD!
         : DEMO_PASSWORD;
+
+    let authId = "";
     const existing = existingAuthUsers.find(
       (u) => u.email?.toLowerCase() === def.email.toLowerCase()
     );
@@ -176,17 +187,17 @@ export async function seedDemoAccounts(): Promise<void> {
           location_text = $7,
           latitude = $8,
           longitude = $9,
-          mobile_verified = TRUE,
-          mobile_verified_at = COALESCE(mobile_verified_at, NOW()),
-          identity_verified = TRUE,
-          identity_verified_at = COALESCE(identity_verified_at, NOW()),
-          verification_provider = 'NEARVIA_DEMO_KYC',
-          verification_reference = $10,
+          mobile_verified = FALSE,
+          mobile_verified_at = NULL,
+          identity_verified = FALSE,
+          identity_verified_at = NULL,
+          verification_provider = 'UNVERIFIED_DEMO',
+          verification_reference = NULL,
           profile_completed = TRUE,
           is_demo = TRUE,
           is_active = TRUE,
           updated_at = NOW()
-        WHERE id = $11`,
+        WHERE id = $10`,
         [
           authId,
           def.phone,
@@ -197,7 +208,6 @@ export async function seedDemoAccounts(): Promise<void> {
           def.locationText,
           def.latitude,
           def.longitude,
-          `DEMO_REF_${authId}`,
           userId,
         ]
       );
@@ -210,9 +220,9 @@ export async function seedDemoAccounts(): Promise<void> {
           verification_reference, profile_completed, is_demo, is_active
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, 
-          $8, $9, TRUE, NOW(), 
-          TRUE, NOW(), 'NEARVIA_DEMO_KYC', 
-          $10, TRUE, TRUE, TRUE
+          $8, $9, FALSE, NULL, 
+          FALSE, NULL, 'UNVERIFIED_DEMO', 
+          NULL, TRUE, TRUE, TRUE
         ) RETURNING id`,
         [
           authId,
@@ -224,7 +234,6 @@ export async function seedDemoAccounts(): Promise<void> {
           def.locationText,
           def.latitude,
           def.longitude,
-          `DEMO_REF_${authId}`,
         ]
       );
       userId = insertRes.rows[0]?.id || "";
@@ -278,7 +287,7 @@ export async function seedDemoAccounts(): Promise<void> {
       console.log(` ✓ Auth account exists (${def.email} | Auth ID: ${authId})`);
       console.log(` ✓ Profile exists (Database ID: ${userId})`);
       console.log(` ✓ Role = worker`);
-      console.log(` ✓ Verification status = Email ✓ | Mobile ✓ | Identity ✓ (Demo KYC)`);
+      console.log(` ✓ Verification status = Email ✓ | Unverified (Demo)`);
       console.log(` ✓ Service Radius: 5.0 KM | Location: ${def.locationText}`);
       console.log(` ✓ Ready`);
     } else if (def.role === UserRole.PROVIDER) {

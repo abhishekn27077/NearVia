@@ -91,12 +91,11 @@ interface ProviderReputation {
 }
 
 export const ProviderDashboardPage: React.FC = () => {
-  const { user, verifyMobile, verifyIdentity, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const [radar, setRadar] = useState<WorkforceRadarData | null>(null);
   const [preferredWorkers, setPreferredWorkers] = useState<PreferredWorker[]>([]);
   const [reputation, setReputation] = useState<ProviderReputation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [selectedRadius, setSelectedRadius] = useState<number>(5.0);
 
   // Instant Job Modal State
@@ -201,33 +200,6 @@ export const ProviderDashboardPage: React.FC = () => {
       setInstantError(err.message || "Network error. Please try again.");
     } finally {
       setIsSubmittingInstant(false);
-    }
-  };
-
-  const handleQuickVerifyMobile = async () => {
-    if (!user) return;
-    setIsVerifying(true);
-    try {
-      await verifyMobile(user.phone || "+919876543210");
-      await refreshProfile();
-      fetchDashboardData();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleQuickVerifyIdentity = async () => {
-    setIsVerifying(true);
-    try {
-      await verifyIdentity(`DEMO_PROVIDER_KYC_${Date.now()}`);
-      await refreshProfile();
-      fetchDashboardData();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -578,16 +550,16 @@ export const ProviderDashboardPage: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile Phone Verification */}
+          {/* Contact Mobile Profile Info */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
                 <Phone className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900">Contact Mobile</div>
+                <div className="text-xs font-bold text-slate-900">Contact Phone</div>
                 <div className="text-[11px] text-slate-500 truncate max-w-[140px]">
-                  {user?.phone || "No phone"}
+                  {user?.phone || "No phone added"}
                 </div>
               </div>
             </div>
@@ -597,14 +569,9 @@ export const ProviderDashboardPage: React.FC = () => {
                 <span>Verified</span>
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={handleQuickVerifyMobile}
-                disabled={isVerifying}
-                className="px-3 py-1 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-[11px] font-bold transition-all shadow-xs"
-              >
-                Verify Now
-              </button>
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">
+                <span>Self-Reported</span>
+              </span>
             )}
           </div>
 
@@ -617,7 +584,7 @@ export const ProviderDashboardPage: React.FC = () => {
               <div>
                 <div className="text-xs font-bold text-slate-900">Business KYC</div>
                 <div className="text-[11px] text-slate-500">
-                  {reputation?.verification?.businessVerified ? "KYC Verified" : "Simulated Business"}
+                  {reputation?.verification?.businessVerified ? "Verified" : "Pending Review"}
                 </div>
               </div>
             </div>
@@ -627,14 +594,12 @@ export const ProviderDashboardPage: React.FC = () => {
                 <span>Verified</span>
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={handleQuickVerifyIdentity}
-                disabled={isVerifying}
+              <Link
+                to="/verification"
                 className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold transition-all shadow-xs"
               >
-                Verify (Demo)
-              </button>
+                Trust Center
+              </Link>
             )}
           </div>
         </div>

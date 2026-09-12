@@ -111,9 +111,6 @@ export const VerificationCenterPage: React.FC = () => {
       setOtpSent(true);
       setCountdown(data.data?.cooldownSeconds || 60);
       setProviderInfo(data.data?.provider || "mock");
-      if (import.meta.env.DEV && data.data?.provider === "mock") {
-        setOtpCode("123456");
-      }
     } catch (err: any) {
       setOtpError(err.message);
     } finally {
@@ -139,9 +136,6 @@ export const VerificationCenterPage: React.FC = () => {
         throw new Error(data.error?.message || "Failed to resend verification code.");
       }
       setCountdown(data.data?.cooldownSeconds || 60);
-      if (import.meta.env.DEV && data.data?.provider === "mock") {
-        setOtpCode("123456");
-      }
     } catch (err: any) {
       setOtpError(err.message);
     } finally {
@@ -483,9 +477,6 @@ export const VerificationCenterPage: React.FC = () => {
                   </div>
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500">
                     <span className="font-bold">Provider:</span> {providerInfo === "msg91" ? "MSG91 SMS Gateway" : "SMS Verification Gateway"}
-                    {import.meta.env.DEV && providerInfo === "mock" && (
-                      <span> • Deterministic test code: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-orange-600 font-bold">123456</code></span>
-                    )}
                   </div>
                   <button
                     type="button"
@@ -507,7 +498,7 @@ export const VerificationCenterPage: React.FC = () => {
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="123456"
+                      placeholder="••••••"
                       autoFocus
                       aria-label="Enter 6-digit OTP verification code"
                       className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-mono text-center text-lg font-black tracking-widest focus:bg-white focus:border-orange-500"
@@ -545,7 +536,7 @@ export const VerificationCenterPage: React.FC = () => {
             <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-2xl space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-black text-slate-900 font-display">
-                  Submit ID Reference (Demo KYC)
+                  Submit ID Reference for Review
                 </h3>
                 <button
                   type="button"

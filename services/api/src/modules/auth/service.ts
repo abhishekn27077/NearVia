@@ -512,7 +512,7 @@ export class AuthService {
   }
 
   /**
-   * Verify mobile number for authenticated user
+   * Update mobile number for authenticated user (Stored as profile contact info; not falsely marked verified)
    */
   public async verifyMobile(userId: string, phone: string): Promise<AuthUserContext> {
     const normalizedPhone = phone.trim();
@@ -531,8 +531,8 @@ export class AuthService {
     const result = await query<any>(
       `UPDATE users SET 
         phone = $1, 
-        mobile_verified = TRUE, 
-        mobile_verified_at = NOW(),
+        mobile_verified = FALSE, 
+        mobile_verified_at = NULL,
         updated_at = NOW() 
        WHERE id = $2 
        RETURNING *`,
@@ -578,8 +578,10 @@ export class AuthService {
       }
       token = data.session.access_token;
       authId = data.user.id;
-    } else {
+    } else if (process.env.NODE_ENV === "test") {
       token = `mock_token_${target.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    } else {
+      throw new AppError("Authentication service is currently unavailable.", 503, ErrorCode.SERVICE_UNAVAILABLE);
     }
 
     const user = authId
@@ -604,7 +606,7 @@ export class AuthService {
   }
 
   /**
-   * Verify identity (Demo KYC / Verified ID)
+   * Record identity document reference (Self-Reported for Demo; strictly NOT verified without official review)
    * Hardened: Hashes raw identification reference (Aadhaar/PAN) to prevent plain-text PII storage.
    */
   public async verifyIdentity(
@@ -612,14 +614,14 @@ export class AuthService {
     reference?: string,
   ): Promise<AuthUserContext> {
     const sanitizedRef = reference?.trim()
-      ? `DEMO_REF_${crypto.createHash("sha256").update(reference.trim()).digest("hex").slice(0, 12).toUpperCase()}`
-      : `DEMO_KYC_${Date.now()}`;
+      ? `SELF_REF_${crypto.createHash("sha256").update(reference.trim()).digest("hex").slice(0, 12).toUpperCase()}`
+      : `SELF_REF_${Date.now()}`;
 
     const result = await query<any>(
       `UPDATE users SET 
-        identity_verified = TRUE, 
-        identity_verified_at = NOW(),
-        verification_provider = 'NEARVIA_DEMO_KYC',
+        identity_verified = FALSE, 
+        identity_verified_at = NULL,
+        verification_provider = 'UNVERIFIED_DEMO',
         verification_reference = $1,
         profile_completed = TRUE,
         updated_at = NOW() 

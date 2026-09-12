@@ -171,20 +171,29 @@ npm audit
 
 ---
 
-## 7. Seed Demonstration Accounts
+## 7. Application Architecture & Demonstration Accounts
 
-For local demonstration and viva examination, use the following pre-seeded test phone numbers with default OTP `123456`:
+### Public Application (`apps/web`)
+The primary public marketplace operates at `http://localhost:5173`. Users authenticate securely via Supabase Auth (Email/Password or Google OAuth).
 
-| Persona | Role | Demo Phone Number | Default Test OTP | Primary Portal |
-| :--- | :--- | :---: | :---: | :--- |
-| **Priya Sharma** | `PROVIDER` | `+919876543210` | `123456` | `/provider/dashboard` |
-| **Ramesh Kumar** | `WORKER` | `+919876543211` | `123456` | `/worker/dashboard` |
-| **Anil Verma** | `AGENT` | `+919876543212` | `123456` | `/agent/dashboard` |
+For local development and testing, standard demo accounts can be provisioned using `npm run seed:demo` with password supplied via the `DEMO_PASSWORD` local environment variable:
 
-*(Note: In production environments, mock OTP is rejected by fail-fast startup assertions).*
+| Persona | Role | Demo Account Email | Primary Portal |
+| :--- | :--- | :--- | :--- |
+| **Priya Sharma** | `PROVIDER` | `demo.provider@nearvia.test` | `/provider/dashboard` |
+| **Suresh Patel** | `WORKER` | `demo.worker@nearvia.test` | `/worker/dashboard` |
+| **Sunita Rao** | `AGENT` | `demo.agent@nearvia.test` | `/agent/dashboard` |
 
-> [!NOTE]
-> **Admin Console Access**: The Admin Console is an isolated application running on `http://localhost:5174/login`. Initial administrator accounts are provisioned via CLI (`npm run admin:create -- --email <admin-email>`) requiring direct database credentials. No administrative accounts or credentials are built into public web portals.
+*(Note: Demo account credentials require `DEMO_PASSWORD` in `.env`. No fallback passwords are committed in source code).*
+
+### Isolated Admin Console (`apps/admin`)
+The Admin Console is a physically separate application running on `http://localhost:5174`.
+
+- **Admin Provisioning**: Administrative accounts cannot be registered publicly. They must be provisioned securely via CLI/server environment:
+  ```bash
+  npm run admin:create -- --email <admin-email>
+  ```
+- **Admin APIs**: All administrative endpoints (`/api/v1/admin/*`) require server-side `ADMIN` role verification, active status enforcement, and structured audit logging. No administrative access exists through `apps/web`.
 
 ---
 

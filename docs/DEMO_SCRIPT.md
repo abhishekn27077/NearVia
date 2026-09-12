@@ -8,14 +8,14 @@
 
 ## Demo Credentials & Persona Profiles
 
-*(Use standard seeded demonstration accounts. No plain text secrets required.)*
+*(Demo accounts use standard seeded email addresses. Credentials configured via local `DEMO_PASSWORD` variable. Admin credentials provisioned via CLI).*
 
-| Persona | Demonstration Role | Demo Phone Number | Default Test OTP | Primary Demonstration Focus |
+| Persona | Demonstration Role | Demo Account Email | Portal | Primary Demonstration Focus |
 | :--- | :--- | :--- | :---: | :--- |
-| **Priya Sharma** | `PROVIDER` (Sweet Shop Owner) | `+919876543210` | `123456` | Job Posting Wizard, Candidate Matching, Cash Settlement |
-| **Ramesh Kumar** | `WORKER` (Packer & Loader) | `+919876543211` | `123456` | Hyperlocal Discovery, Audio Readout, GPS Check-In |
-| **Anil Verma** | `AGENT` (Community Facilitator)| `+919876543212` | `123456` | Assisted Worker Onboarding, Proxy Application |
-| **Platform Officer**| `ADMIN` (Governance) | `+919876543213` | `123456` | Real-Time Metrics, Safety Disputes, Audit Logs |
+| **Priya Sharma** | `PROVIDER` (Sweet Shop Owner) | `demo.provider@nearvia.test` | `apps/web` (`:5173`) | Job Posting Wizard, Candidate Matching, Cash Settlement |
+| **Suresh Patel** | `WORKER` (Packer & Loader) | `demo.worker@nearvia.test` | `apps/web` (`:5173`) | Hyperlocal Discovery, Audio Readout, GPS Check-In |
+| **Sunita Rao** | `AGENT` (Community Facilitator)| `demo.agent@nearvia.test` | `apps/web` (`:5173`) | Assisted Worker Onboarding, Proxy Application |
+| **Platform Officer**| `ADMIN` (Governance & Audit) | *(CLI Provisioned)* | `apps/admin` (`:5174`) | Real-Time Metrics, Safety Disputes, Audit Logs |
 
 ---
 
@@ -24,9 +24,8 @@
 ### Act 1: The Employer Problem & Job Creation (Minutes 0:00 – 3:30)
 1. **Open Browser 1** (Incognito or Chrome Profile 1) to `http://localhost:5173/login`.
 2. **Login as Provider**:
-   - Enter Phone: `+919876543210`.
-   - Click **"Request OTP"** $\rightarrow$ Toast appears: *"OTP sent successfully"*.
-   - Enter OTP: `123456` $\rightarrow$ Click **"Verify & Login"**.
+   - Enter Email: `demo.provider@nearvia.test` (or select Provider Demo Account button).
+   - Enter Password (from local `DEMO_PASSWORD`) $\rightarrow$ Click **"Log In"**.
    - Lands on **Provider Dashboard** (`/provider/dashboard`).
 3. **Post a New Hyperlocal Shift**:
    - Click **"+ Post a Job"** (`/provider/work/new`).
@@ -48,8 +47,8 @@
 ### Act 2: Worker Discovery & Multimodal Accessibility (Minutes 3:30 – 6:30)
 1. **Open Browser 2** (Separate browser profile) to `http://localhost:5173/login`.
 2. **Login as Worker**:
-   - Enter Phone: `+919876543211`.
-   - Enter OTP: `123456` $\rightarrow$ Lands on **Worker Dashboard** (`/worker/dashboard`).
+   - Enter Email: `demo.worker@nearvia.test` (or select Worker Demo Account button).
+   - Enter Password (from local `DEMO_PASSWORD`) $\rightarrow$ Lands on **Worker Dashboard** (`/worker/dashboard`).
 3. **Toggle Available-Now**:
    - Click **"Go Online"** / **"Available Now"** toggle.
    - Highlight the real-time availability beacon.
@@ -104,11 +103,13 @@
 ---
 
 ### Act 5: Governance, Audit Logs & Wrap-Up (Minutes 11:30 – 13:00)
-1. **Open Browser 3 (Admin Console)**:
-   - Login with admin credentials at `/login`.
-   - Navigate to `/admin/dashboard`.
+1. **Open Browser 3 (Isolated Admin Console)**:
+   - Navigate to `http://localhost:5174/login` (`apps/admin`).
+   - Log in with CLI-provisioned administrator credentials.
+   - Lands on **Admin Dashboard** (`/dashboard`).
    - **Metrics Tab**: Point out real-time stats: GMV incremented by ₹750, Completed Shifts = 1.
    - **Audit Logs Tab**: Inspect the tamper-evident chronological event stream:
      - `OPPORTUNITY_PUBLISHED` $\rightarrow$ `APPLICATION_ACCEPTED` $\rightarrow$ `ASSIGNMENT_CONFIRMED` $\rightarrow$ `GPS_CHECK_IN` $\rightarrow$ `SHIFT_COMPLETED` $\rightarrow$ `CASH_PAYMENT_CONFIRMED`.
+   - **Security Disclosure**: Emphasize server-side role enforcement (JWT validation against Postgres `ADMIN` role) and zero admin code exposure in `apps/web`.
 2. **Concluding Statement**:
    - *"NEARVIA demonstrates how PostGIS spatial indexing, explainable deterministic matching, and low-literacy UX create an accountable, safe, and transparent labor marketplace for the informal economy."*

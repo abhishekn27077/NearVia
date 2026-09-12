@@ -36,7 +36,7 @@
   ```json
   {
     "phone": "+919876543210",
-    "otp": "123456"
+    "otp": "<6_DIGIT_OTP_CODE>"
   }
   ```
 - **Success Response (200 OK)**:

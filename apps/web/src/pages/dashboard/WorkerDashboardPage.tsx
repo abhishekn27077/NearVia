@@ -89,7 +89,7 @@ interface DashboardStats {
 }
 
 export const WorkerDashboardPage: React.FC = () => {
-  const { user, token, verifyMobile, verifyIdentity, refreshProfile } = useAuth();
+  const { user, token } = useAuth();
   const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -98,7 +98,6 @@ export const WorkerDashboardPage: React.FC = () => {
   const [preferredRadius, setPreferredRadius] = useState<number>(5.0);
   const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>(["HOURLY", "TASK"]);
   const [availableHours, setAvailableHours] = useState<number>(8);
-  const [isVerifying, setIsVerifying] = useState(false);
 
   const fetchDashboardStats = useCallback(() => {
     if (!token) return;
@@ -169,33 +168,6 @@ export const WorkerDashboardPage: React.FC = () => {
       console.error("Failed to toggle availability:", err);
     } finally {
       setIsTogglingAvailability(false);
-    }
-  };
-
-  const handleQuickVerifyMobile = async () => {
-    if (!user) return;
-    setIsVerifying(true);
-    try {
-      await verifyMobile(user.phone || "+919876543211");
-      await refreshProfile();
-      fetchDashboardStats();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleQuickVerifyIdentity = async () => {
-    setIsVerifying(true);
-    try {
-      await verifyIdentity(`DEMO_KYC_${Date.now()}`);
-      await refreshProfile();
-      fetchDashboardStats();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -640,16 +612,16 @@ export const WorkerDashboardPage: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile Verification */}
+          {/* Mobile Profile Info */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
                 <Phone className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900">Mobile OTP</div>
+                <div className="text-xs font-bold text-slate-900">Phone Contact</div>
                 <div className="text-[11px] text-slate-500 truncate max-w-[140px]">
-                  {user?.phone || "No phone"}
+                  {user?.phone || "No phone added"}
                 </div>
               </div>
             </div>
@@ -659,14 +631,9 @@ export const WorkerDashboardPage: React.FC = () => {
                 <span>Verified</span>
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={handleQuickVerifyMobile}
-                disabled={isVerifying}
-                className="px-3 py-1 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-[11px] font-bold transition-all shadow-xs"
-              >
-                Verify Now
-              </button>
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">
+                <span>Self-Reported</span>
+              </span>
             )}
           </div>
 
@@ -677,9 +644,9 @@ export const WorkerDashboardPage: React.FC = () => {
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900">Identity KYC</div>
+                <div className="text-xs font-bold text-slate-900">Identity Status</div>
                 <div className="text-[11px] text-slate-500">
-                  {stats?.verification?.identityVerified ? "KYC Verified" : "Simulated ID"}
+                  {stats?.verification?.identityVerified ? "Verified" : "Pending Review"}
                 </div>
               </div>
             </div>
@@ -689,14 +656,12 @@ export const WorkerDashboardPage: React.FC = () => {
                 <span>Verified</span>
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={handleQuickVerifyIdentity}
-                disabled={isVerifying}
+              <Link
+                to="/verification"
                 className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold transition-all shadow-xs"
               >
-                Verify ID (Demo)
-              </button>
+                Trust Center
+              </Link>
             )}
           </div>
         </div>

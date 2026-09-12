@@ -64,7 +64,7 @@ Every operational incident must strictly follow the 6-stage lifecycle:
 
 ### SOP-05: Cellular SMS OTP Delivery Failure
 - **Detect**: Users report not receiving 6-digit OTP; failure rates in SMS provider logs spike.
-- **Contain**: Enable Mock OTP fallback for authorized pilot testers (`MOCK_OTP_CODE="123456"`); limit mock to pilot phone numbers.
+- **Contain**: Enable Mock OTP fallback for authorized pilot testers via local environment (`OTP_PROVIDER="mock"`); limit mock to pilot phone numbers.
 - **Investigate**: Check TRAI DLT template registration status and provider credit balance (e.g. Twilio / Fast2SMS).
 - **Recover**: Renew SMS provider balance or switch to secondary SMS vendor endpoint.
 - **Verify**: Trigger live test OTP to administrative device; verify receipt within 15 seconds.
