@@ -533,7 +533,7 @@ describe("NEARVIA Phase 9: Smart Matching System Test Suite", () => {
 
   it("3. Category mismatch scores lower than category match", async () => {
     const res = await request(app)
-      .get(`/api/v1/jobs/${testJobId}/matches`)
+      .get(`/api/v1/jobs/${testJobId}/matches?limit=50`)
       .set("Authorization", `Bearer mock_token_${OWNER_PROVIDER_AUTH}`);
 
     const matches = res.body.data.matches;

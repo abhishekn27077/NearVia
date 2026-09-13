@@ -2,7 +2,10 @@ import dotenv from "dotenv";
 import { z } from "zod";
 import { NEARVIA_CONFIG } from "@nearvia/config";
 
-// Load environment variables from .env file
+import path from "path";
+
+// Load environment variables from local .env and root .env
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 dotenv.config();
 
 const envSchema = z

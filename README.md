@@ -8,7 +8,7 @@
 [![PostGIS](https://img.shields.io/badge/PostGIS-3.3-green.svg)](https://postgis.net/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-20_LTS-339933.svg)](https://nodejs.org/)
-[![Tests](https://img.shields.io/badge/Tests-226%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-702%20Passed-brightgreen.svg)]()
 [![Security](https://img.shields.io/badge/Audit-0%20High%20Vulnerabilities-success.svg)]()
 
 ---
@@ -53,11 +53,11 @@ POSTGRESQL 17.6 + POSTGIS 3.3 PERSISTENCE LAYER
 
 ## 3. Technology Stack
 
-- **Frontend**: React 18, Vite 6, TypeScript 5, Tailwind CSS with custom design tokens, Lucide icons, Leaflet / OpenStreetMap.
+- **Frontend**: React 19, Vite 6, TypeScript 5, Tailwind CSS with custom design tokens, Lucide icons, Leaflet / OpenStreetMap.
 - **Backend API**: Node.js 20 LTS, Express 4, TypeScript 5, Zod 3, `pg-pool` connection pooling, Helmet.
 - **Database & Spatial**: PostgreSQL 17.6 with PostGIS 3.3, `pg_trgm` fuzzy text extension.
-- **Authentication**: Phone OTP with SHA-256 salted hashing and cryptographic JWT verification.
-- **Testing**: Vitest 3.2.7 (26 test files, 226 tests passing in 8.2s).
+- **Authentication**: Supabase Auth (Email/Password & Google OAuth) with server-side RBAC and session token validation.
+- **Testing**: Vitest 3.2.7 (53 test suites, 702 tests covering unit, integration, spatial PostGIS, security/IDOR, and lifecycle state machines).
 
 ---
 
@@ -66,8 +66,9 @@ POSTGRESQL 17.6 + POSTGIS 3.3 PERSISTENCE LAYER
 ```
 NEARVIA/
 ├── apps/
-│   ├── web/                     # React 18 + Vite Web Application
-│   └── mobile/                  # Native Mobile Application (Expo / React Native)
+│   ├── web/                     # React 19 + Vite Web Application (Public Marketplace)
+│   ├── admin/                   # Isolated Admin Command Center (Port 5174)
+│   └── mobile/                  # Native Mobile Application Architecture (Future scope)
 ├── services/
 │   └── api/                     # Node.js + Express Modular Monolith REST API
 ├── packages/

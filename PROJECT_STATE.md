@@ -5,9 +5,9 @@
 > **Tagline**: _Work Within Reach_  
 > **Project Type**: Hyperlocal Quick-Work Marketplace (5 KM Proximity + Immediate Shift Execution + Deterministic Matching)  
 > **Last Updated**: 2026-09-12  
-> **System Build Status**: `100% BUILD PASSING (npm run build & npm run typecheck: 0 errors, 679/679 Unit & Integration Tests Passing across 52 Suites, 8/8 E2E Database Phases Passing, 29/29 Migrations Applied)`  
+> **System Build Status**: `100% BUILD PASSING (npm run build & npm run typecheck: 0 errors, 702/702 Unit & Integration Tests Passing across 53 Suites, 8/8 E2E Database Phases Passing, 29/29 Migrations Applied)`  
 > **Current Design Status**: `Modern Warm White Card Design System (#FAFAF9 / bg-white border-slate-200 shadow-card rounded-3xl) + Multilingual (EN, ಕನ್ನಡ, हिंदी) + Web Speech API Voice Search & Speech Synthesis`
-| **Deployment Readiness** | `✅ Completed (Prompt 18) | ₹0 Free-Tier Cloud Ready | No Paid Infrastructure | Zero Secret Leakage` |
+| **Deployment Readiness** | `✅ Completed | ₹0 Free-Tier Cloud Ready | No Paid Infrastructure | Zero Secret Leakage` |
 | **Critical Fixes Applied** | `✅ Env templates (.env.example) | ✅ Error & DB log sanitization | ✅ First-admin CLI | ✅ 29 idempotent migrations | ✅ SPA rewrites` |
 
 ---
@@ -25,7 +25,7 @@
 
 ### 1.2 Seeded Public Test Accounts (Local / Staging)
 
-Worker, Provider, and Agent demo accounts use the password configured via `DEMO_PASSWORD` in your local `.env` (or `VITE_DEMO_PASSWORD` for local frontend quick-login):
+Worker, Provider, and Agent demo accounts use the password configured via `DEMO_PASSWORD` in your local `.env`:
 
 | Role | Email | Password Configuration | Primary Routes Accessible (Port 5173) |
 |---|---|---|---|
@@ -244,10 +244,39 @@ Payments & Settlements:
     - **Provider**: `Post Work`, `My Postings`, `Wage Settlements` (Worker links like `Find Work (5 KM)` completely removed).
     - **Worker**: `Find Work (5 KM)`, `My Shifts`, `Available Now`, `Daily Earnings` (Provider links completely removed).
     - **Agent**: `Agent Portal`.
-    - **Admin**: `Command Center`, `Marketplace`.
+    - **Admin**: Dedicated standalone client in `apps/admin` (Port 5174); 0 admin links, credentials, or routes in `apps/web`.
     - **Guest**: `Find Work (5 KM)`, `Post Work` (prompts registration).
   - **Intelligent Brand Logo Routing**: Logo dynamically routes to active role dashboard (`/provider/dashboard`, `/worker/dashboard`, etc.) or `/` for guests.
   - **Role-Safe Login Redirects**: In [`LoginPage.tsx`](file:///d:/NearVia/apps/web/src/pages/auth/LoginPage.tsx), verified redirect target matches the logged-in user's role prefix to eliminate cross-session "Access Restricted" anomalies.
+
+---
+
+## 9. Current Scope vs. Future Production Roadmap
+
+To ensure 100% transparency for the MCA final release and demonstration, all platform capabilities are strictly classified into currently verified operational features versus planned future production enhancements:
+
+### 9.1 Currently Implemented & Verified (WORKING NOW)
+- **Hyperlocal Marketplace**: 5 km radial discovery using PostGIS `ST_DWithin` & `ST_DistanceSphere` spatial index queries.
+- **Role Architecture**: Full server-enforced RBAC for `WORKER`, `PROVIDER`, `AGENT`, and `ADMIN`.
+- **Application & Hiring Lifecycle**: Concurrency-safe applicant review, shortlisting, and hiring with PostgreSQL row-level locks (`SELECT ... FOR UPDATE`).
+- **Attendance & Execution**: 6-digit Job PIN check-in/check-out workflow enforcing linear shift state progression (`ASSIGNED` → `IN_PROGRESS` → `PENDING_VERIFICATION` → `COMPLETED`).
+- **Safety & Dispute Mediation**: End-to-end incident reporting, dispute arbitration, and moderation workflows.
+- **Trust & Reliability**: Mutual double-blind 5-star ratings restricted strictly to verified completed assignments, updating rolling reliability scores.
+- **Agent Assisted Workflows**: Legitimate community agent portal enabling assisted registration and job discovery on behalf of onboarded workers without account takeover.
+- **In-App Messaging & Notifications**: Database-backed event notifications and conversation participant-restricted messaging.
+- **Accessibility & Multilingual Support**: Trilingual interface (English, हिन्दी, ಕನ್ನಡ) with RTL/LTR safety, ARIA tags, and keyboard-accessible flows.
+- **Deterministic Smart Matching**: Multi-factor scoring engine evaluating PostGIS proximity distance, category match, and skill overlap.
+- **Workforce Radar**: PostGIS spatial density aggregation and heatmap clustering without exposing workers' private continuous GPS tracks.
+- **Direct Settlement Recording**: Authoritative transaction ledger recording cash and sandbox-tested digital payments without fake production claims.
+- **Isolated Admin Command Center**: Fully decoupled admin application on Port 5174 with server-side role verification on all `/api/v1/admin/*` endpoints.
+
+### 9.2 Future Production Roadmap (NOT YET LIVE)
+- **Telecom SMS OTP Delivery**: Currently utilizing Supabase Auth email verification and test-mode OTP. Production cellular gateway (MSG91/Twilio) integration is architected for post-demo scale.
+- **Automated Government ID / Aadhaar API Integration**: Current system securely stores and flags document references for admin review; direct UIDAI/DigiLocker real-time verification APIs are designated for production compliance onboarding.
+- **Live Automated Escrow Settlement**: Current settlements are recorded transparently as cash/direct transactions with Razorpay sandbox support; automated multi-party escrow payouts will be enabled upon commercial merchant bank approval.
+- **Native Push Notification Services**: Background FCM/APNs push notification triggers for mobile devices.
+- **Neural/Deep ML Matching**: Advanced dynamic wage forecasting and predictive machine-learning matching models.
+
 
 
 

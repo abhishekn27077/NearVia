@@ -374,7 +374,7 @@ export const WorkOpportunityDetailPage: React.FC = () => {
                     Why This Work Matches You
                   </h2>
                   <p className="text-xs text-slate-500 font-medium">
-                    NEARVIA AI-Powered Hyperlocal Compatibility Breakdown
+                    NEARVIA Multi-Factor Hyperlocal Compatibility Breakdown
                   </p>
                 </div>
               </div>
