@@ -24,7 +24,7 @@
 ### Act 1: The Employer Problem & Job Creation (Minutes 0:00 – 3:30)
 1. **Open Browser 1** (Incognito or Chrome Profile 1) to `http://localhost:5173/login`.
 2. **Login as Provider**:
-   - Enter Email: `demo.provider@nearvia.test` (or select Provider Demo Account button).
+   - Enter Email: `demo.provider@nearvia.test`.
    - Enter Password (from local `DEMO_PASSWORD`) $\rightarrow$ Click **"Log In"**.
    - Lands on **Provider Dashboard** (`/provider/dashboard`).
 3. **Post a New Hyperlocal Shift**:
@@ -47,7 +47,7 @@
 ### Act 2: Worker Discovery & Multimodal Accessibility (Minutes 3:30 – 6:30)
 1. **Open Browser 2** (Separate browser profile) to `http://localhost:5173/login`.
 2. **Login as Worker**:
-   - Enter Email: `demo.worker@nearvia.test` (or select Worker Demo Account button).
+   - Enter Email: `demo.worker@nearvia.test`.
    - Enter Password (from local `DEMO_PASSWORD`) $\rightarrow$ Lands on **Worker Dashboard** (`/worker/dashboard`).
 3. **Toggle Available-Now**:
    - Click **"Go Online"** / **"Available Now"** toggle.
@@ -77,11 +77,10 @@
 2. **Switch to Browser 2 (Worker)**:
    - Navigate to **"My Assignments"** (`/worker/assignments/:id`).
    - Click **"Confirm Shift"** $\rightarrow$ Status transitions to `CONFIRMED`.
-   - Point out that exact work site address and contact number are now unlocked.
-3. **Simulate GPS Check-In**:
-   - Worker arrives at work site. Click **"GPS Check-In"**.
-   - Browser samples coordinates $\rightarrow$ Geodesic distance computed: `18 meters`.
-   - Check-in approved $\rightarrow$ Status becomes `CHECKED_IN` (Green badge).
+   - Point out that exact work site address and 6-digit Job PIN are now unlocked.
+3. **Simulate Job PIN Check-In**:
+   - Worker arrives at work site. Enters the valid **6-digit Job PIN** (or clicks verify check-in).
+   - Check-in approved $\rightarrow$ Status becomes `CHECKED_IN` $\rightarrow$ `IN_PROGRESS` (Green badge).
 
 ---
 

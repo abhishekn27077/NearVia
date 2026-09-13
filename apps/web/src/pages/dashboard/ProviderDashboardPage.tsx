@@ -582,7 +582,7 @@ export const ProviderDashboardPage: React.FC = () => {
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900">Business KYC</div>
+                <div className="text-xs font-bold text-slate-900">Business Registration</div>
                 <div className="text-[11px] text-slate-500">
                   {reputation?.verification?.businessVerified ? "Verified" : "Pending Review"}
                 </div>

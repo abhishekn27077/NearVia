@@ -92,7 +92,7 @@ router.post("/verify-mobile", authenticateUser, otpLimiter, (req, res, next) =>
   authController.verifyMobile(req, res, next),
 );
 
-// Protected: Verify identity (Demo KYC)
+// Protected: Submit document reference for manual admin review
 router.post(
   "/verify-identity",
   authenticateUser,

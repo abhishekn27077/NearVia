@@ -13,7 +13,7 @@
 NEARVIA separates **Identity Authentication** from **Domain Authorization**:
 
 1. **Identity Authentication (Supabase Auth)**:
-   - Manages secure user registration, email/phone OTP credentials, cryptographic password hashing, session tokens (JWTs), and session refresh lifecycles.
+   - Manages secure user registration, email/password credentials, Google OAuth, cryptographic password hashing, session tokens (JWTs), and session refresh lifecycles.
    - **Zero Password Storage**: NEARVIA's relational database never stores passwords, hashes, or sensitive auth tokens.
 2. **Domain Authorization (PostgreSQL + Server Middleware)**:
    - The authoritative source of truth for user platform roles (`WORKER`, `PROVIDER`, `AGENT`, `ADMIN`), account status (`ACTIVE`, `SUSPENDED`, `DEACTIVATED`), and resource ownership.
@@ -22,7 +22,7 @@ NEARVIA separates **Identity Authentication** from **Domain Authorization**:
 ```
 +------------------+         +---------------------+         +---------------------+
 |  Client Browser  |  (1)    |    Supabase Auth    |         |   NEARVIA API       |
-|   (Web / Mobile) | ------> |  (Phone OTP / JWT)  |         | (Express / Node.js) |
+|   (Web / Mobile) | ------> |  (Email / Google)   |         | (Express / Node.js) |
 +------------------+         +---------------------+         +---------------------+
          |                              |                               |
          | (2) Session Token (JWT)      |                               |
@@ -50,11 +50,11 @@ NEARVIA separates **Identity Authentication** from **Domain Authorization**:
 > A critical architectural distinction in NEARVIA:
 
 - **A. Authentication Verification (Phase 4)**:
-  - _"Does this person control this phone number or email address?"_
-  - Handled via Supabase Auth OTP verification.
-- **B. Platform Identity & Skill Verification (Phase 19 / Future)**:
-  - _"Has NEARVIA verified this person's government ID, trade certification, police clearance, or business registration?"_
-  - Handled via the `verifications` table audit workflow.
+  - _"Does this person control this email address or federated login?"_
+  - Handled via Supabase Auth email confirmation or Google OAuth session verification.
+- **B. Platform Identity & Skill Verification (Future Production Roadmap)**:
+  - _"Has NEARVIA verified this person's government ID, trade certification, or business registration?"_
+  - Handled via the `verifications` table review workflow.
   - A user can be authenticated without having completed platform identity verification.
 
 ---

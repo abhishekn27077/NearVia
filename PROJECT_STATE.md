@@ -133,7 +133,7 @@ apps/web/src/
 │   │   ├── CreateWorkOpportunityPage.tsx # 5-step posting wizard with 1-tap templates
 │   │   └── ProviderWorkDetailPage.tsx# Posting detail with applicant management
 │   └── worker/
-│       ├── WorkerDashboardPage.tsx   # Worker home dashboard with 100% KYC status
+│       ├── WorkerDashboardPage.tsx   # Worker home dashboard with profile & availability status
 │       ├── WorkerProfilePage.tsx     # Worker personal details & address
 │       ├── WorkerSkillsPage.tsx      # Worker trade capabilities (catalog selection)
 │       └── WorkerAvailabilityPage.tsx# Live "Available Now" toggle & scheduled slots

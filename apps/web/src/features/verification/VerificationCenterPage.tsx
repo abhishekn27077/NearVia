@@ -363,9 +363,9 @@ export const VerificationCenterPage: React.FC = () => {
               )}
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900">Government ID & KYC</h3>
+              <h3 className="text-base font-black text-slate-900">Government ID & Document Review</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Aadhaar, Voter ID, PAN, or Driving License
+                Voter ID, PAN, Driving License, or ID Reference
               </p>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
