@@ -34,6 +34,7 @@ import { CashPaymentModal } from "../payments/CashPaymentModal";
 import { PaymentReceiptModal } from "../payments/PaymentReceiptModal";
 import { DirectionsModal } from "../discovery/DirectionsModal";
 import { ReadAloudButton } from "../../components/common/ReadAloudButton";
+import { EmergencyCallModal } from "../safety/EmergencyCallModal";
 
 export const WorkerAssignmentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +47,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [isSafetyOpen, setIsSafetyOpen] = useState<boolean>(false);
+  const [isEmergencyOpen, setIsEmergencyOpen] = useState<boolean>(false);
 
   // Job PIN State
   const [pinInput, setPinInput] = useState("");
@@ -918,23 +920,36 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
                     <ShieldAlert className="w-3.5 h-3.5" />
                     <span>Open Safety & Dispute Toolkit</span>
                   </button>
-                  <a
-                    href="tel:112"
-                    className="px-4 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                  <button
+                    type="button"
+                    onClick={() => setIsEmergencyOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold transition shadow-xs flex items-center space-x-1.5 cursor-pointer"
                   >
                     <Phone className="w-3.5 h-3.5 text-rose-600" />
                     <span>Emergency SOS (112)</span>
-                  </a>
+                  </button>
                 </div>
               </div>
 
               {/* Review Section */}
               <div className="pt-2 border-t border-slate-100">
-                <ReviewForm assignmentId={assignment.id} />
+                <ReviewForm
+                  assignmentId={assignment.id}
+                  onSuccess={async () => {
+                    await fetchAssignment();
+                  }}
+                />
               </div>
             </div>
           )}
         </div>
+
+        {/* Emergency Call Confirmation Modal */}
+        <EmergencyCallModal
+          isOpen={isEmergencyOpen}
+          onClose={() => setIsEmergencyOpen(false)}
+          assignmentId={assignment.id}
+        />
 
         {/* Direct In-App Message Modal */}
         <MessageModal

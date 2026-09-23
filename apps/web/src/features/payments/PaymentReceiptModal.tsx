@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PaymentReceipt } from "@nearvia/types";
 import { formatCurrencyINR, playPaymentSuccessChime, playMechanicalTick } from "../../utils";
+import { apiFetch } from "../../utils/apiClient";
 
 interface PaymentReceiptModalProps {
   isOpen: boolean;
@@ -40,14 +41,11 @@ export const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
       try {
         setLoading(true);
         setError(null);
-        const token = localStorage.getItem("nearvia_auth_token");
-        const url = paymentId
-          ? `/api/v1/payments/${paymentId}/receipt`
-          : `/api/v1/payments/assignments/${assignmentId}/receipt`;
+        const endpoint = paymentId
+          ? `/payments/${paymentId}/receipt`
+          : `/payments/assignments/${assignmentId}/receipt`;
 
-        const res = await fetch(url, {
-          headers: { Authorization: token ? `Bearer ${token}` : "" },
-        });
+        const res = await apiFetch(endpoint);
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.error?.message || "Failed to load payment receipt");

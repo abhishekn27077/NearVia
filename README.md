@@ -157,7 +157,7 @@ npm run dev
 NEARVIA maintains a 100% automated test pass rate:
 
 ```bash
-# Run all 26 Vitest test suites (226 automated tests)
+# Run all 53 Vitest test suites (702 automated tests)
 npm test
 
 # Run TypeScript typechecks across all 6 workspaces
@@ -211,12 +211,15 @@ The Admin Console is a physically separate application running on `http://localh
 
 ---
 
-## 9. Technical Limitations & Disclosures
+## 9. Technical Limitations & Future Production Disclosures
 
-In compliance with academic and professional honesty:
-1. **SMS Delivery**: Uses a local mock OTP generator; live telecom SMS requires commercial TRAI DLT registration in India.
-2. **Payment Gateway**: Operates in Razorpay Sandbox mode; live payouts require commercial bank nodal account approval.
-3. **Machine Learning**: V1 uses deterministic multi-factor heuristics before collecting the 10,000+ interaction pairs needed for V2 Learning-to-Rank.
+In compliance with academic honesty, engineering integrity, and the MCA scope:
+1. **SMS & Mobile OTP (Future / Production)**: Current version uses Supabase Email verification and development OTP logging. Live telecom SMS delivery requires commercial TRAI DLT registration and an enterprise SMS aggregator (e.g., MSG91/Twilio).
+2. **Identity & KYC (Future / Production)**: Current version supports manual administrative review and document reference storage. Automated Aadhaar/e-KYC verification requires a certified UIDAI/DigiLocker commercial license.
+3. **Payment Settlement (Future / Production)**: Operates in transparent peer-to-peer cash confirmation mode and Razorpay Sandbox test mode. Production bank transfers and escrow accounts require RBI compliance and merchant bank nodal account approval.
+4. **Emergency Assistance (Truthful Device Action)**: The Emergency 112 button triggers the native device telephone dialer (`tel:112`) with national ERSS guidelines and logs an on-device safety event. NEARVIA does not operate a private emergency dispatch service.
+5. **Location Privacy vs. Continuous Tracking**: NEARVIA uses server-authoritative PostGIS geofenced check-in/check-out (`ST_DWithin`) and 5 km radius matching. It intentionally does not conduct continuous background GPS tracking to protect worker privacy and device battery.
+6. **Smart Matching**: Employs an explainable, deterministic multi-factor algorithm (Skills, Distance, Availability, Rating, Reliability). Production Learning-to-Rank (LTR) will be introduced in V2 after collecting 10,000+ interaction records.
 
 ---
 

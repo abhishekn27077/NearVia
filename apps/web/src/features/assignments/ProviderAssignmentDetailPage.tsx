@@ -33,6 +33,7 @@ import { RaiseDisputeModal } from "../safety/RaiseDisputeModal";
 import { CashPaymentModal } from "../payments/CashPaymentModal";
 import { PaymentReceiptModal } from "../payments/PaymentReceiptModal";
 import { RazorpaySandboxModal } from "../payments/RazorpaySandboxModal";
+import { EmergencyCallModal } from "../safety/EmergencyCallModal";
 
 export const ProviderAssignmentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +44,7 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [isEmergencyOpen, setIsEmergencyOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
   const [isDisputeOpen, setIsDisputeOpen] = useState<boolean>(false);
   const [copiedPin, setCopiedPin] = useState(false);
@@ -505,25 +507,36 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
                     <AlertCircle className="w-3.5 h-3.5" />
                     <span>Raise Wage/Task Dispute</span>
                   </button>
-                  <a
-                    href="tel:112"
-                    className="px-4 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                  <button
+                    type="button"
+                    onClick={() => setIsEmergencyOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold transition shadow-xs flex items-center space-x-1.5 cursor-pointer"
                   >
                     <Phone className="w-3.5 h-3.5 text-rose-600" />
                     <span>Emergency (112)</span>
-                  </a>
+                  </button>
                 </div>
               </div>
 
               {/* Review Form */}
               <div className="pt-2">
-                <ReviewForm assignmentId={assignment.id} />
+                <ReviewForm
+                  assignmentId={assignment.id}
+                  onSuccess={async () => {
+                    await fetchAssignment();
+                  }}
+                />
               </div>
             </div>
           )}
         </div>
 
         {/* Modals */}
+        <EmergencyCallModal
+          isOpen={isEmergencyOpen}
+          onClose={() => setIsEmergencyOpen(false)}
+          assignmentId={assignment.id}
+        />
         <MessageModal
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}

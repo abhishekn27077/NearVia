@@ -16,7 +16,6 @@ import {
   Zap,
   Check,
 } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
 import { webConfig } from "../../config";
 import {
   WorkType,
@@ -31,9 +30,9 @@ import { formatCurrencyINR, formatDateLabel, formatTimeLabel } from "../../utils
 import { LocationPicker } from "../../components/location/LocationPicker";
 import { SmartJobDraftModal, MarketWageGuidance } from "../intelligence";
 import { NLJobParseResult } from "@nearvia/types";
+import { apiFetch } from "../../utils/apiClient";
 
 export const CreateWorkOpportunityPage: React.FC = () => {
-  const { token } = useAuth();
   const navigate = useNavigate();
 
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -316,11 +315,10 @@ export const CreateWorkOpportunityPage: React.FC = () => {
     };
 
     try {
-      const res = await fetch(`${webConfig.apiBaseUrl}/work-opportunities`, {
+      const res = await apiFetch("/work-opportunities", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -335,9 +333,11 @@ export const CreateWorkOpportunityPage: React.FC = () => {
           message: errJson.error?.message || "Failed to create work opportunity.",
         });
       }
-    } catch {
-      const mockId = `wo_${Date.now()}`;
-      navigate(`/provider/work/${mockId}`);
+    } catch (err: any) {
+      setFeedback({
+        type: "error",
+        message: err.message || "Failed to connect to backend service. Please check your network.",
+      });
     } finally {
       setIsSubmitting(false);
     }
