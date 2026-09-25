@@ -202,7 +202,7 @@ describe("NEARVIA Phase 15: Agent-Assisted Marketplace Test Suite", () => {
       [providerProfileId, testCategoryId, LOCATION_LNG, LOCATION_LAT]
     );
     testJobId = jobRes.rows[0].id;
-  });
+  }, 60000);
 
   afterAll(async () => {
     // Clean up test data

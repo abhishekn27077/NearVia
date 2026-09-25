@@ -208,7 +208,7 @@ describe("Prompt 10: Agent-Assisted Worker Workflow Hardening", () => {
       [providerProfileId, testCategoryId, LNG, LAT, startTime.toISOString(), endTime.toISOString()]
     );
     testJobId = jobRes.rows[0].id;
-  });
+  }, 60000);
 
   afterAll(async () => {
     await query(

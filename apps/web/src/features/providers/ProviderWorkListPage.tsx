@@ -76,9 +76,10 @@ export const ProviderWorkListPage: React.FC = () => {
         });
         loadOpportunities();
       } else {
+        const errJson = await res.json().catch(() => ({}));
         setFeedback({
           type: "error",
-          message: "Failed to publish work opportunity.",
+          message: errJson.error?.message || "Failed to publish work opportunity.",
         });
       }
     } catch {
@@ -110,9 +111,10 @@ export const ProviderWorkListPage: React.FC = () => {
         });
         loadOpportunities();
       } else {
+        const errJson = await res.json().catch(() => ({}));
         setFeedback({
           type: "error",
-          message: "Failed to cancel work opportunity.",
+          message: errJson.error?.message || "Failed to cancel work opportunity.",
         });
       }
     } catch {

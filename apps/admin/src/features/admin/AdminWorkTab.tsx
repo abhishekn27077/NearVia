@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Search, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { adminConfig } from "../../config";
 
 export const AdminWorkTab: React.FC = () => {
   const [workList, setWorkList] = useState<any[]>([]);
@@ -29,7 +30,7 @@ export const AdminWorkTab: React.FC = () => {
       if (statusFilter) params.append("status", statusFilter);
       if (workTypeFilter) params.append("workType", workTypeFilter);
 
-      const res = await fetch(`/api/v1/admin/work?${params.toString()}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/work?${params.toString()}`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },
@@ -51,13 +52,13 @@ export const AdminWorkTab: React.FC = () => {
   }, [fetchWork]);
 
   const handleCancelWork = async () => {
-    if (!modWorkId || !modReason.trim()) return;
+    if (!modWorkId || !modReason.trim() || actionLoading) return;
     try {
       setActionLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/admin/work/${modWorkId}/cancel`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/work/${modWorkId}/cancel`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

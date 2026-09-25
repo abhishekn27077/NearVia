@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Flag, X, AlertCircle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { webConfig } from "../../config";
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     try {
       setLoading(true);
       setError(null);
@@ -49,7 +51,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       const token = localStorage.getItem("nearvia_auth_token");
       const evidenceUrls = evidenceUrl.trim() ? [evidenceUrl.trim()] : [];
 
-      const res = await fetch("/api/v1/reports", {
+      const res = await fetch(`${webConfig.apiBaseUrl}/reports`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

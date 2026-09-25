@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { X, User, Phone, Mail, Shield, Briefcase } from "lucide-react";
+import { adminConfig } from "../../config";
 
 interface AdminUserDetailModalProps {
   userId: string | null;
@@ -36,7 +37,7 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
         const token =
           localStorage.getItem("nearvia_admin_auth_token") ||
           localStorage.getItem("nearvia_auth_token");
-        const res = await fetch(`/api/v1/admin/users/${userId}`, {
+        const res = await fetch(`${adminConfig.apiBaseUrl}/admin/users/${userId}`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },
@@ -61,14 +62,14 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
   if (!isOpen || !userId) return null;
 
   const handleToggleStatus = async () => {
-    if (!statusReason.trim()) return;
+    if (!statusReason.trim() || actionLoading) return;
     try {
       setActionLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
       const nextStatus = userData.isActive ? "SUSPENDED" : "ACTIVE";
-      const res = await fetch(`/api/v1/admin/users/${userId}/status`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/users/${userId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -96,13 +97,13 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
   };
 
   const handleUpdateRole = async () => {
-    if (!roleReason.trim()) return;
+    if (!roleReason.trim() || actionLoading) return;
     try {
       setActionLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/admin/users/${userId}/role`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/users/${userId}/role`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

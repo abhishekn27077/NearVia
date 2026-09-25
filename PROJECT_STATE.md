@@ -112,7 +112,7 @@ apps/web/src/
 │   │   └── WorkerApplicationsPage.tsx# Worker submitted application tracker
 │   ├── assignments/
 │   │   ├── WorkerAssignmentsPage.tsx # Worker active shift list
-│   │   ├── WorkerAssignmentDetailPage.tsx # Worker shift console (check-in/OTP)
+│   │   ├── WorkerAssignmentDetailPage.tsx # Worker shift console (check-in/Job PIN)
 │   │   ├── ProviderAssignmentsPage.tsx # Employer hired worker roster
 │   │   └── ProviderAssignmentDetailPage.tsx # Employer shift management console
 │   ├── auth/
@@ -259,7 +259,7 @@ To ensure 100% transparency for the MCA final release and demonstration, all pla
 - **Hyperlocal Marketplace**: 5 km radial discovery using PostGIS `ST_DWithin` & `ST_DistanceSphere` spatial index queries.
 - **Role Architecture**: Full server-enforced RBAC for `WORKER`, `PROVIDER`, `AGENT`, and `ADMIN`.
 - **Application & Hiring Lifecycle**: Concurrency-safe applicant review, shortlisting, and hiring with PostgreSQL row-level locks (`SELECT ... FOR UPDATE`).
-- **Attendance & Execution**: 6-digit Job PIN check-in/check-out workflow enforcing linear shift state progression (`ASSIGNED` → `IN_PROGRESS` → `PENDING_VERIFICATION` → `COMPLETED`).
+- **Attendance & Execution**: 4-digit Job PIN check-in/check-out workflow enforcing linear shift state progression (`ASSIGNED` → `IN_PROGRESS` → `PENDING_VERIFICATION` → `COMPLETED`).
 - **Safety & Dispute Mediation**: End-to-end incident reporting, dispute arbitration, and moderation workflows.
 - **Trust & Reliability**: Mutual double-blind 5-star ratings restricted strictly to verified completed assignments, updating rolling reliability scores.
 - **Agent Assisted Workflows**: Legitimate community agent portal enabling assisted registration and job discovery on behalf of onboarded workers without account takeover.

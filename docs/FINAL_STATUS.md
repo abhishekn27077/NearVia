@@ -60,7 +60,7 @@ PASS
 - **AUTHORIZATION (PASS)**: Strict server-side RBAC across `WORKER`, `PROVIDER`, `AGENT`, `ADMIN` with zero client spoofing.
 - **DATABASE (PASS)**: PostgreSQL relational schema with ACID transactions, composite foreign keys, unique constraints, and 29 applied idempotent migrations.
 - **POSTGIS (PASS)**: `geography(Point, 4326)` geodesic calculations with GIST spatial indexing executing under 15ms.
-- **WORK EXECUTION (PASS)**: State machine (`ASSIGNED` -> `CONFIRMED` -> `CHECKED_IN` -> `IN_PROGRESS` -> `COMPLETED`) with 6-digit Job PIN check-in/out and geofenced attendance verification.
+- **WORK EXECUTION (PASS)**: State machine (`ASSIGNED` -> `CONFIRMED` -> `CHECKED_IN` -> `IN_PROGRESS` -> `COMPLETED`) with 4-digit Job PIN check-in/out and geofenced attendance verification.
 - **SAFETY (PASS)**: Formal disputes, safety reporting, mutual double-blind 1–5 star reviews, and admin resolution workflows verified.
 - **VERIFICATION (PASS)**: Document reference submission queue for manual admin inspection without fake automated external claims.
 - **PAYMENTS (SANDBOX)**: Razorpay test mode with HMAC-SHA256 signature verification and idempotency replay guards verified. Real production money capture is explicitly deferred pending commercial business incorporation, GSTIN, and merchant bank account approval.

@@ -40,7 +40,7 @@ NEARVIA MONOREPO/
 1. **5 KM Hyperlocal Discovery**: Real PostGIS indexing queries jobs within 5 km of worker's location.
 2. **Deterministic Smart Matching**: Multi-factor ranking (distance, category, skill overlap, reliability).
 3. **Capacity-Locked Hiring**: Row-level database locks (`SELECT ... FOR UPDATE`) prevent hiring beyond capacity.
-4. **Attendance & Job PIN**: 6-digit cryptographic PIN verification prevents attendance fraud.
+4. **Attendance & Job PIN**: 4-digit cryptographic PIN verification prevents attendance fraud.
 5. **Mutual Trust Ratings**: Double-blind 1–5 star reviews restricted strictly to completed shifts.
 6. **Agent-Assisted Onboarding**: Community agents assist non-digitized workers without account compromise.
 7. **Trust & Safety Arbitration**: Built-in dispute filing, evidence attachment, and admin mediation.
@@ -135,7 +135,7 @@ npm run build
    - Inspect **Multi-Factor Hyperlocal Compatibility Breakdown** and apply.
 3. **Hiring & Shift Execution**:
    - Provider reviews applicant and clicks **Hire / Accept**.
-   - Worker views active assignment, provides valid **6-digit Job PIN** to check in.
+   - Worker views active assignment, provides valid **4-digit Job PIN** to check in.
    - Worker completes shift; provider confirms completion.
 4. **Settlement & Trust**:
    - Record cash/direct settlement or test Razorpay Sandbox payment.

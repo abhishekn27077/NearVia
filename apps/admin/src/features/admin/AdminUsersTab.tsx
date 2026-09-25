@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { AdminUserDetailModal } from "./AdminUserDetailModal";
+import { adminConfig } from "../../config";
 
 export const AdminUsersTab: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -26,7 +27,7 @@ export const AdminUsersTab: React.FC = () => {
       if (roleFilter) params.append("role", roleFilter);
       if (statusFilter) params.append("status", statusFilter);
 
-      const res = await fetch(`/api/v1/admin/users?${params.toString()}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/users?${params.toString()}`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },

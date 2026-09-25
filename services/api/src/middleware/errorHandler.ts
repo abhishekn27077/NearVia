@@ -48,6 +48,39 @@ function sanitizeErrorDetails(details: unknown): unknown {
   return details;
 }
 
+function sanitizeErrorMessage(message: string, isProduction: boolean): string {
+  if (!message) return "An error occurred";
+
+  // Always scrub connection strings and credentials regardless of environment
+  let cleaned = message.replace(
+    /(postgres(?:ql)?:\/\/[^:\s]+:)[^@\s]+(@[^\s]+)/gi,
+    "$1***$2",
+  );
+
+  if (isProduction) {
+    const rawSqlPatterns = [
+      /SELECT\s/i,
+      /INSERT\s/i,
+      /UPDATE\s/i,
+      /DELETE\s/i,
+      /FROM\s/i,
+      /relation\s*"/i,
+      /syntax error at or near/i,
+      /duplicate key value violates unique constraint/i,
+    ];
+    if (rawSqlPatterns.some((pattern) => pattern.test(cleaned))) {
+      return "A database operation failed";
+    }
+    // Redact absolute system filesystem paths in production
+    cleaned = cleaned.replace(
+      /([a-zA-Z]:\\[^\s:]+|\/(?:Users|home|var|etc|opt)\/[^\s:]+)/g,
+      "[redacted_path]",
+    );
+  }
+
+  return cleaned;
+}
+
 export const errorHandler: ErrorRequestHandler = (
   err: Error,
   req: Request,
@@ -76,14 +109,7 @@ export const errorHandler: ErrorRequestHandler = (
   // Handle Known Application Domain Errors
   if (err instanceof AppError) {
     const safeDetails = isProduction ? sanitizeErrorDetails(err.details) : err.details;
-    const safeMessage =
-      isProduction &&
-      (err.message.includes("SELECT ") ||
-        err.message.includes("FROM ") ||
-        err.message.includes("relation \"") ||
-        err.message.includes("syntax error at or near"))
-        ? "A database operation failed"
-        : err.message;
+    const safeMessage = sanitizeErrorMessage(err.message, isProduction);
 
     const errorResponse: ApiErrorResponse & { requestId?: string } = {
       success: false,
@@ -115,7 +141,7 @@ export const errorHandler: ErrorRequestHandler = (
       code: ErrorCode.INTERNAL_SERVER_ERROR,
       message: isProduction
         ? "An unexpected internal error occurred"
-        : err.message,
+        : sanitizeErrorMessage(err.message, false),
       timestamp: new Date().toISOString(),
     },
     ...(requestId ? { requestId } : {}),

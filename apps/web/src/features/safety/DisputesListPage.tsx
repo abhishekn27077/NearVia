@@ -9,6 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { SafetyGuidanceBanner } from "./SafetyGuidanceBanner";
+import { webConfig } from "../../config";
 
 interface DisputeItem {
   id: string;
@@ -38,8 +39,8 @@ export const DisputesListPage: React.FC = () => {
       setError(null);
       const token = localStorage.getItem("nearvia_auth_token");
       const url = statusFilter
-        ? `/api/v1/disputes/mine?status=${statusFilter}`
-        : `/api/v1/disputes/mine`;
+        ? `${webConfig.apiBaseUrl}/disputes/mine?status=${statusFilter}`
+        : `${webConfig.apiBaseUrl}/disputes/mine`;
 
       const res = await fetch(url, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },

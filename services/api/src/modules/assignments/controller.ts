@@ -30,6 +30,7 @@ import {
   confirmCompletionSchema,
   cancelAssignmentSchema,
   noShowSchema,
+  uploadJobEvidenceSchema,
 } from "@nearvia/validation";
 
 export class AssignmentsController {
@@ -619,19 +620,12 @@ export class AssignmentsController {
       }
 
       const id = this.getAssignmentId(req);
-      const { evidenceType, fileUrl, notes } = req.body;
-      if (!evidenceType || !fileUrl) {
-        throw new AppError(
-          "Evidence type and file URL are required.",
-          400,
-          ErrorCode.VALIDATION_ERROR,
-        );
-      }
+      const validatedInput = uploadJobEvidenceSchema.parse(req.body);
 
       const evidence = await assignmentsService.uploadJobEvidence(req.user.id, id, {
-        evidenceType,
-        fileUrl,
-        notes,
+        evidenceType: validatedInput.evidenceType as any,
+        fileUrl: validatedInput.fileUrl,
+        notes: validatedInput.notes,
       });
 
       res.status(201).json({

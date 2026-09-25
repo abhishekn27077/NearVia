@@ -58,6 +58,9 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
+  // Operational Action Feedback Banner
+  const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   // Real-World Delivery Navigation Modal
   const [showDirectionsModal, setShowDirectionsModal] = useState<boolean>(false);
   const [directionsOrigin, setDirectionsOrigin] = useState<GeoCoordinates>({
@@ -123,9 +126,10 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
   }, [fetchAssignment]);
 
   const handleConfirm = async () => {
-    if (!id) return;
+    if (!id || actionLoading) return;
     try {
       setActionLoading(true);
+      setActionFeedback(null);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -137,9 +141,10 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error?.message || "Failed to confirm assignment.");
       }
+      setActionFeedback({ type: "success", message: "✓ Shift attendance confirmed! Please travel to the job site." });
       await fetchAssignment();
     } catch (err: any) {
-      alert(err.message);
+      setActionFeedback({ type: "error", message: err.message || "Failed to confirm shift." });
     } finally {
       setActionLoading(false);
     }
@@ -147,11 +152,12 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
 
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !pinInput.trim()) return;
+    if (!id || actionLoading || !pinInput.trim()) return;
     try {
       setActionLoading(true);
       setPinError(null);
       setPinSuccess(null);
+      setActionFeedback(null);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -162,23 +168,28 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setPinError(data.error?.message || "Invalid Job PIN. Please ask provider for the 4-digit code.");
+        const errMsg = data.error?.message || "Invalid Job PIN. Please ask provider for the 4-digit code.";
+        setPinError(errMsg);
+        setActionFeedback({ type: "error", message: errMsg });
         return;
       }
       setPinSuccess("✓ Job PIN Verified! On-site arrival confirmed.");
+      setActionFeedback({ type: "success", message: "✓ Job PIN Verified! On-site arrival confirmed." });
       playPaymentSuccessChime(0.12);
       setPinInput("");
       await fetchAssignment();
     } catch (err: any) {
       setPinError(err.message);
+      setActionFeedback({ type: "error", message: err.message || "PIN verification failed." });
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleCheckIn = async () => {
-    if (!id) return;
+    if (!id || actionLoading) return;
     setActionLoading(true);
+    setActionFeedback(null);
 
     const performCheckIn = async (lat?: number, lng?: number) => {
       try {
@@ -205,11 +216,11 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
         if (!res.ok || !data.success) {
           throw new Error(data.error?.message || "Attendance check-in failed.");
         }
-        alert("✓ Checked in successfully! Shift is ready to start.");
+        setActionFeedback({ type: "success", message: "✓ Checked in successfully! Shift is ready to start." });
         setPinInput("");
         await fetchAssignment();
       } catch (err: any) {
-        alert(err.message);
+        setActionFeedback({ type: "error", message: err.message || "Attendance check-in failed." });
       } finally {
         setActionLoading(false);
       }
@@ -227,9 +238,10 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
   };
 
   const handleStartWork = async () => {
-    if (!id) return;
+    if (!id || actionLoading) return;
     try {
       setActionLoading(true);
+      setActionFeedback(null);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -241,17 +253,19 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error?.message || "Failed to start shift.");
       }
+      setActionFeedback({ type: "success", message: "✓ Work commenced! Shift timer is active." });
       await fetchAssignment();
     } catch (err: any) {
-      alert(err.message);
+      setActionFeedback({ type: "error", message: err.message || "Failed to start shift." });
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleCheckOut = async () => {
-    if (!id) return;
+    if (!id || actionLoading) return;
     setActionLoading(true);
+    setActionFeedback(null);
 
     const performCheckOut = async (lat?: number, lng?: number) => {
       try {
@@ -275,10 +289,10 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
         if (!res.ok || !data.success) {
           throw new Error(data.error?.message || "Failed to check out.");
         }
-        alert("🎉 Shift checked out! Completion submitted for settlement.");
+        setActionFeedback({ type: "success", message: "🎉 Shift checked out! Completion submitted for settlement." });
         await fetchAssignment();
       } catch (err: any) {
-        alert(err.message);
+        setActionFeedback({ type: "error", message: err.message || "Failed to check out." });
       } finally {
         setActionLoading(false);
       }
@@ -611,6 +625,35 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Operational Action Feedback Banner */}
+        {actionFeedback && (
+          <div
+            role="alert"
+            className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold transition-all shadow-xs ${
+              actionFeedback.type === "success"
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+                : "bg-rose-50 border border-rose-200 text-rose-900"
+            }`}
+          >
+            <div className="flex items-center space-x-2.5">
+              {actionFeedback.type === "success" ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              )}
+              <span>{actionFeedback.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActionFeedback(null)}
+              className="p-1 rounded-lg hover:bg-black/5 text-slate-500 font-bold"
+              aria-label="Dismiss message"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Status Stepper Timeline */}
         <AssignmentStatusTimeline
           status={assignment.status}
@@ -838,7 +881,9 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
             </div>
           )}
 
-          {assignment.status === AssignmentStatus.COMPLETED && (
+          {(assignment.status === AssignmentStatus.COMPLETED ||
+            assignment.status === AssignmentStatus.SETTLEMENT_PENDING ||
+            assignment.status === AssignmentStatus.CLOSED) && (
             <div className="space-y-6">
               {assignment.paymentStatus === "CONFIRMED" ? (
                 // 1. Confirmed Payout Banner & Receipt Viewer

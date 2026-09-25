@@ -54,6 +54,9 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isRazorpayModalOpen, setIsRazorpayModalOpen] = useState(false);
 
+  // Operational Action Feedback Banner
+  const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const fetchAssignment = useCallback(async () => {
     if (!id) return;
     try {
@@ -100,9 +103,10 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
   };
 
   const handleConfirmCompletion = async () => {
-    if (!id) return;
+    if (!id || actionLoading) return;
     try {
       setActionLoading(true);
+      setActionFeedback(null);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -114,10 +118,10 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error?.message || "Failed to confirm completion.");
       }
-      alert("🎉 Shift completion confirmed! You may now settle payment with worker.");
+      setActionFeedback({ type: "success", message: "🎉 Shift completion confirmed! You may now settle payment with worker." });
       await fetchAssignment();
     } catch (err: any) {
-      alert(err.message);
+      setActionFeedback({ type: "error", message: err.message || "Failed to confirm completion." });
     } finally {
       setActionLoading(false);
     }
@@ -269,6 +273,35 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Operational Action Feedback Banner */}
+        {actionFeedback && (
+          <div
+            role="alert"
+            className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold transition-all shadow-xs ${
+              actionFeedback.type === "success"
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+                : "bg-rose-50 border border-rose-200 text-rose-900"
+            }`}
+          >
+            <div className="flex items-center space-x-2.5">
+              {actionFeedback.type === "success" ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              )}
+              <span>{actionFeedback.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActionFeedback(null)}
+              className="p-1 rounded-lg hover:bg-black/5 text-slate-500 font-bold"
+              aria-label="Dismiss message"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Status Stepper Timeline */}
         <AssignmentStatusTimeline

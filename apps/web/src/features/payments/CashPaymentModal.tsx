@@ -11,6 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
+import { webConfig } from "../../config";
 
 interface CashPaymentModalProps {
   isOpen: boolean;
@@ -49,11 +50,12 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
 
   // Provider initiates cash payment & generates 4-digit PIN
   const handleInitiateCash = async () => {
+    if (loading) return;
     try {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/payments/assignments/${assignmentId}/cash/initiate`, {
+      const res = await fetch(`${webConfig.apiBaseUrl}/payments/assignments/${assignmentId}/cash/initiate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -76,6 +78,7 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
   // Worker confirms cash receipt with 4-digit PIN
   const handleConfirmReceipt = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (enteredPin.length < 4) {
       setError("Please enter the 4-digit Payment PIN provided by your employer.");
       return;
@@ -85,7 +88,7 @@ export const CashPaymentModal: React.FC<CashPaymentModalProps> = ({
       setLoading(true);
       setError(null);
       const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/payments/assignments/${assignmentId}/cash/confirm`, {
+      const res = await fetch(`${webConfig.apiBaseUrl}/payments/assignments/${assignmentId}/cash/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

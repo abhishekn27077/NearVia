@@ -137,11 +137,17 @@ export const WorkOpportunityDetailPage: React.FC = () => {
           message: "Work opportunity published live to workers within 5 km.",
         });
         loadOpportunity(id);
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        setFeedback({
+          type: "error",
+          message: errJson.error?.message || "Failed to publish opportunity.",
+        });
       }
     } catch {
       setFeedback({
         type: "error",
-        message: "Failed to publish opportunity.",
+        message: "Failed to publish opportunity. Please check network connection.",
       });
     }
   };
@@ -163,11 +169,17 @@ export const WorkOpportunityDetailPage: React.FC = () => {
           message: "Work opportunity has been cancelled.",
         });
         loadOpportunity(id);
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        setFeedback({
+          type: "error",
+          message: errJson.error?.message || "Failed to cancel opportunity.",
+        });
       }
     } catch {
       setFeedback({
         type: "error",
-        message: "Failed to cancel opportunity.",
+        message: "Failed to cancel opportunity. Please check network connection.",
       });
     }
   };
@@ -336,6 +348,28 @@ export const WorkOpportunityDetailPage: React.FC = () => {
                       <XCircle className="w-4 h-4" />
                       <span>Cancel</span>
                     </button>
+                  </>
+                )}
+
+                {(opportunity.status === WorkOpportunityStatus.FILLED ||
+                  opportunity.status === WorkOpportunityStatus.IN_PROGRESS ||
+                  opportunity.status === WorkOpportunityStatus.COMPLETED) && (
+                  <>
+                    <Link
+                      to="/provider/assignments"
+                      className="px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-2"
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>View Hired Workers & Shifts</span>
+                    </Link>
+
+                    <Link
+                      to={`/provider/work/${opportunity.id}/applicants`}
+                      className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center space-x-1.5"
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>View Applicants</span>
+                    </Link>
                   </>
                 )}
               </>

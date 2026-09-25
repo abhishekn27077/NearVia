@@ -33,6 +33,7 @@ export const OpportunityApplicantsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [activeChatCandidate, setActiveChatCandidate] = useState<{
     workerUserId: string;
@@ -83,7 +84,9 @@ export const OpportunityApplicantsPage: React.FC = () => {
   }, [opportunityId, token]);
 
   const handleShortlist = async (applicationId: string) => {
+    if (actionLoadingId) return;
     setActionLoadingId(applicationId);
+    setActionFeedback(null);
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -104,19 +107,22 @@ export const OpportunityApplicantsPage: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error?.message || "Failed to shortlist candidate.");
       }
+      setActionFeedback({ type: "success", message: "✓ Candidate shortlisted for review." });
       await fetchOpportunityAndApplicants();
     } catch (err: any) {
-      alert(err.message);
+      setActionFeedback({ type: "error", message: err.message || "Failed to shortlist candidate." });
     } finally {
       setActionLoadingId(null);
     }
   };
 
   const handleReject = async (applicationId: string) => {
+    if (actionLoadingId) return;
     if (!window.confirm("Are you sure you want to decline this applicant?")) {
       return;
     }
     setActionLoadingId(applicationId);
+    setActionFeedback(null);
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -137,15 +143,17 @@ export const OpportunityApplicantsPage: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error?.message || "Failed to decline candidate.");
       }
+      setActionFeedback({ type: "success", message: "Candidate application declined." });
       await fetchOpportunityAndApplicants();
     } catch (err: any) {
-      alert(err.message);
+      setActionFeedback({ type: "error", message: err.message || "Failed to decline candidate." });
     } finally {
       setActionLoadingId(null);
     }
   };
 
   const handleAccept = async (applicationId: string, workerName: string) => {
+    if (actionLoadingId) return;
     if (
       !window.confirm(
         `Are you sure you want to select and hire ${workerName}? This will lock the shift assignment and generate the verification check-in pass.`,
@@ -155,6 +163,7 @@ export const OpportunityApplicantsPage: React.FC = () => {
     }
 
     setActionLoadingId(applicationId);
+    setActionFeedback(null);
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -175,10 +184,10 @@ export const OpportunityApplicantsPage: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error?.message || "Failed to accept candidate.");
       }
-      alert(`🎉 Successfully hired ${workerName}! Assignment locked.`);
+      setActionFeedback({ type: "success", message: `🎉 Successfully hired ${workerName}! Assignment locked & Job PIN generated.` });
       await fetchOpportunityAndApplicants();
     } catch (err: any) {
-      alert(err.message);
+      setActionFeedback({ type: "error", message: err.message || "Failed to accept candidate." });
     } finally {
       setActionLoadingId(null);
     }
@@ -249,6 +258,35 @@ export const OpportunityApplicantsPage: React.FC = () => {
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>All required worker positions ({opportunity?.workersNeeded}) have been filled!</span>
+          </div>
+        )}
+
+        {/* Operational Action Feedback Banner */}
+        {actionFeedback && (
+          <div
+            role="alert"
+            className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold transition-all shadow-xs ${
+              actionFeedback.type === "success"
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+                : "bg-rose-50 border border-rose-200 text-rose-900"
+            }`}
+          >
+            <div className="flex items-center space-x-2.5">
+              {actionFeedback.type === "success" ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              )}
+              <span>{actionFeedback.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActionFeedback(null)}
+              className="p-1 rounded-lg hover:bg-black/5 text-slate-500 font-bold"
+              aria-label="Dismiss message"
+            >
+              ✕
+            </button>
           </div>
         )}
 

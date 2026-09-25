@@ -13,6 +13,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatCurrencyINR } from "../../utils";
+import { webConfig } from "../../config";
 
 interface EarningsSummary {
   todayEarnings: number;
@@ -46,7 +47,7 @@ export const WorkerEarningsPage: React.FC = () => {
         setLoading(true);
         setError(null);
         const token = localStorage.getItem("nearvia_auth_token");
-        const res = await fetch("/api/v1/payments/worker/earnings", {
+        const res = await fetch(`${webConfig.apiBaseUrl}/payments/worker/earnings`, {
           headers: { Authorization: token ? `Bearer ${token}` : "" },
         });
         const data = await res.json();

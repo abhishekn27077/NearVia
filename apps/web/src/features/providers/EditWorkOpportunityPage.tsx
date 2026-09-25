@@ -17,6 +17,7 @@ export const EditWorkOpportunityPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
@@ -53,6 +54,7 @@ export const EditWorkOpportunityPage: React.FC = () => {
 
   const loadInitialData = async (oppId: string) => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const [catRes, oppRes] = await Promise.all([
         fetch(`${webConfig.apiBaseUrl}/categories`),
@@ -84,13 +86,12 @@ export const EditWorkOpportunityPage: React.FC = () => {
         setUrgency(data.urgency);
         setResponsibilities(data.responsibilities || "");
         setInstructions(data.instructions || "");
+      } else {
+        const errJson = await oppRes.json().catch(() => ({}));
+        setLoadError(errJson.error?.message || "Failed to load draft opportunity.");
       }
     } catch {
-      // Demo mock fallback
-      setTitle("Shift 20 boxes to first-floor warehouse storage");
-      setDescription("Need assistance moving packed cartons.");
-      setWorkDate("2026-08-26");
-      setAddressApproximate("MG Road Metro Station");
+      setLoadError("Failed to connect to backend service. Please check your connection.");
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +145,10 @@ export const EditWorkOpportunityPage: React.FC = () => {
         });
       }
     } catch {
-      navigate(`/provider/work/${id}`);
+      setFeedback({
+        type: "error",
+        message: "Network error occurred while saving draft. Please try again.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -154,6 +158,35 @@ export const EditWorkOpportunityPage: React.FC = () => {
     return (
       <div className="py-16 text-center text-slate-400 text-sm animate-pulse">
         Loading draft opportunity...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="max-w-md mx-auto p-8 rounded-3xl bg-white border border-slate-200 shadow-card text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-rose-500 mx-auto" />
+          <h2 className="text-lg font-black text-slate-900">Unable to Load Opportunity</h2>
+          <p className="text-xs text-slate-500">{loadError}</p>
+          <div className="flex items-center justify-center space-x-3 pt-2">
+            <button
+              onClick={() => {
+                setLoadError(null);
+                if (id) loadInitialData(id);
+              }}
+              className="inline-flex px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+            >
+              Retry
+            </button>
+            <Link
+              to="/provider/work"
+              className="inline-flex px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-colors"
+            >
+              Back to My Postings
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

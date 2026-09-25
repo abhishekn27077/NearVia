@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Flag, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { adminConfig } from "../../config";
 
 export const AdminReportsTab: React.FC = () => {
   const [reports, setReports] = useState<any[]>([]);
@@ -26,7 +27,7 @@ export const AdminReportsTab: React.FC = () => {
       });
       if (statusFilter) params.append("status", statusFilter);
 
-      const res = await fetch(`/api/v1/reports/admin/all?${params.toString()}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/reports/admin/all?${params.toString()}`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },
@@ -48,13 +49,13 @@ export const AdminReportsTab: React.FC = () => {
   }, [fetchReports]);
 
   const handleUpdateStatus = async () => {
-    if (!activeReport || !resolutionNotes.trim()) return;
+    if (!activeReport || !resolutionNotes.trim() || actionLoading) return;
     try {
       setActionLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/reports/admin/${activeReport.id}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/reports/admin/${activeReport.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

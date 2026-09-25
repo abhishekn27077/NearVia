@@ -17,7 +17,7 @@
 | **Discovery** | Hyperlocal 5 KM PostGIS spatial query & distance sorting | `ST_DWithin` PostGIS Query Verification | PASS |
 | **Matching** | Explainable deterministic multi-factor scoring | Smart Matching Unit Suite | PASS |
 | **Applications**| Application submission, shortlisting & capacity-locked hiring | Application Lifecycle Suite | PASS |
-| **Execution** | 6-digit Job PIN check-in/out & completion release | Attendance Check-in Suite | PASS |
+| **Execution** | 4-digit Job PIN check-in/out & completion release | Attendance Check-in Suite | PASS |
 | **Notifications**| Event-driven alerts & realtime notification records | Notifications Architecture | PASS |
 | **Trust** | Document reference review queues, two-sided reviews | Trust & Reviews Suite | PASS |
 | **Agents** | Assisted onboarding & verified worker consent | Agent Boundary Suite | PASS |

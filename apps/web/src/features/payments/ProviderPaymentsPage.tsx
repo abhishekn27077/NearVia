@@ -12,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatCurrencyINR } from "../../utils";
+import { webConfig } from "../../config";
 import { PaymentReceiptModal } from "./PaymentReceiptModal";
 import { CashPaymentModal } from "./CashPaymentModal";
 
@@ -82,9 +83,9 @@ export const ProviderPaymentsPage: React.FC = () => {
       if (historyMethodFilter) params.append("paymentMethod", historyMethodFilter);
 
       const [sumRes, payRes, histRes] = await Promise.all([
-        fetch("/api/v1/payments/provider/summary", { headers }),
-        fetch("/api/v1/payments/provider/payable", { headers }),
-        fetch(`/api/v1/payments/provider/history?${params.toString()}`, { headers }),
+        fetch(`${webConfig.apiBaseUrl}/payments/provider/summary`, { headers }),
+        fetch(`${webConfig.apiBaseUrl}/payments/provider/payable`, { headers }),
+        fetch(`${webConfig.apiBaseUrl}/payments/provider/history?${params.toString()}`, { headers }),
       ]);
 
       if (sumRes.ok) {
@@ -118,7 +119,7 @@ export const ProviderPaymentsPage: React.FC = () => {
       const token = localStorage.getItem("nearvia_auth_token");
 
       // 1. Initiate online order
-      const initRes = await fetch(`/api/v1/payments/assignments/${item.assignmentId}/pay`, {
+      const initRes = await fetch(`${webConfig.apiBaseUrl}/payments/assignments/${item.assignmentId}/pay`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -134,7 +135,7 @@ export const ProviderPaymentsPage: React.FC = () => {
       const paymentId = initData.data.payment.id;
 
       // 2. Direct Sandbox confirmation
-      const confRes = await fetch(`/api/v1/payments/${paymentId}/confirm`, {
+      const confRes = await fetch(`${webConfig.apiBaseUrl}/payments/${paymentId}/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

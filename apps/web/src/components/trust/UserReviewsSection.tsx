@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { RatingStars } from "./RatingStars";
 import { Flag, MessageSquare } from "lucide-react";
 import { ReportModal } from "../../features/safety";
+import { webConfig } from "../../config";
 
 interface ReviewItem {
   id: string;
@@ -33,7 +34,7 @@ export const UserReviewsSection: React.FC<UserReviewsSectionProps> = ({ userId, 
     async function fetchReviews() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/v1/reviews/users/${userId}/reviews`);
+        const res = await fetch(`${webConfig.apiBaseUrl}/reviews/users/${userId}/reviews`);
         const data = await res.json();
         if (res.ok && data.success) {
           setReviews(data.data || []);

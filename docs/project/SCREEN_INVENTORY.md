@@ -30,7 +30,7 @@
 | `/worker/find-work` | Hyperlocal job discovery map | `WORKER` | Filter by radius (1–15 km), category, apply to jobs | `GET /jobs/discover`<br/>`POST /jobs/:id/apply` | `work_opportunities`, PostGIS | `IMPLEMENTED` |
 | `/worker/applications`| Inbound application tracking | `WORKER` | View submitted applications, review response status | `GET /applications/mine` | `applications` | `IMPLEMENTED` |
 | `/worker/assignments` | Active shift roster | `WORKER` | Filter by Assigned, Confirmed, Completed shifts | `GET /assignments/mine` | `assignments` | `IMPLEMENTED` |
-| `/worker/assignments/:id`| Shift execution detail | `WORKER` | Confirm shift, 6-digit Job PIN check-in/out, rate | `POST /assignments/:id/start-shift`<br/>`POST /assignments/:id/complete-shift` | `assignments`, `attendance_records` | `IMPLEMENTED` |
+| `/worker/assignments/:id`| Shift execution detail | `WORKER` | Confirm shift, 4-digit Job PIN check-in/out, rate | `POST /assignments/:id/start-shift`<br/>`POST /assignments/:id/complete-shift` | `assignments`, `attendance_records` | `IMPLEMENTED` |
 | `/worker/earnings` | Financial summary & stats | `WORKER` | View cumulative earnings, daily average, pending dues | `GET /payments/worker/earnings` | `payment_records` | `IMPLEMENTED` |
 | `/worker/transactions`| Historical transaction ledger | `WORKER` | View list of cash confirmations & sandbox receipts | `GET /payments/worker/transactions` | `payment_records` | `IMPLEMENTED` |
 | `/worker/agents` | Community agent links | `WORKER` | View assigned agent, grant/revoke proxy consent | `GET /workers/agents` | `agent_worker_relationships` | `IMPLEMENTED` |

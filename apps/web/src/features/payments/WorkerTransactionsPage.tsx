@@ -8,6 +8,7 @@ import {
   FileText,
 } from "lucide-react";
 import { formatCurrencyINR } from "../../utils";
+import { webConfig } from "../../config";
 import { PaymentReceiptModal } from "./PaymentReceiptModal";
 
 interface TransactionItem {
@@ -44,7 +45,7 @@ export const WorkerTransactionsPage: React.FC = () => {
       if (statusFilter) params.append("status", statusFilter);
       if (methodFilter) params.append("paymentMethod", methodFilter);
 
-      const url = `/api/v1/payments/worker/transactions?${params.toString()}`;
+      const url = `${webConfig.apiBaseUrl}/payments/worker/transactions?${params.toString()}`;
 
       const res = await fetch(url, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },

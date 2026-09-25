@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { formatCurrencyINR, playPaymentSuccessChime, playMechanicalTick } from "../../utils";
+import { webConfig } from "../../config";
 
 interface RazorpaySandboxModalProps {
   isOpen: boolean;
@@ -53,13 +54,14 @@ export const RazorpaySandboxModal: React.FC<RazorpaySandboxModalProps> = ({
 
   // Step 1: Create server-authoritative Razorpay order
   const handleCreateOrder = async () => {
+    if (loading) return;
     try {
       setLoading(true);
       setError(null);
       playMechanicalTick(0.1);
 
       const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/payments/assignments/${assignmentId}/pay`, {
+      const res = await fetch(`${webConfig.apiBaseUrl}/payments/assignments/${assignmentId}/pay`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -93,7 +95,7 @@ export const RazorpaySandboxModal: React.FC<RazorpaySandboxModalProps> = ({
 
   // Step 2: Simulate Successful Payment in Sandbox
   const handleSimulateSuccess = async () => {
-    if (!orderData) return;
+    if (!orderData || loading) return;
     try {
       setLoading(true);
       setError(null);
@@ -103,7 +105,7 @@ export const RazorpaySandboxModal: React.FC<RazorpaySandboxModalProps> = ({
       const token = localStorage.getItem("nearvia_auth_token");
       const mockPaymentId = `pay_sbx_${Date.now()}`;
 
-      const res = await fetch(`/api/v1/payments/${orderData.paymentId}/confirm`, {
+      const res = await fetch(`${webConfig.apiBaseUrl}/payments/${orderData.paymentId}/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

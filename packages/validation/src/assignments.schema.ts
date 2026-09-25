@@ -125,6 +125,39 @@ export const noShowSchema = z.object({
     .optional(),
 });
 
+export const uploadJobEvidenceSchema = z.object({
+  evidenceType: z.enum([
+    "ARRIVAL",
+    "BEFORE",
+    "AFTER",
+    "ISSUE",
+    "DAMAGE",
+    "RECEIPT",
+    "INCIDENT",
+  ]),
+  fileUrl: z
+    .string()
+    .trim()
+    .min(1, "File URL is required")
+    .max(2048, "File URL cannot exceed 2048 characters")
+    .refine(
+      (url) => {
+        const lower = url.toLowerCase();
+        return (
+          !lower.startsWith("javascript:") &&
+          !lower.startsWith("vbscript:") &&
+          !lower.startsWith("data:text/html")
+        );
+      },
+      { message: "Unsafe or unsupported URL protocol" }
+    ),
+  notes: z
+    .string()
+    .trim()
+    .max(500, "Notes cannot exceed 500 characters")
+    .optional(),
+});
+
 export type CheckInInput = z.infer<typeof checkInSchema>;
 export type CheckOutInput = z.infer<typeof checkOutSchema>;
 export type VerifyPinInput = z.infer<typeof verifyPinSchema>;
@@ -133,3 +166,5 @@ export type CompleteWorkInput = z.infer<typeof completeWorkSchema>;
 export type ConfirmCompletionInput = z.infer<typeof confirmCompletionSchema>;
 export type CancelAssignmentInput = z.infer<typeof cancelAssignmentSchema>;
 export type NoShowInput = z.infer<typeof noShowSchema>;
+export type UploadJobEvidenceSchemaInput = z.infer<typeof uploadJobEvidenceSchema>;
+

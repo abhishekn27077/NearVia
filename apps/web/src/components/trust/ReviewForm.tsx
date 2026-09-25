@@ -19,6 +19,7 @@ export function ReviewForm({ assignmentId, onSuccess, className }: ReviewFormPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (rating === 0) {
       setError("Please select a star rating between 1 and 5.");
       return;

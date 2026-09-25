@@ -15,6 +15,7 @@ import {
 import { ApplicationDetail, ApplicationStatus } from "@nearvia/types";
 import { formatCurrencyINR, formatScheduleRange } from "../../utils";
 import { useLanguage } from "../../context/LanguageContext";
+import { webConfig } from "../../config";
 
 export const WorkerApplicationsPage: React.FC = () => {
   const { t } = useLanguage();
@@ -29,7 +30,7 @@ export const WorkerApplicationsPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch("/api/v1/applications/mine", {
+      const res = await fetch(`${webConfig.apiBaseUrl}/applications/mine`, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
       const data = await res.json();
@@ -54,11 +55,15 @@ export const WorkerApplicationsPage: React.FC = () => {
     }
     setWithdrawingId(applicationId);
     try {
+      const token = localStorage.getItem("nearvia_auth_token");
       const res = await fetch(
-        `/api/v1/applications/${applicationId}/withdraw`,
+        `${webConfig.apiBaseUrl}/applications/${applicationId}/withdraw`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
+          },
           body: JSON.stringify({ reason: "Withdrawn by worker" }),
         },
       );

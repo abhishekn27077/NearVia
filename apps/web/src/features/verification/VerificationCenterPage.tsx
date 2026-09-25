@@ -18,12 +18,7 @@ import { webConfig } from "../../config";
 export const VerificationCenterPage: React.FC = () => {
   const { user, token, refreshProfile } = useAuth();
 
-  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState(user?.phone || "+91");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpError, setOtpError] = useState<string | null>(null);
+
 
   const [idModalOpen, setIdModalOpen] = useState(false);
   const [idType, setIdType] = useState("AADHAAR");
@@ -81,99 +76,11 @@ export const VerificationCenterPage: React.FC = () => {
 
   const completionPercent = Math.round((completedSteps / totalSteps) * 100);
 
-  const [countdown, setCountdown] = useState(0);
-  const [providerInfo, setProviderInfo] = useState<string>("mock");
 
-  useEffect(() => {
-    let timer: any;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [countdown]);
-
-  const handleSendOtp = async () => {
-    setOtpLoading(true);
-    setOtpError(null);
-    try {
-      const res = await fetch(`${webConfig.apiBaseUrl}/auth/send-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ phone: phoneNumber }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to send verification code.");
-      }
-      setOtpSent(true);
-      setCountdown(data.data?.cooldownSeconds || 60);
-      setProviderInfo(data.data?.provider || "mock");
-    } catch (err: any) {
-      setOtpError(err.message);
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    if (countdown > 0) return;
-    setOtpLoading(true);
-    setOtpError(null);
-    try {
-      const res = await fetch(`${webConfig.apiBaseUrl}/auth/resend-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ phone: phoneNumber }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to resend verification code.");
-      }
-      setCountdown(data.data?.cooldownSeconds || 60);
-    } catch (err: any) {
-      setOtpError(err.message);
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setOtpLoading(true);
-    setOtpError(null);
-    try {
-      const res = await fetch(`${webConfig.apiBaseUrl}/auth/verify-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ phone: phoneNumber, otp: otpCode }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to verify phone OTP.");
-      }
-      if (refreshProfile) {
-        await refreshProfile();
-      }
-      setPhoneModalOpen(false);
-      setOtpSent(false);
-    } catch (err: any) {
-      setOtpError(err.message);
-    } finally {
-      setOtpLoading(false);
-    }
-  };
 
   const handleSubmitIdentity = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (idLoading) return;
     setIdLoading(true);
     setIdError(null);
     try {
@@ -206,6 +113,7 @@ export const VerificationCenterPage: React.FC = () => {
 
   const handleSubmitBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (bizLoading) return;
     setBizLoading(true);
     setBizError(null);
     try {
@@ -340,7 +248,7 @@ export const VerificationCenterPage: React.FC = () => {
             </p>
           </div>
 
-          {/* 3. Government ID / KYC Verification */}
+          {/* 3. Manual Verification (Admin Reviewed) */}
           <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-card space-y-4">
             <div className="flex items-start justify-between">
               <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
@@ -349,27 +257,27 @@ export const VerificationCenterPage: React.FC = () => {
               {idStatus === "VERIFIED" ? (
                 <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>VERIFIED</span>
+                  <span>MANUALLY VERIFIED BY ADMIN</span>
                 </span>
               ) : idStatus === "PENDING" ? (
                 <span className="px-3 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center space-x-1">
                   <Clock className="w-3.5 h-3.5" />
-                  <span>UNDER REVIEW</span>
+                  <span>VERIFICATION SUBMITTED</span>
                 </span>
               ) : (
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-                  NOT VERIFIED
+                  NOT SUBMITTED
                 </span>
               )}
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900">Government ID & Document Review</h3>
+              <h3 className="text-base font-black text-slate-900">Manual ID Verification (Admin Review)</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 Voter ID, PAN, Driving License, or ID Reference
               </p>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Privacy-preserving verification. Raw document numbers are never exposed; only cryptographic hashes are stored.
+              Manual verification by platform administrators. Raw identity documents are never stored; only privacy-preserving cryptographic hashes are reviewed.
             </p>
             {idStatus === "NOT_VERIFIED" && (
               <button
@@ -377,7 +285,7 @@ export const VerificationCenterPage: React.FC = () => {
                 onClick={() => setIdModalOpen(true)}
                 className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors"
               >
-                Submit ID Reference
+                Submit ID Reference for Manual Review
               </button>
             )}
           </div>
@@ -438,97 +346,7 @@ export const VerificationCenterPage: React.FC = () => {
 
         {/* ── MODALS ── */}
 
-        {/* Phone OTP Modal */}
-        {phoneModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-2xl space-y-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-slate-900 font-display">
-                  {otpSent ? "Enter Verification Code" : "Verify Mobile Number"}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setPhoneModalOpen(false)}
-                  className="p-1 rounded-xl text-slate-400 hover:text-slate-700"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
 
-              {otpError && (
-                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-                  {otpError}
-                </div>
-              )}
-
-              {!otpSent ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      Phone Number (India)
-                    </label>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+91 9876543210"
-                      className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium text-sm focus:bg-white focus:border-orange-500"
-                    />
-                  </div>
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500">
-                    <span className="font-bold">Provider:</span> {providerInfo === "msg91" ? "MSG91 SMS Gateway" : "SMS Verification Gateway"}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={otpLoading || phoneNumber.length < 10}
-                    className="w-full py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md transition-colors disabled:opacity-50"
-                  >
-                    {otpLoading ? "Sending..." : "Send Verification Code"}
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      6-Digit OTP Code
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="••••••"
-                      autoFocus
-                      aria-label="Enter 6-digit OTP verification code"
-                      className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-mono text-center text-lg font-black tracking-widest focus:bg-white focus:border-orange-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>Didn't receive code?</span>
-                    <button
-                      type="button"
-                      onClick={handleResendOtp}
-                      disabled={otpLoading || countdown > 0}
-                      className="font-bold text-orange-600 hover:underline disabled:text-slate-400 disabled:no-underline"
-                    >
-                      {countdown > 0 ? `Resend in ${countdown}s` : "Resend OTP"}
-                    </button>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={otpLoading || otpCode.length !== 6}
-                    className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-colors disabled:opacity-50"
-                  >
-                    {otpLoading ? "Verifying..." : "Confirm & Verify Phone"}
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Identity / KYC Modal */}
         {idModalOpen && (
@@ -536,7 +354,7 @@ export const VerificationCenterPage: React.FC = () => {
             <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-2xl space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-black text-slate-900 font-display">
-                  Submit ID Reference for Review
+                  Submit ID Reference for Manual Review
                 </h3>
                 <button
                   type="button"
@@ -587,7 +405,7 @@ export const VerificationCenterPage: React.FC = () => {
                 <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100 text-[11px] text-blue-800 flex items-start space-x-2">
                   <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <span>
-                    Privacy Protected: NEARVIA converts this into a cryptographic hash reference. Raw identity data is never stored or shown.
+                    Manual Verification: NEARVIA stores a privacy-preserving cryptographic hash reference. Platform administrators manually review the reference before approval. No government UIDAI or Aadhaar database connection is used.
                   </span>
                 </div>
 
@@ -596,7 +414,7 @@ export const VerificationCenterPage: React.FC = () => {
                   disabled={idLoading || !idRef}
                   className="w-full py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-colors"
                 >
-                  {idLoading ? "Submitting..." : "Submit Verification Request"}
+                  {idLoading ? "Submitting..." : "Submit Reference for Manual Review"}
                 </button>
               </form>
             </div>

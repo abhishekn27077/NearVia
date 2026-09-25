@@ -40,17 +40,21 @@ export function createApp(): Express {
   const configuredOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean)
     : [];
-  const allowedOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigins]));
+  // In production, filter out "*" to strictly enforce intended web and admin origins
+  const candidateOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigins]));
+  const allowedOrigins = isProduction
+    ? candidateOrigins.filter((origin) => origin !== "*")
+    : candidateOrigins;
 
   app.use(
     cors({
       origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps, curl, or server-to-server)
         if (!origin) return callback(null, true);
-        if (!isProduction || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        if (allowedOrigins.includes(origin) || (!isProduction && candidateOrigins.includes("*"))) {
           return callback(null, true);
         }
-        return callback(null, false);
+        return callback(new Error(`CORS policy does not allow access from origin: ${origin}`), false);
       },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],

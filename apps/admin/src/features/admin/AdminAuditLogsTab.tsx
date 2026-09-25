@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { adminConfig } from "../../config";
 
 export const AdminAuditLogsTab: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
@@ -20,7 +21,7 @@ export const AdminAuditLogsTab: React.FC = () => {
       });
       if (actionFilter) params.append("action", actionFilter);
 
-      const res = await fetch(`/api/v1/admin/audit-logs?${params.toString()}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/audit-logs?${params.toString()}`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },

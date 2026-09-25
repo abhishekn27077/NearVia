@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { TrustBadge } from "./TrustBadge";
 import { RatingStars } from "./RatingStars";
 import { Award } from "lucide-react";
+import { webConfig } from "../../config";
 
 interface TrustProfileData {
   id: string;
@@ -35,7 +36,7 @@ export function TrustProfileView({ userId, className }: TrustProfileViewProps) {
       try {
         setLoading(true);
         const token = localStorage.getItem("nearvia_auth_token");
-        const res = await fetch(`/api/v1/users/${userId}/trust`, {
+        const res = await fetch(`${webConfig.apiBaseUrl}/users/${userId}/trust`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },

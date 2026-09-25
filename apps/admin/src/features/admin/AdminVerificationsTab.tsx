@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { adminConfig } from "../../config";
 
 export const AdminVerificationsTab: React.FC = () => {
   const [verifications, setVerifications] = useState<any[]>([]);
@@ -25,7 +26,7 @@ export const AdminVerificationsTab: React.FC = () => {
       });
       if (statusFilter) params.append("status", statusFilter);
 
-      const res = await fetch(`/api/v1/admin/verifications?${params.toString()}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/verifications?${params.toString()}`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },
@@ -47,19 +48,20 @@ export const AdminVerificationsTab: React.FC = () => {
   }, [fetchVerifications]);
 
   const handleApprove = async (id: string) => {
+    if (actionLoading) return;
     if (!confirm("Are you sure you want to approve this verification application?")) return;
     try {
       setActionLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/admin/verifications/${id}/approve`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/verifications/${id}/approve`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-        body: JSON.stringify({ notes: "Verified government credentials" }),
+        body: JSON.stringify({ notes: "Manually verified by Admin" }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -75,13 +77,13 @@ export const AdminVerificationsTab: React.FC = () => {
   };
 
   const handleReject = async () => {
-    if (!rejectId || !rejectReason.trim()) return;
+    if (!rejectId || !rejectReason.trim() || actionLoading) return;
     try {
       setActionLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/admin/verifications/${rejectId}/reject`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/verifications/${rejectId}/reject`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

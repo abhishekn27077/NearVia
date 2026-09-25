@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import { webConfig } from "../../config";
 
 interface DisputeDetail {
   id: string;
@@ -40,7 +41,7 @@ export const DisputeDetailPage: React.FC = () => {
         setLoading(true);
         setError(null);
         const token = localStorage.getItem("nearvia_auth_token");
-        const res = await fetch(`/api/v1/disputes/${id}`, {
+        const res = await fetch(`${webConfig.apiBaseUrl}/disputes/${id}`, {
           headers: { Authorization: token ? `Bearer ${token}` : "" },
         });
         const data = await res.json();

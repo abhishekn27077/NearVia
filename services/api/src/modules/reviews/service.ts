@@ -36,8 +36,9 @@ export class ReviewsService {
     const assignment = assignmentRes.rows[0];
     if (!assignment) throw new AppError("Assignment not found", 404);
 
-    // Completed check: Only completed assignments may be reviewed
-    if (assignment.status !== "COMPLETED") {
+    // Completed check: Only completed or concluded assignments may be reviewed
+    const validReviewStatuses = ["COMPLETED", "SETTLEMENT_PENDING", "CLOSED"];
+    if (!validReviewStatuses.includes(assignment.status)) {
       throw new AppError("Can only review COMPLETED assignments", 400);
     }
 
@@ -210,7 +211,7 @@ export class ReviewsService {
       const workerRes = await query(
         `SELECT wp.id, wp.completed_tasks_count,
            COUNT(a.id)::int AS total_concluded,
-           COUNT(a.id) FILTER (WHERE a.status = 'COMPLETED')::int AS completed_count,
+           COUNT(a.id) FILTER (WHERE a.status IN ('COMPLETED', 'SETTLEMENT_PENDING', 'CLOSED'))::int AS completed_count,
            COUNT(a.id) FILTER (WHERE a.status = 'CANCELLED')::int AS cancelled_count,
            COUNT(a.id) FILTER (WHERE a.status = 'NO_SHOW')::int AS no_shows_count,
            COUNT(a.id) FILTER (WHERE a.check_in_time IS NOT NULL)::int AS checked_in_count,
@@ -220,7 +221,7 @@ export class ReviewsService {
                AND a.check_in_time <= a.scheduled_start_time + INTERVAL '15 minutes'
            )::int AS on_time_check_ins
          FROM worker_profiles wp
-         LEFT JOIN assignments a ON wp.id = a.worker_id AND a.status IN ('COMPLETED', 'CANCELLED', 'NO_SHOW')
+         LEFT JOIN assignments a ON wp.id = a.worker_id AND a.status IN ('COMPLETED', 'SETTLEMENT_PENDING', 'CLOSED', 'CANCELLED', 'NO_SHOW')
          WHERE wp.user_id = $1
          GROUP BY wp.id, wp.completed_tasks_count`,
         [userId]
@@ -272,12 +273,12 @@ export class ReviewsService {
       const providerRes = await query(
         `SELECT pp.id,
            COUNT(DISTINCT wo.id)::int AS posted_jobs,
-           COUNT(DISTINCT wo.id) FILTER (WHERE wo.status = 'COMPLETED')::int AS completed_jobs,
+           COUNT(DISTINCT wo.id) FILTER (WHERE wo.status IN ('COMPLETED', 'SETTLEMENT_PENDING', 'PAID', 'CLOSED'))::int AS completed_jobs,
            COUNT(a.id)::int AS total_concluded,
-           COUNT(a.id) FILTER (WHERE a.status = 'COMPLETED')::int AS completed_assignments
+           COUNT(a.id) FILTER (WHERE a.status IN ('COMPLETED', 'SETTLEMENT_PENDING', 'CLOSED'))::int AS completed_assignments
          FROM provider_profiles pp
          LEFT JOIN work_opportunities wo ON pp.id = wo.provider_id
-         LEFT JOIN assignments a ON wo.id = a.work_opportunity_id AND a.status IN ('COMPLETED', 'CANCELLED', 'NO_SHOW')
+         LEFT JOIN assignments a ON wo.id = a.work_opportunity_id AND a.status IN ('COMPLETED', 'SETTLEMENT_PENDING', 'CLOSED', 'CANCELLED', 'NO_SHOW')
          WHERE pp.user_id = $1
          GROUP BY pp.id`,
         [userId]

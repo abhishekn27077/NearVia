@@ -23,6 +23,7 @@ import {
   AdminAnalyticsTab,
 } from "../features/admin";
 import { formatCurrencyINR } from "../utils";
+import { adminConfig } from "../config";
 
 type TabKey =
   | "OVERVIEW"
@@ -45,7 +46,7 @@ export const AdminDashboardPage: React.FC = () => {
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch("/api/v1/admin/dashboard", {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/dashboard`, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
       const data = await res.json();

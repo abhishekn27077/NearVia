@@ -7,6 +7,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { SafetyGuidanceBanner } from "./SafetyGuidanceBanner";
+import { webConfig } from "../../config";
 
 interface ReportItem {
   id: string;
@@ -31,7 +32,7 @@ export const ReportsHistoryPage: React.FC = () => {
         setLoading(true);
         setError(null);
         const token = localStorage.getItem("nearvia_auth_token");
-        const res = await fetch("/api/v1/reports/mine", {
+        const res = await fetch(`${webConfig.apiBaseUrl}/reports/mine`, {
           headers: { Authorization: token ? `Bearer ${token}` : "" },
         });
         const data = await res.json();

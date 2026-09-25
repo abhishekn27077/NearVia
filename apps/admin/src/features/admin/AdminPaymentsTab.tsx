@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   ShieldCheck,
 } from "lucide-react";
+import { adminConfig } from "../../config";
 
 export const AdminPaymentsTab: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([]);
@@ -36,7 +37,7 @@ export const AdminPaymentsTab: React.FC = () => {
       if (search.trim()) params.append("search", search.trim());
       if (statusFilter) params.append("status", statusFilter);
 
-      const res = await fetch(`/api/v1/admin/payments?${params.toString()}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/admin/payments?${params.toString()}`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },
@@ -54,12 +55,13 @@ export const AdminPaymentsTab: React.FC = () => {
   }, [page, search, statusFilter]);
 
   const handleRunReconciliation = async () => {
+    if (reconcileLoading) return;
     try {
       setReconcileLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch("/api/v1/payments/reconcile", {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/payments/reconcile`, {
         method: "POST",
         headers: {
           Authorization: token ? `Bearer ${token}` : "",

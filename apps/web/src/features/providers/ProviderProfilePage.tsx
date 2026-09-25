@@ -60,9 +60,18 @@ export const ProviderProfilePage: React.FC = () => {
           setLatitude(data.location.latitude);
           setLongitude(data.location.longitude);
         }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        setFeedback({
+          type: "error",
+          message: errJson.error?.message || "Failed to load provider profile.",
+        });
       }
     } catch {
-      // Fallback
+      setFeedback({
+        type: "error",
+        message: "Failed to connect to backend service. Please check your network.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -122,13 +131,17 @@ export const ProviderProfilePage: React.FC = () => {
           message: "Business profile successfully saved and updated.",
         });
       } else {
+        const errJson = await res.json().catch(() => ({}));
         setFeedback({
           type: "error",
-          message: "Failed to update provider profile.",
+          message: errJson.error?.message || "Failed to update provider profile.",
         });
       }
     } catch {
-      setFeedback({ type: "success", message: "Profile saved." });
+      setFeedback({
+        type: "error",
+        message: "Network error occurred while saving profile. Please check your connection.",
+      });
     } finally {
       setIsSaving(false);
     }

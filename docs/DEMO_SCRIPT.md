@@ -77,9 +77,9 @@
 2. **Switch to Browser 2 (Worker)**:
    - Navigate to **"My Assignments"** (`/worker/assignments/:id`).
    - Click **"Confirm Shift"** $\rightarrow$ Status transitions to `CONFIRMED`.
-   - Point out that exact work site address and 6-digit Job PIN are now unlocked.
+   - Point out that exact work site address and 4-digit Job PIN are now unlocked.
 3. **Simulate Job PIN Check-In**:
-   - Worker arrives at work site. Enters the valid **6-digit Job PIN** (or clicks verify check-in).
+   - Worker arrives at work site. Enters the valid **4-digit Job PIN** (or clicks verify check-in).
    - Check-in approved $\rightarrow$ Status becomes `CHECKED_IN` $\rightarrow$ `IN_PROGRESS` (Green badge).
 
 ---

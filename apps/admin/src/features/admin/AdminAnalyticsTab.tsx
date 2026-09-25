@@ -23,6 +23,7 @@ import {
   AdminTrustSafetyAnalytics,
   AdminPaymentAnalytics,
 } from "@nearvia/types";
+import { adminConfig } from "../../config";
 
 export const AdminAnalyticsTab: React.FC = () => {
   const [overview, setOverview] = useState<any | null>(null);
@@ -46,12 +47,12 @@ export const AdminAnalyticsTab: React.FC = () => {
       const headers = { Authorization: token ? `Bearer ${token}` : "" };
 
       const [overRes, mktRes, tsRes, payRes, evRes, readyRes] = await Promise.all([
-        fetch("/api/v1/admin/analytics/overview", { headers }),
-        fetch("/api/v1/admin/analytics/marketplace", { headers }),
-        fetch("/api/v1/admin/analytics/trust-safety", { headers }),
-        fetch("/api/v1/admin/analytics/payments", { headers }),
-        fetch(`/api/v1/admin/analytics/events?page=${eventsPage}&limit=10`, { headers }),
-        fetch("/ready"),
+        fetch(`${adminConfig.apiBaseUrl}/admin/analytics/overview`, { headers }),
+        fetch(`${adminConfig.apiBaseUrl}/admin/analytics/marketplace`, { headers }),
+        fetch(`${adminConfig.apiBaseUrl}/admin/analytics/trust-safety`, { headers }),
+        fetch(`${adminConfig.apiBaseUrl}/admin/analytics/payments`, { headers }),
+        fetch(`${adminConfig.apiBaseUrl}/admin/analytics/events?page=${eventsPage}&limit=10`, { headers }),
+        fetch(`${adminConfig.apiBaseUrl}/ready`),
       ]);
 
       const [overData, mktData, tsData, payData, evData, readyData] = await Promise.all([

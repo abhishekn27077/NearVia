@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { AlertCircle, ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
+import { adminConfig } from "../../config";
 
 export const AdminDisputesTab: React.FC = () => {
   const [disputes, setDisputes] = useState<any[]>([]);
@@ -26,7 +27,7 @@ export const AdminDisputesTab: React.FC = () => {
       });
       if (statusFilter) params.append("status", statusFilter);
 
-      const res = await fetch(`/api/v1/disputes/admin/all?${params.toString()}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/disputes/admin/all?${params.toString()}`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },
@@ -48,13 +49,13 @@ export const AdminDisputesTab: React.FC = () => {
   }, [fetchDisputes]);
 
   const handleArbitrateDispute = async () => {
-    if (!activeDispute || !resolutionNotes.trim()) return;
+    if (!activeDispute || !resolutionNotes.trim() || actionLoading) return;
     try {
       setActionLoading(true);
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/disputes/admin/${activeDispute.id}`, {
+      const res = await fetch(`${adminConfig.apiBaseUrl}/disputes/admin/${activeDispute.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

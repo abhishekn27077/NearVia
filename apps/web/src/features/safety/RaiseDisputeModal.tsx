@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AlertTriangle, X, AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
+import { webConfig } from "../../config";
 
 interface RaiseDisputeModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const RaiseDisputeModal: React.FC<RaiseDisputeModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     try {
       setLoading(true);
       setError(null);
@@ -46,7 +48,7 @@ export const RaiseDisputeModal: React.FC<RaiseDisputeModalProps> = ({
       const token = localStorage.getItem("nearvia_auth_token");
       const evidenceUrls = evidenceUrl.trim() ? [evidenceUrl.trim()] : [];
 
-      const res = await fetch("/api/v1/disputes", {
+      const res = await fetch(`${webConfig.apiBaseUrl}/disputes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
