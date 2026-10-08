@@ -30,6 +30,9 @@
     "clean": "npm run clean --workspaces --if-present"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.2"
   }

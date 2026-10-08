@@ -67,7 +67,7 @@ export const VerificationCenterPage: React.FC = () => {
   const bizStatus = bizVerified ? "VERIFIED" : pendingBizReq ? "PENDING" : "NOT_VERIFIED";
 
   // Calculate percentage
-  let totalSteps = user?.role === UserRole.PROVIDER ? 4 : 3;
+  const totalSteps = user?.role === UserRole.PROVIDER ? 4 : 3;
   let completedSteps = 0;
   if (emailVerified) completedSteps++;
   if (phoneVerified) completedSteps++;

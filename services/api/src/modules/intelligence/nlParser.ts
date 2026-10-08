@@ -259,7 +259,7 @@ export class NLJobParser {
     durationHours: number;
   } {
     const today = new Date();
-    let targetDate = new Date(today);
+    const targetDate = new Date(today);
 
     // Date resolution
     if (/\b(tomorrow|kal)\b/i.test(text)) {

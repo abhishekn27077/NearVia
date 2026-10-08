@@ -58,7 +58,7 @@ export async function apiFetch(
     ? endpoint
     : `${webConfig.apiBaseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
 
-  let token = await getValidToken();
+  const token = await getValidToken();
 
   const headers = new Headers(options.headers || {});
   if (token && !headers.has("Authorization")) {

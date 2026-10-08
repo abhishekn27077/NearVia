@@ -174,6 +174,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         if (session.user && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
           if (session.provider_token || session.user.app_metadata?.provider === "google") {
             await syncBackendGoogleProfile(session.access_token, session.user);
+          } else {
+            await fetchUserProfile(session.access_token);
           }
         }
       } else if (event === "SIGNED_OUT") {
@@ -203,9 +205,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         throw new Error(authError.message);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Google authentication failed";
-      setError(msg);
-      throw err;
+      const rawMsg = err instanceof Error ? err.message : "Google authentication failed";
+      const friendlyMsg =
+        rawMsg.toLowerCase().includes("not enabled") ||
+        rawMsg.toLowerCase().includes("unsupported provider")
+          ? "Google sign-in is not enabled in this project environment. Please register or sign in with Email & Password."
+          : rawMsg;
+      setError(friendlyMsg);
+      throw new Error(friendlyMsg);
     } finally {
       setIsLoading(false);
     }
@@ -218,34 +225,64 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsLoading(true);
     setError(null);
     try {
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail) {
+        throw new Error("Please enter your email address.");
+      }
+      if (!pass) {
+        throw new Error("Please enter your password.");
+      }
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: trimmedEmail,
         password: pass,
       });
 
-      if (
-        authError &&
-        (authError.message.toLowerCase().includes("not confirmed") ||
-          authError.message.toLowerCase().includes("email_not_confirmed"))
-      ) {
-        throw new Error(
-          "Your email address has not been verified yet. Please check your email inbox and verify your account before logging in.",
-        );
+      if (authError) {
+        const rawMsg = authError.message || "";
+        const lowerMsg = rawMsg.toLowerCase();
+        if (
+          lowerMsg.includes("not confirmed") ||
+          lowerMsg.includes("email_not_confirmed") ||
+          (authError as any).code === "email_not_confirmed"
+        ) {
+          throw new Error("Please confirm your email address before signing in.");
+        }
+        if (lowerMsg.includes("invalid login credentials")) {
+          throw new Error("Invalid email or password.");
+        }
+        if (lowerMsg.includes("rate limit") || authError.status === 429) {
+          throw new Error("Too many login attempts. Please wait a few moments and try again.");
+        }
+        throw new Error("Invalid email or password.");
       }
 
-      if (authError || !data?.session) {
-        throw new Error(authError?.message || "Invalid email or password");
+      if (!data?.session || !data.user) {
+        throw new Error("Authentication failed. Please check your credentials.");
+      }
+
+      // Verify that user email is confirmed
+      const isConfirmed = Boolean(
+        data.user.email_confirmed_at ||
+        (data.user as any).confirmed_at ||
+        (data.user as any).email_verified
+      );
+
+      if (!isConfirmed) {
+        // Sign out unconfirmed session immediately to prevent unconfirmed access
+        await supabase.auth.signOut().catch(() => {});
+        throw new Error("Please confirm your email address before signing in.");
       }
 
       const authToken = data.session.access_token;
-      const profile = await fetchUserProfile(authToken);
+      setToken(authToken);
 
+      const profile = await fetchUserProfile(authToken);
       if (!profile) {
         throw new Error("Unable to retrieve user profile from backend.");
       }
 
       setUser(profile);
-      setToken(authToken);
       return profile;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
@@ -260,23 +297,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsLoading(true);
     setError(null);
     try {
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail) {
+        throw new Error("Please enter your email address.");
+      }
+
+      const redirectUrl = `${window.location.origin}/login`;
       const { error: resendError } = await supabase.auth.resend({
         type: "signup",
-        email: email.trim(),
+        email: trimmedEmail,
+        options: {
+          emailRedirectTo: redirectUrl,
+        },
       });
 
-      // Also call backend rate-limited resend endpoint
+      if (resendError) {
+        const rawMsg = resendError.message || "";
+        const lowerMsg = rawMsg.toLowerCase();
+        if (
+          lowerMsg.includes("rate limit") ||
+          resendError.status === 429 ||
+          (resendError as any).code === "over_email_send_rate_limit"
+        ) {
+          throw new Error(
+            "Email rate limit exceeded. Supabase limits outgoing verification emails per hour. Please wait a few minutes before trying again.",
+          );
+        }
+        throw new Error(rawMsg || "Failed to resend confirmation email.");
+      }
+
+      // Also notify backend resend handler (rate-limited log/audit)
       await fetch(`${webConfig.apiBaseUrl}/auth/resend-verification-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: trimmedEmail }),
       }).catch(() => {});
-
-      if (resendError && !resendError.message.toLowerCase().includes("rate limit")) {
-        throw new Error(resendError.message);
-      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to resend verification email";
+      const msg = err instanceof Error ? err.message : "Failed to resend confirmation email";
       setError(msg);
       throw err;
     } finally {
@@ -294,42 +351,98 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Provision account via backend (creates Supabase Auth user & profile)
-      const signupRes = await fetch(`${webConfig.apiBaseUrl}/auth/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      // 1. Local field validation
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedFullName = fullName.trim();
+      const trimmedPhone = phone.trim() || undefined;
+
+      if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        throw new Error("Please enter a valid email address.");
+      }
+      if (!pass || pass.length < 6) {
+        throw new Error("Password must be at least 6 characters long.");
+      }
+      if (!trimmedFullName) {
+        throw new Error("Full name is required.");
+      }
+      if (![UserRole.WORKER, UserRole.PROVIDER, UserRole.AGENT].includes(role)) {
+        throw new Error("Please select a valid role (Worker, Provider, or Agent).");
+      }
+
+      // 2. Call Supabase Auth native signup with redirect destination
+      const redirectUrl = `${window.location.origin}/login`;
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password: pass,
+        options: {
+          data: {
+            full_name: trimmedFullName,
+            role,
+            phone: trimmedPhone,
+          },
+          emailRedirectTo: redirectUrl,
         },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: pass,
-          fullName: fullName.trim(),
-          phone: phone.trim() || undefined,
-          role,
-        }),
       });
 
-      if (!signupRes.ok) {
-        const errJson = await signupRes.json();
-        throw new Error(errJson.error?.message || "Sign up failed");
+      if (authError) {
+        const rawMsg = authError.message || "";
+        const lowerMsg = rawMsg.toLowerCase();
+        if (
+          lowerMsg.includes("rate limit") ||
+          authError.status === 429 ||
+          (authError as any).code === "over_email_send_rate_limit"
+        ) {
+          throw new Error(
+            "Email rate limit exceeded. Supabase's default email service limits outgoing confirmation emails per hour. Please wait a few minutes before trying again.",
+          );
+        }
+        if (lowerMsg.includes("already registered") || lowerMsg.includes("already exists")) {
+          throw new Error(
+            "An account with this email address already exists. Please log in or reset your password.",
+          );
+        }
+        if (lowerMsg.includes("password")) {
+          throw new Error("Password does not meet security requirements. Please choose a stronger password.");
+        }
+        if (lowerMsg.includes("invalid email") || lowerMsg.includes("valid email")) {
+          throw new Error("Please enter a valid email address.");
+        }
+        throw new Error(rawMsg || "Registration failed. Please check your information and try again.");
       }
 
-      const signupJson = await signupRes.json();
-      const userProfile = signupJson.data as AuthUserContext;
-
-      // 2. Sign in to Supabase Auth on client if pre-confirmed (demo / test accounts)
-      const { data: signInData, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: pass,
-        });
-
-      if (!signInError && signInData.session) {
-        setToken(signInData.session.access_token);
-        setUser(userProfile);
+      // In Supabase, if email enumeration protection is ON, existing users return an empty identities array
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        throw new Error(
+          "An account with this email address already exists. Please log in or reset your password.",
+        );
       }
 
-      return userProfile;
+      // Check if session returned (e.g. if email confirmation is disabled or pre-confirmed test environment)
+      if (data.session) {
+        setToken(data.session.access_token);
+        const profile = await fetchUserProfile(data.session.access_token);
+        if (profile) {
+          setUser(profile);
+          return profile;
+        }
+      }
+
+      // When confirmation is required, session is null — expected behavior
+      const unconfirmedUser: AuthUserContext = {
+        id: data.user?.id || `user_${Date.now()}`,
+        authId: data.user?.id || `user_${Date.now()}`,
+        fullName: trimmedFullName,
+        email: trimmedEmail,
+        role,
+        phone: trimmedPhone,
+        emailVerified: false,
+        isActive: true,
+        profileCompleted: false,
+        mobileVerified: false,
+        identityVerified: false,
+      };
+
+      return unconfirmedUser;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Sign up failed";
       setError(msg);

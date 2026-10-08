@@ -43,7 +43,7 @@ export class OTPService {
       throw new AppError("Phone number is required.", 400, ErrorCode.VALIDATION_ERROR);
     }
 
-    const cleaned = rawPhone.replace(/[\s\-\(\)]/g, "");
+    const cleaned = rawPhone.replace(/[\s\-()]/g, "");
 
     // 10 digits starting with 6-9 (Standard Indian Mobile)
     if (/^[6-9]\d{9}$/.test(cleaned)) {

@@ -81,21 +81,91 @@ export async function authenticateUser(
       [verified.authId],
     );
 
-    if (result.rows.length === 0) {
+    let userRow: any = result.rows[0];
+
+    if (!userRow) {
+      // Auto-provision application user from confirmed Supabase Auth identity
+      try {
+        const rawRole = verified.userMetadata?.role;
+        const safeRole = [UserRole.WORKER, UserRole.PROVIDER, UserRole.AGENT].includes(rawRole)
+          ? rawRole
+          : UserRole.WORKER;
+        const fullName =
+          verified.userMetadata?.full_name ||
+          verified.userMetadata?.name ||
+          (verified.email ? verified.email.split("@")[0] : "Nearvia User");
+        const phone = verified.phone || verified.userMetadata?.phone || null;
+        const isEmailVerified = Boolean(verified.emailVerified);
+
+        const insertResult = await query<{
+          id: string;
+          auth_id: string;
+          phone: string | null;
+          full_name: string;
+          email: string | null;
+          role: UserRole;
+          is_active: boolean;
+          email_verified: boolean;
+        }>(
+          `INSERT INTO users (
+            auth_id, phone, full_name, email, role,
+            email_verified, email_verified_at,
+            mobile_verified, identity_verified, profile_completed, is_active
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, FALSE, FALSE, TRUE)
+          ON CONFLICT (auth_id) DO UPDATE SET
+            email_verified = EXCLUDED.email_verified,
+            email_verified_at = COALESCE(users.email_verified_at, EXCLUDED.email_verified_at)
+          RETURNING id, auth_id, phone, full_name, email, role, is_active, email_verified`,
+          [
+            verified.authId,
+            phone,
+            fullName,
+            verified.email || null,
+            safeRole,
+            isEmailVerified,
+            isEmailVerified ? new Date() : null,
+          ],
+        );
+
+        if (insertResult.rows.length > 0) {
+          userRow = insertResult.rows[0];
+
+          // Initialize domain profile record
+          if (safeRole === UserRole.WORKER) {
+            await query(
+              `INSERT INTO worker_profiles (user_id, service_radius_km, availability_status, is_available_now, location, address_approximate)
+               VALUES ($1, 5.0, 'OFFLINE', FALSE, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central')
+               ON CONFLICT (user_id) DO NOTHING`,
+              [userRow.id],
+            ).catch(() => {});
+          } else if (safeRole === UserRole.PROVIDER) {
+            await query(
+              `INSERT INTO provider_profiles (user_id, provider_type, business_name, location, address_approximate)
+               VALUES ($1, 'INDIVIDUAL', $2, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central')
+               ON CONFLICT (user_id) DO NOTHING`,
+              [userRow.id, userRow.full_name],
+            ).catch(() => {});
+          } else if (safeRole === UserRole.AGENT) {
+            await query(
+              `INSERT INTO agent_profiles (user_id, assigned_area, active_status, location, address_approximate)
+               VALUES ($1, 'Central Service Area', TRUE, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central')
+               ON CONFLICT (user_id) DO NOTHING`,
+              [userRow.id],
+            ).catch(() => {});
+          }
+        }
+      } catch (autoErr) {
+        console.warn("[AuthMiddleware] Auto-provision warning:", autoErr);
+      }
+    }
+
+    if (!userRow) {
       next(
         new AppError(
           "User identity authenticated but NEARVIA application profile not found.",
           401,
           ErrorCode.UNAUTHORIZED,
         ),
-      );
-      return;
-    }
-
-    const userRow = result.rows[0];
-    if (!userRow) {
-      next(
-        new AppError("User profile not found.", 401, ErrorCode.UNAUTHORIZED),
       );
       return;
     }

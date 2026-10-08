@@ -79,6 +79,7 @@ export interface VerifiedAuthResult {
   email?: string;
   phone?: string;
   emailVerified?: boolean;
+  userMetadata?: Record<string, any>;
 }
 
 /**
@@ -96,6 +97,7 @@ export async function verifySupabaseToken(
       email: `${authId}@example.com`,
       phone: "+919876543200",
       emailVerified: true,
+      userMetadata: { role: "WORKER", full_name: "Mock Worker" },
     };
   }
 
@@ -124,8 +126,9 @@ export async function verifySupabaseToken(
     return {
       authId: user.id,
       email: user.email,
-      phone: user.phone,
+      phone: user.phone || user.user_metadata?.phone,
       emailVerified: isConfirmed,
+      userMetadata: user.user_metadata,
     };
   } catch (err) {
     console.error("[Supabase Service] Failed to verify token:", err);

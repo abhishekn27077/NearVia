@@ -42,7 +42,7 @@ export function createRateLimiter(options: RateLimitOptions) {
         return `email:${req.body.email.toLowerCase().trim()}`;
       }
       if (req.body?.phone && typeof req.body.phone === "string") {
-        return `phone:${req.body.phone.replace(/[\s\-\(\)]/g, "")}`;
+        return `phone:${req.body.phone.replace(/[\s\-()]/g, "")}`;
       }
 
       // 3. Client IP address (sanitizing X-Forwarded-For)

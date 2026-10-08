@@ -315,7 +315,7 @@ export const WorkerDashboardPage: React.FC = () => {
         >
           <div>
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-caption-refined">
-              {t.findWork}
+              Nearby Opportunities
             </div>
             <div className="text-2xl font-black text-orange-600 font-display-title flex items-center space-x-1.5">
               <span>{stats?.nearbyJobsCount || 0}</span>
@@ -324,7 +324,7 @@ export const WorkerDashboardPage: React.FC = () => {
               </span>
             </div>
             <div className="text-[11px] text-slate-500 font-medium mt-1 group-hover:text-orange-600 flex items-center space-x-1">
-              <span>{t.findWork}</span>
+              <span>{t.findJobs}</span>
               <ArrowRight className="w-3 h-3" />
             </div>
           </div>

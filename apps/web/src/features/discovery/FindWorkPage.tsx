@@ -752,13 +752,18 @@ export const FindWorkPage: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setRadiusKm(10)}
-                  className="px-5 py-2.5 rounded-2xl bg-orange-600 text-white font-black text-xs shadow-md shadow-orange-600/20 hover:bg-orange-700 transition-all"
-                >
-                  Expand to 10 KM Radius
-                </button>
+                {radiusKm < 10 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRadiusKm(10);
+                      setCurrentPage(1);
+                    }}
+                    className="px-5 py-2.5 rounded-2xl bg-orange-600 text-white font-black text-xs shadow-md shadow-orange-600/20 hover:bg-orange-700 transition-all"
+                  >
+                    {t.expandRadius}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleResetFilters}

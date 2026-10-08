@@ -92,11 +92,15 @@ export const errorHandler: ErrorRequestHandler = (
 
   // Handle Zod Schema Validation Errors
   if (err instanceof ZodError) {
+    const firstIssue = err.errors[0];
+    const fieldPath = firstIssue?.path?.length ? `${firstIssue.path.join(".")}: ` : "";
+    const specificMessage = firstIssue ? `${fieldPath}${firstIssue.message}` : "Request validation failed";
+
     const errorResponse: ApiErrorResponse & { requestId?: string } = {
       success: false,
       error: {
         code: ErrorCode.VALIDATION_ERROR,
-        message: "Request validation failed",
+        message: specificMessage,
         details: err.errors,
         timestamp: new Date().toISOString(),
       },
@@ -133,6 +137,27 @@ export const errorHandler: ErrorRequestHandler = (
     console.error(
       `[${new Date().toISOString()}] [${requestId || "unknown"}] Server Error: ${err.name} - ${err.message}`,
     );
+  }
+
+  const rawMsg = err.message || "";
+  if (
+    rawMsg.includes("ENOTFOUND") ||
+    rawMsg.includes("ECONNREFUSED") ||
+    rawMsg.includes("ETIMEDOUT") ||
+    rawMsg.includes("getaddrinfo")
+  ) {
+    const infrastructureResponse: ApiErrorResponse & { requestId?: string } = {
+      success: false,
+      error: {
+        code: ErrorCode.SERVICE_UNAVAILABLE,
+        message:
+          "Database service is currently unreachable. Please check your database connection or Supabase project status.",
+        timestamp: new Date().toISOString(),
+      },
+      ...(requestId ? { requestId } : {}),
+    };
+    res.status(503).json(infrastructureResponse);
+    return;
   }
 
   const fallbackResponse: ApiErrorResponse & { requestId?: string } = {

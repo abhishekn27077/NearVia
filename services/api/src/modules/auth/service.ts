@@ -53,31 +53,49 @@ export class AuthService {
     const trimmedEmail = input.email.trim().toLowerCase();
 
     // Check if user with this email already exists in NEARVIA PostgreSQL users table
-    const existingDbUser = await query<any>(
-      "SELECT id, auth_id, email, phone FROM users WHERE LOWER(email) = $1",
-      [trimmedEmail],
-    );
-    if (existingDbUser.rows.length > 0) {
-      throw new AppError(
-        "An account with this email address already exists. Please log in or reset your password.",
-        409,
-        ErrorCode.CONFLICT,
+    try {
+      const existingDbUser = await query<any>(
+        "SELECT id, auth_id, email, phone FROM users WHERE LOWER(email) = $1",
+        [trimmedEmail],
       );
-    }
-
-    // Check phone collision if supplied
-    if (input.phone) {
-      const existingPhone = await query<any>(
-        "SELECT id FROM users WHERE phone = $1",
-        [input.phone.trim()],
-      );
-      if (existingPhone.rows.length > 0) {
+      if (existingDbUser.rows.length > 0) {
         throw new AppError(
-          "An account with this phone number already exists.",
+          "An account with this email address already exists. Please log in or reset your password.",
           409,
           ErrorCode.CONFLICT,
         );
       }
+
+      // Check phone collision if supplied
+      if (input.phone) {
+        const existingPhone = await query<any>(
+          "SELECT id FROM users WHERE phone = $1",
+          [input.phone.trim()],
+        );
+        if (existingPhone.rows.length > 0) {
+          throw new AppError(
+            "An account with this phone number already exists.",
+            409,
+            ErrorCode.CONFLICT,
+          );
+        }
+      }
+    } catch (err: any) {
+      if (err instanceof AppError) throw err;
+      console.error("[AuthService] Database check error:", err.message);
+      if (
+        err.message?.includes("ENOTFOUND") ||
+        err.message?.includes("ECONNREFUSED") ||
+        err.message?.includes("ETIMEDOUT") ||
+        err.message?.includes("getaddrinfo")
+      ) {
+        throw new AppError(
+          "Database service is currently unreachable. Please verify that your Supabase database is active and running.",
+          503,
+          ErrorCode.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw err;
     }
 
     const supabase = getSupabaseAdminClient() || getSupabaseServerClient();
@@ -85,7 +103,10 @@ export class AuthService {
 
     if (supabase) {
       try {
-        const { data: userList } = await supabase.auth.admin.listUsers();
+        const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
+        if (listError) {
+          console.warn("[AuthService] Supabase listUsers warning:", listError.message);
+        }
         const existingAuth = userList?.users?.find(
           (u) => u.email?.toLowerCase() === trimmedEmail,
         );
@@ -112,9 +133,32 @@ export class AuthService {
             },
           });
 
-        if (createError || !newAuth.user) {
+        if (createError || !newAuth?.user) {
+          const rawMsg = createError?.message || "Failed to provision authentication account.";
+          const lowerMsg = rawMsg.toLowerCase();
+          if (lowerMsg.includes("already registered") || lowerMsg.includes("already exists")) {
+            throw new AppError(
+              "An account with this email address already exists. Please log in or reset your password.",
+              409,
+              ErrorCode.CONFLICT,
+            );
+          }
+          if (lowerMsg.includes("rate limit")) {
+            throw new AppError(
+              "Too many registration attempts. Please wait a few minutes before trying again.",
+              429,
+              ErrorCode.RATE_LIMITED,
+            );
+          }
+          if (lowerMsg.includes("password")) {
+            throw new AppError(
+              rawMsg,
+              400,
+              ErrorCode.VALIDATION_ERROR,
+            );
+          }
           throw new AppError(
-            createError?.message || "Failed to provision authentication account.",
+            rawMsg,
             400,
             ErrorCode.VALIDATION_ERROR,
           );
@@ -123,6 +167,20 @@ export class AuthService {
       } catch (err: any) {
         if (err instanceof AppError) throw err;
         console.error("[AuthService] Supabase registration error:", err.message);
+        const errMsg = err.message || "";
+        if (
+          errMsg.includes("ENOTFOUND") ||
+          errMsg.includes("ECONNREFUSED") ||
+          errMsg.includes("ETIMEDOUT") ||
+          errMsg.includes("fetch failed") ||
+          errMsg.includes("getaddrinfo")
+        ) {
+          throw new AppError(
+            "Authentication service is currently unreachable. Please check your Supabase project status.",
+            503,
+            ErrorCode.SERVICE_UNAVAILABLE,
+          );
+        }
         throw new AppError(
           "Failed to connect to authentication provider.",
           500,
@@ -283,11 +341,24 @@ export class AuthService {
         ],
       );
     } catch (err: any) {
+      if (err instanceof AppError) throw err;
       if (err?.code === "23505") {
         throw new AppError(
           "A user account with this email, phone, or authentication identity already exists.",
           409,
           ErrorCode.CONFLICT,
+        );
+      }
+      if (
+        err.message?.includes("ENOTFOUND") ||
+        err.message?.includes("ECONNREFUSED") ||
+        err.message?.includes("ETIMEDOUT") ||
+        err.message?.includes("getaddrinfo")
+      ) {
+        throw new AppError(
+          "Database service is currently unreachable. Please verify that your Supabase database is active and running.",
+          503,
+          ErrorCode.SERVICE_UNAVAILABLE,
         );
       }
       throw err;
@@ -303,27 +374,43 @@ export class AuthService {
     }
 
     // Initialize domain profile record with default central location
-    if (roleValue === UserRole.WORKER) {
-      await query(
-        `INSERT INTO worker_profiles (user_id, service_radius_km, availability_status, is_available_now, location, address_approximate) 
-         VALUES ($1, 5.0, 'OFFLINE', FALSE, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central') 
-         ON CONFLICT (user_id) DO NOTHING`,
-        [userRow.id],
-      );
-    } else if (roleValue === UserRole.PROVIDER) {
-      await query(
-        `INSERT INTO provider_profiles (user_id, provider_type, business_name, location, address_approximate) 
-         VALUES ($1, 'INDIVIDUAL', $2, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central') 
-         ON CONFLICT (user_id) DO NOTHING`,
-        [userRow.id, userRow.full_name],
-      );
-    } else if (roleValue === UserRole.AGENT) {
-      await query(
-        `INSERT INTO agent_profiles (user_id, assigned_area, active_status, location, address_approximate) 
-         VALUES ($1, 'Central Service Area', TRUE, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central') 
-         ON CONFLICT (user_id) DO NOTHING`,
-        [userRow.id],
-      );
+    try {
+      if (roleValue === UserRole.WORKER) {
+        await query(
+          `INSERT INTO worker_profiles (user_id, service_radius_km, availability_status, is_available_now, location, address_approximate)
+           VALUES ($1, 5.0, 'OFFLINE', FALSE, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central')
+           ON CONFLICT (user_id) DO NOTHING`,
+          [userRow.id],
+        );
+      } else if (roleValue === UserRole.PROVIDER) {
+        await query(
+          `INSERT INTO provider_profiles (user_id, provider_type, business_name, location, address_approximate)
+           VALUES ($1, 'INDIVIDUAL', $2, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central')
+           ON CONFLICT (user_id) DO NOTHING`,
+          [userRow.id, userRow.full_name],
+        );
+      } else if (roleValue === UserRole.AGENT) {
+        await query(
+          `INSERT INTO agent_profiles (user_id, assigned_area, active_status, location, address_approximate)
+           VALUES ($1, 'Central Service Area', TRUE, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bengaluru Central')
+           ON CONFLICT (user_id) DO NOTHING`,
+          [userRow.id],
+        );
+      }
+    } catch (profileErr: any) {
+      if (
+        profileErr.message?.includes("ENOTFOUND") ||
+        profileErr.message?.includes("ECONNREFUSED") ||
+        profileErr.message?.includes("ETIMEDOUT") ||
+        profileErr.message?.includes("getaddrinfo")
+      ) {
+        throw new AppError(
+          "Database service is currently unreachable. Please verify that your Supabase database is active and running.",
+          503,
+          ErrorCode.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw profileErr;
     }
 
     return this.mapUserRow(userRow);
@@ -573,9 +660,40 @@ export class AuthService {
         password: input.password,
       });
 
-      if (error || !data.session) {
+      if (error) {
+        const rawMsg = error.message || "";
+        const lowerMsg = rawMsg.toLowerCase();
+        if (
+          lowerMsg.includes("not confirmed") ||
+          lowerMsg.includes("email_not_confirmed") ||
+          (error as any).code === "email_not_confirmed"
+        ) {
+          throw new AppError(
+            "Please confirm your email address before signing in.",
+            403,
+            ErrorCode.FORBIDDEN,
+          );
+        }
         throw new AppError("Invalid email or password.", 401, ErrorCode.UNAUTHORIZED);
       }
+
+      if (!data?.session || !data.user) {
+        throw new AppError("Invalid email or password.", 401, ErrorCode.UNAUTHORIZED);
+      }
+
+      const isConfirmed = Boolean(
+        data.user.email_confirmed_at ||
+        (data.user as any).confirmed_at ||
+        (data.user as any).email_verified
+      );
+      if (!isConfirmed) {
+        throw new AppError(
+          "Please confirm your email address before signing in.",
+          403,
+          ErrorCode.FORBIDDEN,
+        );
+      }
+
       token = data.session.access_token;
       authId = data.user.id;
     } else if (process.env.NODE_ENV === "test") {
