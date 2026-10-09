@@ -5,7 +5,6 @@
     "outDir": "./dist",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "baseUrl": ".",
     "paths": {
       "@nearvia/types": ["../types/dist/index.d.ts"]
     }
