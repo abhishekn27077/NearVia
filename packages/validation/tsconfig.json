@@ -4,7 +4,11 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "module": "ESNext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@nearvia/types": ["../types/dist/index.d.ts"]
+    }
   },
   "include": ["src/**/*"]
 }
