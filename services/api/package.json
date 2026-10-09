@@ -24,6 +24,10 @@
     "@nearvia/types": "*",
     "@nearvia/validation": "*",
     "@supabase/supabase-js": "^2.49.1",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.9",
+    "@types/pg": "^8.11.11",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -32,10 +36,6 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.13.9",
-    "@types/pg": "^8.11.11",
     "@types/supertest": "^6.0.2",
     "rimraf": "^6.0.1",
     "supertest": "^7.0.0",
