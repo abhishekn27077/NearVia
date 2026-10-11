@@ -472,6 +472,7 @@ export class AuthService {
     email: string;
     fullName?: string;
     avatarUrl?: string;
+    phone?: string;
     role?: UserRole;
   }): Promise<AuthUserContext> {
     if (data.role === UserRole.ADMIN) {
@@ -483,6 +484,13 @@ export class AuthService {
     }
 
     const normalizedEmail = data.email.trim().toLowerCase();
+
+    // Normalize phone number if supplied
+    let normalizedPhone: string | undefined = undefined;
+    if (data.phone && data.phone.trim().length > 0) {
+      const trimmed = data.phone.trim();
+      normalizedPhone = /^[6-9]\d{9}$/.test(trimmed) ? `+91${trimmed}` : trimmed;
+    }
 
     // 1. If user already exists by auth_id, NEVER change or overwrite their role!
     const existing = await this.getUserByAuthId(data.authId);
@@ -567,7 +575,7 @@ export class AuthService {
       RETURNING *`,
       [
         data.authId,
-        null,
+        normalizedPhone || null,
         fullName,
         normalizedEmail,
         requestedRole,

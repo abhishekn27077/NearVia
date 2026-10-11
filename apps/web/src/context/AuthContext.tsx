@@ -120,6 +120,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         const safeRole = [UserRole.WORKER, UserRole.PROVIDER, UserRole.AGENT].includes(rawRole)
           ? rawRole
           : UserRole.WORKER;
+        const pendingPhone = localStorage.getItem("nearvia_pending_phone") || undefined;
 
         const res = await fetch(`${webConfig.apiBaseUrl}/auth/sync-google-profile`, {
           method: "POST",
@@ -138,6 +139,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             avatarUrl:
               googleUser.user_metadata?.avatar_url ||
               googleUser.user_metadata?.picture,
+            phone: pendingPhone,
             role: safeRole,
           }),
         });
@@ -147,6 +149,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           setUser(json.data);
           setToken(supabaseAccessToken);
           localStorage.removeItem("nearvia_pending_role");
+          localStorage.removeItem("nearvia_pending_phone");
         }
       } catch (err: unknown) {
         console.error("Failed to sync Google profile with NEARVIA backend:", err);
@@ -155,13 +158,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     [],
   );
 
+  // Helper to detect Google OAuth session robustly across providers/identities
+  const isGoogleAuthUser = (sessUser: any, hasProviderToken?: boolean) => {
+    return Boolean(
+      hasProviderToken ||
+      sessUser?.app_metadata?.provider === "google" ||
+      (Array.isArray(sessUser?.app_metadata?.providers) &&
+        sessUser.app_metadata.providers.includes("google")) ||
+      (Array.isArray(sessUser?.identities) &&
+        sessUser.identities.some((i: any) => i.provider === "google")),
+    );
+  };
+
   // Listen to Supabase Auth State changes and keep access tokens fresh
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.access_token) {
         setToken(session.access_token);
         if (session.user && !user) {
-          fetchUserProfile(session.access_token);
+          if (isGoogleAuthUser(session.user, Boolean(session.provider_token))) {
+            await syncBackendGoogleProfile(session.access_token, session.user);
+          } else {
+            await fetchUserProfile(session.access_token);
+          }
         }
       }
     });
@@ -172,7 +191,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (session?.access_token) {
         setToken(session.access_token);
         if (session.user && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
-          if (session.provider_token || session.user.app_metadata?.provider === "google") {
+          if (isGoogleAuthUser(session.user, Boolean(session.provider_token))) {
             await syncBackendGoogleProfile(session.access_token, session.user);
           } else {
             await fetchUserProfile(session.access_token);
@@ -194,10 +213,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setError(null);
     try {
       localStorage.setItem("nearvia_pending_role", preferredRole);
+      const redirectUrl = `${window.location.origin}/login`;
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/login`,
+          redirectTo: redirectUrl,
         },
       });
 
@@ -206,13 +226,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       }
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : "Google authentication failed";
-      const friendlyMsg =
-        rawMsg.toLowerCase().includes("not enabled") ||
-        rawMsg.toLowerCase().includes("unsupported provider")
-          ? "Google sign-in is not enabled in this project environment. Please register or sign in with Email & Password."
-          : rawMsg;
-      setError(friendlyMsg);
-      throw new Error(friendlyMsg);
+      setError(rawMsg);
+      throw new Error(rawMsg);
     } finally {
       setIsLoading(false);
     }
@@ -536,6 +551,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setUser(null);
       setToken(null);
       localStorage.removeItem("nearvia_pending_role");
+      localStorage.removeItem("nearvia_pending_phone");
       localStorage.removeItem("nearvia_auth_user");
       localStorage.removeItem("nearvia_auth_token");
       setIsLoading(false);

@@ -102,6 +102,7 @@ export const syncGoogleProfileSchema = z
     email: z.string().email("Invalid email address").optional(),
     fullName: z.string().min(1).max(120).optional(),
     avatarUrl: z.string().url("Invalid avatar URL").optional(),
+    phone: optionalPhoneSchema,
     role: publicUserRoleSchema.optional(), // Default WORKER, strictly WORKER, PROVIDER, AGENT only
   })
   .strict();

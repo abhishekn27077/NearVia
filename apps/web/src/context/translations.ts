@@ -302,7 +302,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     emailRequired: "Please enter a valid email address.",
     joinAs: "I Want To Join As *",
     resendConfirmation: "Resend confirmation email",
-    checkYourEmail: "Check your email",
+    checkYourEmail: "Check your inbox",
 
     // Discovery & Job Cards
     workWithinReach: "Work Within Reach",

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { UserRole } from "@nearvia/types";
 import {
@@ -34,9 +34,17 @@ const COUNTRY_CODES: CountryCodeOption[] = [
 ];
 
 export const RegisterPage: React.FC = () => {
-  const { signUpWithEmailPassword, signInWithGoogle, resendVerificationEmail, isLoading, error } = useAuth();
+  const { user, signUpWithEmailPassword, signInWithGoogle, resendVerificationEmail, isLoading, error } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  // Auto-redirect confirmed authenticated users to their specific dashboard
+  useEffect(() => {
+    if (user && user.emailVerified) {
+      const rolePrefix = `/${user.role.toLowerCase()}`;
+      navigate(`${rolePrefix}/dashboard`, { replace: true });
+    }
+  }, [user, navigate]);
 
   // Form Fields
   const [fullName, setFullName] = useState("");
@@ -207,29 +215,21 @@ export const RegisterPage: React.FC = () => {
     setLocalError(null);
     setGoogleStatusMessage(null);
 
+    // Preserve optional phone number if user provided it before OAuth
+    if (phone.length > 0) {
+      localStorage.setItem("nearvia_pending_phone", `${countryCode}${phone}`);
+    } else {
+      localStorage.removeItem("nearvia_pending_phone");
+    }
+
     try {
       await signInWithGoogle(selectedRole);
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : String(err);
-      const lower = rawMsg.toLowerCase();
-      if (
-        lower.includes("not enabled") ||
-        lower.includes("unsupported provider") ||
-        lower.includes("provider is not enabled") ||
-        lower.includes("validation_failed")
-      ) {
-        setGoogleStatusMessage({
-          type: "error",
-          text:
-            t.googleUnavailable ||
-            "Google Sign-In is not enabled for this Supabase project. To enable it, configure Google OAuth in the Supabase Dashboard under Authentication > Providers. In the meantime, please register with Email & Password below.",
-        });
-      } else {
-        setGoogleStatusMessage({
-          type: "error",
-          text: rawMsg || "Google authentication failed. Please try email registration.",
-        });
-      }
+      setGoogleStatusMessage({
+        type: "error",
+        text: rawMsg || "Google authentication failed. Please try email registration.",
+      });
     } finally {
       setIsGoogleLoading(false);
     }
@@ -295,14 +295,14 @@ export const RegisterPage: React.FC = () => {
               <Mail className="w-8 h-8" aria-hidden="true" />
             </div>
             <h2 className="text-xl font-black text-slate-900 font-display-title">
-              {t.checkYourEmail || "Check your email"}
+              {t.checkYourEmail || "Check your inbox"}
             </h2>
             <div className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-sm mx-auto space-y-2">
               <p>
-                Account created. We sent a confirmation link to{" "}
+                Account created. We sent a verification email to{" "}
                 <strong className="text-slate-900">{email}</strong>.
               </p>
-              <p>Click the link in that email to activate your NEARVIA account.</p>
+              <p>Please check your inbox and click the confirmation link to activate your NEARVIA account.</p>
               <p className="text-slate-500 font-medium">
                 After confirming, return to NEARVIA and sign in.
               </p>
