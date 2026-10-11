@@ -5,3 +5,4 @@ export * from "./StatusBadge";
 export * from "./Button";
 export * from "./Confetti";
 export * from "./SpatialRadarCanvas";
+export * from "./BrandLogo";

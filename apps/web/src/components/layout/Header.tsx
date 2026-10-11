@@ -1,7 +1,6 @@
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
-  MapPin,
   LogOut,
   User,
   Compass,
@@ -19,6 +18,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage, Language } from "../../context/LanguageContext";
 import { UserRole } from "@nearvia/types";
 import { NotificationBell } from "../notifications/NotificationBell";
+import { BrandLogo } from "../ui/BrandLogo";
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -34,7 +34,7 @@ export const Header: React.FC = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 pt-4 pointer-events-none">
       <nav className="pointer-events-auto w-full max-w-6xl nav-pill px-6 py-3 flex items-center justify-between transition-all duration-300 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
-        {/* Brand Logo & Tagline */}
+        {/* Brand Logo */}
         <div className="flex items-center space-x-6">
           <Link
             to={
@@ -42,22 +42,15 @@ export const Header: React.FC = () => {
                 ? `/${user.role.toLowerCase()}/dashboard`
                 : "/"
             }
-            className="flex items-center space-x-2.5 group btn-tactile"
+            className="flex items-center group btn-tactile focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl"
             aria-label="NEARVIA Home"
           >
-            <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shadow-xs group-hover:bg-blue-600 transition-colors">
-              <MapPin className="w-5 h-5 text-white stroke-[2.5]" />
+            {/* Standalone symbol on small phones, full horizontal wordmark on sm+ screens */}
+            <div className="block sm:hidden">
+              <BrandLogo variant="symbol" size="sm" priority />
             </div>
-            <div>
-              <div className="flex items-center space-x-1.5 leading-none">
-                <span className="font-black text-xl tracking-tight text-slate-900 font-display-title">
-                  NEARVIA
-                </span>
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-600"></span>
-              </div>
-              <p className="text-[10px] font-bold text-slate-500 font-caption-refined mt-0.5">
-                {t.brandTagline}
-              </p>
+            <div className="hidden sm:block">
+              <BrandLogo variant="full" size="md" priority />
             </div>
           </Link>
 

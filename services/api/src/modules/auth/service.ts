@@ -52,6 +52,13 @@ export class AuthService {
 
     const trimmedEmail = input.email.trim().toLowerCase();
 
+    // Normalize phone number if supplied (format 10-digit Indian numbers with +91)
+    let normalizedPhone: string | undefined = undefined;
+    if (input.phone && input.phone.trim().length > 0) {
+      const trimmed = input.phone.trim();
+      normalizedPhone = /^[6-9]\d{9}$/.test(trimmed) ? `+91${trimmed}` : trimmed;
+    }
+
     // Check if user with this email already exists in NEARVIA PostgreSQL users table
     try {
       const existingDbUser = await query<any>(
@@ -66,11 +73,12 @@ export class AuthService {
         );
       }
 
-      // Check phone collision if supplied
-      if (input.phone) {
+      // Check phone collision if supplied (check both +91 prefixed and raw 10 digits)
+      if (normalizedPhone) {
+        const rawPhone = normalizedPhone.replace(/^\+91/, "");
         const existingPhone = await query<any>(
-          "SELECT id FROM users WHERE phone = $1",
-          [input.phone.trim()],
+          "SELECT id FROM users WHERE phone = $1 OR phone = $2",
+          [normalizedPhone, rawPhone],
         );
         if (existingPhone.rows.length > 0) {
           throw new AppError(
@@ -191,7 +199,7 @@ export class AuthService {
       authId = `user_${Date.now()}`;
     }
 
-    const phone = input.phone?.trim() || undefined;
+    const phone = normalizedPhone;
 
     return this.registerUser({
       authId,

@@ -1,7 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { MapPin, ShieldCheck, Heart } from "lucide-react";
+import { ShieldCheck, Heart } from "lucide-react";
 import { webConfig } from "../../config";
+import { BrandLogo } from "../ui/BrandLogo";
 
 export const Footer: React.FC = () => {
   return (
@@ -10,14 +11,9 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
           {/* Brand Col */}
           <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white font-bold shadow-sm">
-                <MapPin className="w-4 h-4" />
-              </div>
-              <span className="font-extrabold text-slate-900 text-lg font-display">
-                {webConfig.appName}
-              </span>
-            </div>
+            <Link to="/" className="inline-block focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl" aria-label="NEARVIA Home">
+              <BrandLogo variant="full" size="md" />
+            </Link>
             <p className="text-slate-600 text-xs leading-relaxed max-w-xs">
               Hyperlocal marketplace connecting local businesses and individuals with nearby available workers for urgent shifts and micro-tasks within 5 km.
             </p>
@@ -96,9 +92,20 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-[11px]">
-          <p>
-            © {new Date().getFullYear()} {webConfig.appName} • {webConfig.tagline}. Hyperlocal PostGIS Infrastructure.
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <p>
+              © {new Date().getFullYear()} {webConfig.appName} • {webConfig.tagline}. Hyperlocal PostGIS Infrastructure.
+            </p>
+            <div className="flex items-center space-x-3 text-slate-500">
+              <Link to="/terms" className="hover:text-orange-600 transition-colors">
+                Terms
+              </Link>
+              <span>•</span>
+              <Link to="/privacy" className="hover:text-orange-600 transition-colors">
+                Privacy
+              </Link>
+            </div>
+          </div>
           <div className="flex items-center space-x-1 text-slate-500">
             <span>Built for local communities with</span>
             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 inline" />

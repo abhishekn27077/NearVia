@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Lock,
 } from "lucide-react";
+import { BrandLogo } from "../common/BrandLogo";
 
 export const AdminHeader: React.FC = () => {
   const { user, logout } = useAdminAuth();
@@ -32,15 +33,10 @@ export const AdminHeader: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Brand & Console Identity */}
           <div className="flex items-center space-x-6">
-            <Link to="/dashboard" className="flex items-center space-x-3 group">
-              <div className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black text-lg tracking-wider shadow-sm group-hover:bg-orange-500 transition-colors">
-                N
-              </div>
+            <Link to="/dashboard" className="flex items-center space-x-3 group focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl" aria-label="NEARVIA Admin Home">
+              <BrandLogo variant="full" theme="dark" size="sm" priority />
               <div className="flex flex-col">
                 <div className="flex items-center space-x-2">
-                  <span className="font-display font-black text-base tracking-tight text-white">
-                    NEARVIA
-                  </span>
                   <span className="text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-300 border border-rose-800/60 font-black">
                     Admin Console
                   </span>

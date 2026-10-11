@@ -1,4 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
-  <circle cx="12" cy="10" r="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Brand Gradient: Cyan-Blue to Emerald-Green -->
+    <linearGradient id="nvBlueGrad" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#0062E6" />
+      <stop offset="50%" stop-color="#00B4D8" />
+      <stop offset="100%" stop-color="#00E5A3" />
+    </linearGradient>
+    <linearGradient id="nvGreenGrad" x1="0%" y1="50%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0092B3" />
+      <stop offset="50%" stop-color="#00C48C" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+    <linearGradient id="nvPinGrad" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#00B894" />
+      <stop offset="100%" stop-color="#05D588" />
+    </linearGradient>
+    <filter id="nvShadow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#0062E6" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Left Upright of N with curved wrap -->
+  <path d="M96 392 C96 420 120 440 152 440 C184 440 208 416 208 384 L208 240 C208 176 160 128 96 128 C96 220 96 340 96 392 Z" fill="url(#nvBlueGrad)" />
+
+  <!-- Ribbon Arch and Diagonal of N -->
+  <path d="M96 256 C96 144 180 88 260 88 C340 88 416 150 416 240 L416 392 C416 420 392 440 360 440 C328 440 304 416 304 384 L304 270 C304 210 260 170 208 170 C156 170 120 204 96 256 Z" fill="url(#nvGreenGrad)" />
+
+  <!-- Diagonal Path Contour & Pathway Cutout -->
+  <path d="M168 280 Q256 220 344 320 Q390 376 430 430 C410 440 380 440 360 420 Q320 370 270 330 Q210 290 168 280 Z" fill="#FFFFFF" opacity="0.95" />
+
+  <!-- Top-Right Pin Head -->
+  <g filter="url(#nvShadow)">
+    <path d="M376 80 C323 80 280 123 280 176 C280 236 352 308 376 332 C400 308 472 236 472 176 C472 123 429 80 376 80 Z" fill="url(#nvPinGrad)" />
+    <!-- Pin Center Hole -->
+    <circle cx="376" cy="172" r="32" fill="#FFFFFF" />
+  </g>
 </svg>

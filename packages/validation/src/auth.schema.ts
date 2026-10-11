@@ -14,26 +14,48 @@ export const publicUserRoleSchema = z.enum(
   },
 );
 
+/**
+ * Validates international and Indian phone formats:
+ * - 10-digit Indian mobile numbers starting with 6, 7, 8, or 9 (e.g. 9876543210)
+ * - Indian E.164 format (+91 followed by 10 digits starting with 6-9, e.g. +919876543210)
+ * - Standard international E.164 format (+ followed by 7 to 15 digits)
+ */
+export const strictPhoneSchema = z
+  .string()
+  .trim()
+  .refine(
+    (val) =>
+      /^[6-9]\d{9}$/.test(val) ||
+      /^\+91[6-9]\d{9}$/.test(val) ||
+      /^\+[1-9]\d{7,14}$/.test(val),
+    {
+      message:
+        "Please enter a valid 10-digit mobile number (e.g. 9876543210) or international format (+919876543210)",
+    },
+  );
+
+/**
+ * Optional phone number schema.
+ * Allows undefined, null, or empty string. If provided, strictly validates format.
+ */
+export const optionalPhoneSchema = z
+  .union([strictPhoneSchema, z.literal("")])
+  .optional()
+  .transform((val) => (val && val.length > 0 ? val : undefined));
+
 export const phoneVerificationSchema = z.object({
-  phone: z
-    .string()
-    .regex(/^\+?[1-9]\d{9,14}$/, "Invalid international phone number format"),
+  phone: strictPhoneSchema,
 });
 
 export const verifyOtpSchema = z.object({
-  phone: z
-    .string()
-    .regex(/^\+?[1-9]\d{9,14}$/, "Invalid international phone number format"),
+  phone: strictPhoneSchema,
   token: z.string().min(4).max(8, "OTP token must be 4-8 digits"),
 });
 
 export const registerRequestSchema = z
   .object({
     authId: z.string().min(1, "Auth ID is required"),
-    phone: z
-      .string()
-      .regex(/^\+?[1-9]\d{9,14}$/, "Invalid phone number format")
-      .optional(),
+    phone: optionalPhoneSchema,
     fullName: z
       .string()
       .min(2, "Full name must be at least 2 characters")
@@ -55,10 +77,7 @@ export const signupRequestSchema = z
       .string()
       .min(2, "Full name must be at least 2 characters")
       .max(120, "Full name too long"),
-    phone: z
-      .string()
-      .regex(/^\+?[1-9]\d{9,14}$/, "Invalid phone number format")
-      .optional(),
+    phone: optionalPhoneSchema,
     role: publicUserRoleSchema, // Strictly WORKER, PROVIDER, AGENT only (ADMIN rejected)
   })
   .strict();
@@ -94,10 +113,7 @@ export const updateProfileSchema = z
       .min(1, "Full name cannot be empty")
       .max(120, "Full name too long")
       .optional(),
-    phone: z
-      .string()
-      .regex(/^\+?[1-9]\d{9,14}$/, "Invalid phone number format")
-      .optional(),
+    phone: optionalPhoneSchema,
     language: z.string().min(2).max(10).optional(),
     locationText: z.string().max(255).optional(),
     latitude: z.number().min(-90).max(90).optional(),

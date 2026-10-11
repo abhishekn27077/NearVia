@@ -2,12 +2,16 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Compass, Home } from "lucide-react";
 import { webConfig } from "../config";
+import { BrandLogo } from "../components/ui/BrandLogo";
 
 export const NotFoundPage: React.FC = () => {
   return (
     <div className="flex-1 flex items-center justify-center p-6 text-center">
-      <div className="max-w-md w-full p-8 rounded-2xl bg-slate-800/60 backdrop-blur-md border border-slate-700/60 shadow-2xl">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+      <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-4">
+        <div className="flex justify-center pt-2">
+          <BrandLogo variant="full" theme="dark" size="md" />
+        </div>
+        <div className="w-16 h-16 mx-auto mb-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
           <Compass className="w-8 h-8" />
         </div>
         <h1 className="text-3xl font-extrabold text-white mb-2">404</h1>

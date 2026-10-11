@@ -32,6 +32,10 @@ export default {
       },
       colors: {
         nearvia: {
+          navy: "#0B2654",
+          green: "#10B981",
+          lightNeutral: "#E5E7EB",
+          darkNeutral: "#374151",
           canvas: "#FAFAF9",
           charcoal: "#0F172A",
           ink: "#1E293B",

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAdminAuth } from "../context/AdminAuthContext";
 import { Shield, Lock, Mail, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
+import { BrandLogo } from "../components/common/BrandLogo";
 
 export const AdminLoginPage: React.FC = () => {
   const { login, isLoading, error } = useAdminAuth();
@@ -35,16 +36,11 @@ export const AdminLoginPage: React.FC = () => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_80%,rgba(37,99,235,0.08)_0%,transparent_60%)] pointer-events-none" />
 
       <header className="max-w-md w-full mx-auto flex items-center justify-between z-10">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black shadow-md shadow-orange-600/30">
-            N
-          </div>
-          <div>
-            <span className="text-sm font-black tracking-tight text-white">NEARVIA</span>
-            <span className="ml-2 text-[10px] font-bold text-orange-400 uppercase tracking-widest px-1.5 py-0.5 rounded bg-orange-500/10 border border-orange-500/20">
-              Admin
-            </span>
-          </div>
+        <div className="flex items-center space-x-3">
+          <BrandLogo variant="full" theme="dark" size="sm" priority />
+          <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/20">
+            Admin
+          </span>
         </div>
         <div className="text-[11px] font-mono text-slate-400 flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

@@ -7,6 +7,8 @@ import {
   NotFoundPage,
   LoginPage,
   RegisterPage,
+  TermsPage,
+  PrivacyPage,
   WorkerDashboardPage,
   ProviderDashboardPage,
   AgentDashboardPage,
@@ -71,6 +73,14 @@ export const router = createBrowserRouter([
       {
         path: "register",
         element: <RegisterPage />,
+      },
+      {
+        path: "terms",
+        element: <TermsPage />,
+      },
+      {
+        path: "privacy",
+        element: <PrivacyPage />,
       },
       {
         path: "share/job/:id",

@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { UserRole } from "@nearvia/types";
 import {
-  LogIn,
   Mail,
   Lock,
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { BrandLogo } from "../../components/ui/BrandLogo";
 
 export const LoginPage: React.FC = () => {
   const {
@@ -111,9 +111,11 @@ export const LoginPage: React.FC = () => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(37,99,235,0.08)_0%,transparent_70%)] pointer-events-none" />
 
       <div className="max-w-md w-full p-8 sm:p-10 rounded-3xl card-premium space-y-6 relative z-10">
-        <div className="text-center space-y-1.5">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600 shadow-xs">
-            <LogIn className="w-7 h-7" />
+        <div className="text-center space-y-2">
+          <div className="flex justify-center mb-4">
+            <Link to="/" className="inline-block focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl" aria-label="NEARVIA Home">
+              <BrandLogo variant="full" size="md" priority />
+            </Link>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-display-title">
             {t.loginTitle}

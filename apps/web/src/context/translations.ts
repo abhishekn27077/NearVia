@@ -49,6 +49,24 @@ export interface Translations {
   createAccount: string;
   loginBtn: string;
   invalidCredentials: string;
+  showPassword: string;
+  hidePassword: string;
+  phoneOptional: string;
+  phoneDigitsOnly: string;
+  phoneInvalidDigits: string;
+  termsAndPrivacy: string;
+  termsOfService: string;
+  privacyPolicy: string;
+  andText: string;
+  googleSignUp: string;
+  googleUnavailable: string;
+  passwordMinLength: string;
+  passwordRequired: string;
+  fullNameRequired: string;
+  emailRequired: string;
+  joinAs: string;
+  resendConfirmation: string;
+  checkYourEmail: string;
 
   // Discovery & Job Cards
   workWithinReach: string;
@@ -267,6 +285,24 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     createAccount: "Sign Up",
     loginBtn: "Sign In",
     invalidCredentials: "Invalid phone number or password.",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    phoneOptional: "Optional",
+    phoneDigitsOnly: "Only digits allowed (max 10 digits)",
+    phoneInvalidDigits: "Must be a valid 10-digit mobile number (starts with 6-9)",
+    termsAndPrivacy: "By creating an account, you agree to our",
+    termsOfService: "Terms of Service",
+    privacyPolicy: "Privacy Policy",
+    andText: "and",
+    googleSignUp: "Sign up with Google",
+    googleUnavailable: "Google OAuth is not configured for this Supabase project. Please register with Email & Password below.",
+    passwordMinLength: "Password must be at least 6 characters long.",
+    passwordRequired: "Password is required.",
+    fullNameRequired: "Full legal name is required (at least 2 characters).",
+    emailRequired: "Please enter a valid email address.",
+    joinAs: "I Want To Join As *",
+    resendConfirmation: "Resend confirmation email",
+    checkYourEmail: "Check your email",
 
     // Discovery & Job Cards
     workWithinReach: "Work Within Reach",
@@ -484,6 +520,24 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     createAccount: "ನೋಂದಾಯಿಸಿ",
     loginBtn: "ಲಾಗಿನ್ ಮಾಡಿ",
     invalidCredentials: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಅಥವಾ ಪಾಸ್‌ವರ್ಡ್ ತಪ್ಪಾಗಿದೆ.",
+    showPassword: "ಪಾಸ್‌ವರ್ಡ್ ತೋರಿಸಿ",
+    hidePassword: "ಪಾಸ್‌ವರ್ಡ್ ಮರೆಮಾಡಿ",
+    phoneOptional: "ಐಚ್ಛಿಕ",
+    phoneDigitsOnly: "ಕೇವಲ ಸಂಖ್ಯೆಗಳನ್ನು ನಮೂದಿಸಿ (ಗರಿಷ್ಠ 10 ಅಂಕಿಗಳು)",
+    phoneInvalidDigits: "ಮಾನ್ಯವಾದ 10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ (6-9 ರಿಂದ ಪ್ರಾರಂಭ)",
+    termsAndPrivacy: "ಖಾತೆ ರಚಿಸುವ ಮೂಲಕ ನೀವು ನಮ್ಮ ಒಪ್ಪಂದಗಳಿಗೆ ಸಮ್ಮತಿಸುತ್ತೀರಿ:",
+    termsOfService: "ಸೇವಾ ನಿಯಮಗಳು",
+    privacyPolicy: "ಗೌಪ್ಯತಾ ನೀತಿ",
+    andText: "ಮತ್ತು",
+    googleSignUp: "ಗೂಗಲ್ ಮೂಲಕ ನೋಂದಾಯಿಸಿ",
+    googleUnavailable: "ಈ ಪರಿಸರದಲ್ಲಿ ಗೂಗಲ್ ಸೈನ್-ಇನ್ ಕಾನ್ಫಿಗರ್ ಆಗಿಲ್ಲ. ದಯವಿಟ್ಟು ಇಮೇಲ್ ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ಬಳಸಿ ನೋಂದಾಯಿಸಿ.",
+    passwordMinLength: "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ 6 ಅಕ್ಷರಗಳಾಗಿರಬೇಕು.",
+    passwordRequired: "ಪಾಸ್‌ವರ್ಡ್ ಕಡ್ಡಾಯವಾಗಿದೆ.",
+    fullNameRequired: "ಪೂರ್ಣ ಕಾನೂನು ಹೆಸರು ಕಡ್ಡಾಯವಾಗಿದೆ (ಕನಿಷ್ಠ 2 ಅಕ್ಷರಗಳು).",
+    emailRequired: "ಮಾನ್ಯವಾದ ಇಮೇಲ್ ವಿಳಾಸವನ್ನು ನಮೂದಿಸಿ.",
+    joinAs: "ನಾನು ಹೀಗೆ ಸೇರಲು ಬಯಸುತ್ತೇನೆ *",
+    resendConfirmation: "ದೃಢೀಕರಣ ಇಮೇಲ್ ಮರುಕಳುಹಿಸಿ",
+    checkYourEmail: "ನಿಮ್ಮ ಇಮೇಲ್ ಪರಿಶೀಲಿಸಿ",
 
     // Discovery & Job Cards
     workWithinReach: "ನಿಮ್ಮ ಸಮೀಪದ ಕೆಲಸ",
@@ -701,6 +755,24 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     createAccount: "साइन अप करें",
     loginBtn: "लॉगिन करें",
     invalidCredentials: "मोबाइल नंबर या पासवर्ड गलत है।",
+    showPassword: "पासवर्ड दिखाएं",
+    hidePassword: "पासवर्ड छुपाएं",
+    phoneOptional: "वैकल्पिक",
+    phoneDigitsOnly: "केवल अंक दर्ज करें (अधिकतम 10 अंक)",
+    phoneInvalidDigits: "मान्य 10-अंकीय मोबाइल नंबर दर्ज करें (6-9 से शुरू)",
+    termsAndPrivacy: "खाता बनाकर, आप हमारी शर्तों से सहमत होते हैं:",
+    termsOfService: "सेवा की शर्तें",
+    privacyPolicy: "गोपनीयता नीति",
+    andText: "और",
+    googleSignUp: "Google के साथ साइन अप करें",
+    googleUnavailable: "इस वातावरण में Google साइन-इन कॉन्फ़िगर नहीं है। कृपया नीचे ईमेल और पासवर्ड से पंजीकरण करें।",
+    passwordMinLength: "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।",
+    passwordRequired: "पासवर्ड आवश्यक है।",
+    fullNameRequired: "पूरा कानूनी नाम आवश्यक है (कम से कम 2 अक्षर)।",
+    emailRequired: "कृपया एक मान्य ईमेल पता दर्ज करें।",
+    joinAs: "मैं इस रूप में जुड़ना चाहता/चाहती हूँ *",
+    resendConfirmation: "पुष्टिकरण ईमेल पुनः भेजें",
+    checkYourEmail: "अपना ईमेल देखें",
 
     // Discovery & Job Cards
     workWithinReach: "काम आपके पास",
