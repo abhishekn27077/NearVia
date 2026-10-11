@@ -41,6 +41,9 @@ export const LoginPage: React.FC = () => {
   // Auto-redirect confirmed authenticated users to their role-specific dashboard
   useEffect(() => {
     if (user && user.emailVerified) {
+      if (window.location.hash || window.location.search.includes("code=")) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
       const rolePrefix = `/${user.role.toLowerCase()}`;
       const targetPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
       const isSafeRedirect = targetPath && targetPath.startsWith(rolePrefix);
@@ -48,6 +51,13 @@ export const LoginPage: React.FC = () => {
       navigate(redirectUrl, { replace: true });
     }
   }, [user, navigate, location.state]);
+
+  // Synchronize banner when auth error occurs
+  useEffect(() => {
+    if (error) {
+      setBannerMessage(null);
+    }
+  }, [error]);
 
   // Inspect URL hash/query for confirmation status, OAuth tokens, or Supabase error codes
   useEffect(() => {
@@ -75,14 +85,37 @@ export const LoginPage: React.FC = () => {
             text: errorDescription || "Authentication error. Please sign in with email and password.",
           });
         }
-      } else if (type === "signup" || hashParams.get("access_token")) {
+      } else if (type === "signup") {
         setBannerMessage({
           type: "success",
           text: "Email confirmed successfully! Signing you in...",
         });
+      } else if (hashParams.get("access_token") || queryParams.get("code")) {
+        setBannerMessage({
+          type: "success",
+          text: "Google sign-in verified! Finalizing session and redirecting...",
+        });
       }
     }
   }, []);
+
+  // Watchdog: Prevent getting stuck indefinitely if OAuth processing stalls
+  useEffect(() => {
+    const hasOAuth =
+      window.location.hash.includes("access_token") ||
+      window.location.search.includes("code=");
+    if (hasOAuth && !user && !error) {
+      const timer = setTimeout(() => {
+        if (!user && !error) {
+          setBannerMessage({
+            type: "error",
+            text: "Authentication session took longer than expected. Please verify your connection or try signing in again.",
+          });
+        }
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, error]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

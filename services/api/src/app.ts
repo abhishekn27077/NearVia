@@ -31,6 +31,10 @@ export function createApp(): Express {
         "https://nearvia.in",
         "https://app.nearvia.in",
         "https://admin.nearvia.in",
+        "https://nearvia.app",
+        "https://www.nearvia.app",
+        "https://app.nearvia.app",
+        "https://admin.nearvia.app",
       ]
     : [
         "http://localhost:3000",
