@@ -137,8 +137,15 @@ All fixes were implemented using the smallest verified footprint, preserving the
 
 ---
 
-## 7. Deployment Status & Recommendation
+## 7. Deployment Status & Live Verification Evidence
 
-- **Current Status:** All code changes implemented, tested locally, and validated against the live database.
-- **Git Tree:** Clean with verified changes in 5 web files, 1 backend db config file, and 1 new test file.
-- **Next Step:** Awaiting explicit user approval before pushing to GitHub or triggering Vercel/Render production deploys.
+- **Commit Pushed:** `768664fe1f74bcab54ae38e548d52116bb03b5ef` (`fix(workflow): resolve notification routing, status sync, and review feedback`) to branch `main`.
+- **Render Production Service (`nearvia-api` / `srv-db474l3bc2fs73artd60`):**
+  - **Deploy ID:** `dep-db6t903m8hqs73f1sld0`
+  - **Trigger:** `new_commit`
+  - **Status:** `live` (HTTP 200 on `/api/v1/health` and `/api/v1/categories`)
+  - **Database Pooler:** Verified connected to Supabase Session pooler port 5432; 22 categories loaded with 0 errors.
+- **Frontend Vercel Deployment:**
+  - **Live URL:** [https://nearvia.app](https://nearvia.app) (Canonical: [https://www.nearvia.app](https://www.nearvia.app))
+  - **HTTP Status:** 200 OK
+  - **Routing:** Updated SPA build includes `/provider/assignments/:id` notification targets, smart synchronization, review feedback persistence, and legacy `/worker/shifts/:id` / `/provider/shifts/:id` alias redirects.
