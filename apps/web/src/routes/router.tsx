@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, useParams, Navigate } from "react-router-dom";
 import { UserRole } from "@nearvia/types";
 import { RootLayout } from "../components/layout";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
@@ -55,6 +55,27 @@ import {
 import { MessagesPage } from "../features/messages";
 import { VerificationCenterPage } from "../features/verification";
 import { WorkforceRadarPage } from "../features/radar";
+
+// Legacy & notification URL compatibility redirects (Phase 2)
+const WorkerShiftRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/worker/assignments/${id}` : "/worker/assignments"} replace />;
+};
+
+const ProviderShiftRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/provider/assignments/${id}` : "/provider/assignments"} replace />;
+};
+
+const ProviderJobRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/provider/work/${id}` : "/provider/work"} replace />;
+};
+
+const ProviderJobApplicantsRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/provider/work/${id}/applicants` : "/provider/work"} replace />;
+};
 
 export const router = createBrowserRouter([
   {
@@ -192,6 +213,22 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "worker/shifts",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.WORKER]}>
+            <WorkerShiftRedirect />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "worker/shifts/:id",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.WORKER]}>
+            <WorkerShiftRedirect />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "worker/agents",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.WORKER]}>
@@ -305,6 +342,30 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "provider/jobs",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
+            <ProviderJobRedirect />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "provider/jobs/:id",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
+            <ProviderJobRedirect />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "provider/jobs/:id/applicants",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
+            <ProviderJobApplicantsRedirect />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "provider/assignments",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
@@ -317,6 +378,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
             <ProviderAssignmentDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "provider/shifts",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
+            <ProviderShiftRedirect />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "provider/shifts/:id",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.PROVIDER]}>
+            <ProviderShiftRedirect />
           </ProtectedRoute>
         ),
       },

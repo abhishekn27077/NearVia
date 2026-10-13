@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Star, MessageSquare, CheckCircle2 } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
 
@@ -13,9 +13,41 @@ export function ReviewForm({ assignmentId, onSuccess, className }: ReviewFormPro
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [comments, setComments] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function checkExistingReview() {
+      if (!assignmentId) {
+        if (isMounted) setCheckingExisting(false);
+        return;
+      }
+      try {
+        const res = await apiFetch("/reviews/mine");
+        const data = await res.json();
+        if (data.success && data.data?.given && isMounted) {
+          const match = data.data.given.find((r: any) => r.assignmentId === assignmentId);
+          if (match) {
+            setAlreadyReviewed(true);
+            setSuccess(true);
+            if (match.rating) setRating(match.rating);
+            if (match.comments) setComments(match.comments);
+          }
+        }
+      } catch (err) {
+        // Non-blocking; user can still submit if check fails
+      } finally {
+        if (isMounted) setCheckingExisting(false);
+      }
+    }
+    checkExistingReview();
+    return () => {
+      isMounted = false;
+    };
+  }, [assignmentId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +94,14 @@ export function ReviewForm({ assignmentId, onSuccess, className }: ReviewFormPro
     }
   };
 
+  if (checkingExisting) {
+    return (
+      <div className={`p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500 ${className || ""}`}>
+        Checking review status...
+      </div>
+    );
+  }
+
   if (success) {
     return (
       <div className={`p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center ${className || ""}`}>
@@ -69,13 +109,29 @@ export function ReviewForm({ assignmentId, onSuccess, className }: ReviewFormPro
           <CheckCircle2 className="w-5 h-5 text-emerald-600" />
         </div>
         <h4 className="font-extrabold text-emerald-900 text-sm">
-          {alreadyReviewed ? "Review Already Submitted" : "Review Submitted Successfully"}
+          {alreadyReviewed ? "Review Already Recorded" : "Review Submitted Successfully!"}
         </h4>
         <p className="text-xs text-emerald-700 mt-1">
           {alreadyReviewed
-            ? "Your feedback is already recorded for this completed assignment."
-            : "Thank you! Your feedback helps build trust in the NearVia community."}
+            ? "Your feedback is securely recorded in the community trust ledger for this assignment."
+            : "Thank you! Your feedback has been verified and applied to your counterpart's trust score."}
         </p>
+        {rating > 0 && (
+          <div className="flex items-center justify-center space-x-1 mt-3">
+            {[1, 2, 3, 4, 5].map((val) => (
+              <Star
+                key={val}
+                className={`w-4 h-4 ${val <= rating ? "text-amber-400 fill-amber-400" : "text-slate-200"}`}
+              />
+            ))}
+            <span className="text-xs font-bold text-slate-700 ml-1.5">{rating} / 5</span>
+          </div>
+        )}
+        {comments && (
+          <p className="text-xs text-slate-600 italic mt-2 bg-white/70 rounded-xl p-2.5 border border-emerald-100 max-w-md mx-auto">
+            "{comments}"
+          </p>
+        )}
       </div>
     );
   }

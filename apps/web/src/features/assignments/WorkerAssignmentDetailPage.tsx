@@ -91,12 +91,14 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
   // Check-Out / Completion Form State
   const [completionNotes, setCompletionNotes] = useState("");
 
-  const fetchAssignment = useCallback(async () => {
+  const fetchAssignment = useCallback(async (isInitial = false) => {
     if (!id) return;
     try {
-      setLoading(true);
-      setErrorStatus(null);
-      setErrorMessage(null);
+      if (isInitial) {
+        setLoading(true);
+        setErrorStatus(null);
+        setErrorMessage(null);
+      }
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -105,25 +107,66 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setErrorStatus(res.status);
-        setErrorMessage(data.error?.message || "Failed to load assignment details.");
-        setAssignment(null);
+        if (isInitial) {
+          setErrorStatus(res.status);
+          setErrorMessage(data.error?.message || "Failed to load assignment details.");
+          setAssignment(null);
+        }
         return;
       }
       setAssignment(data.data);
     } catch (err: any) {
       console.error("Fetch assignment error:", err);
-      setErrorStatus(500);
-      setErrorMessage(err.message || "Network error. Please check your connection.");
-      setAssignment(null);
+      if (isInitial) {
+        setErrorStatus(500);
+        setErrorMessage(err.message || "Network error. Please check your connection.");
+        setAssignment(null);
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   }, [id, token]);
 
+  // Initial fetch
   useEffect(() => {
-    fetchAssignment();
+    fetchAssignment(true);
   }, [fetchAssignment]);
+
+  // Automatic state synchronization: Window Focus and Tab Visibility Revalidation
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchAssignment(false);
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchAssignment(false);
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchAssignment]);
+
+  // Bounded smart polling while counterpart status transitions are active
+  useEffect(() => {
+    if (!assignment) return;
+    const isTerminal = ["CLOSED", "CANCELLED", "NO_SHOW"].includes(assignment.status);
+    const isCompletedAndPaid = assignment.status === "COMPLETED" && assignment.paymentStatus === "CONFIRMED";
+    if (isTerminal || isCompletedAndPaid) return;
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchAssignment(false);
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [assignment?.status, assignment?.paymentStatus, fetchAssignment]);
 
   const handleConfirm = async () => {
     if (!id || actionLoading) return;
@@ -142,7 +185,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
         throw new Error(data.error?.message || "Failed to confirm assignment.");
       }
       setActionFeedback({ type: "success", message: "✓ Shift attendance confirmed! Please travel to the job site." });
-      await fetchAssignment();
+      await fetchAssignment(false);
     } catch (err: any) {
       setActionFeedback({ type: "error", message: err.message || "Failed to confirm shift." });
     } finally {
@@ -177,7 +220,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
       setActionFeedback({ type: "success", message: "✓ Job PIN Verified! On-site arrival confirmed." });
       playPaymentSuccessChime(0.12);
       setPinInput("");
-      await fetchAssignment();
+      await fetchAssignment(false);
     } catch (err: any) {
       setPinError(err.message);
       setActionFeedback({ type: "error", message: err.message || "PIN verification failed." });
@@ -218,7 +261,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
         }
         setActionFeedback({ type: "success", message: "✓ Checked in successfully! Shift is ready to start." });
         setPinInput("");
-        await fetchAssignment();
+        await fetchAssignment(false);
       } catch (err: any) {
         setActionFeedback({ type: "error", message: err.message || "Attendance check-in failed." });
       } finally {
@@ -254,7 +297,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
         throw new Error(data.error?.message || "Failed to start shift.");
       }
       setActionFeedback({ type: "success", message: "✓ Work commenced! Shift timer is active." });
-      await fetchAssignment();
+      await fetchAssignment(false);
     } catch (err: any) {
       setActionFeedback({ type: "error", message: err.message || "Failed to start shift." });
     } finally {
@@ -290,7 +333,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
           throw new Error(data.error?.message || "Failed to check out.");
         }
         setActionFeedback({ type: "success", message: "🎉 Shift checked out! Completion submitted for settlement." });
-        await fetchAssignment();
+        await fetchAssignment(false);
       } catch (err: any) {
         setActionFeedback({ type: "error", message: err.message || "Failed to check out." });
       } finally {
@@ -981,7 +1024,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
                 <ReviewForm
                   assignmentId={assignment.id}
                   onSuccess={async () => {
-                    await fetchAssignment();
+                    await fetchAssignment(false);
                   }}
                 />
               </div>

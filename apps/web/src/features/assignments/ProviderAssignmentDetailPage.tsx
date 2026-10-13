@@ -57,12 +57,14 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
   // Operational Action Feedback Banner
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const fetchAssignment = useCallback(async () => {
+  const fetchAssignment = useCallback(async (isInitial = false) => {
     if (!id) return;
     try {
-      setLoading(true);
-      setErrorStatus(null);
-      setErrorMessage(null);
+      if (isInitial) {
+        setLoading(true);
+        setErrorStatus(null);
+        setErrorMessage(null);
+      }
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -71,25 +73,66 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setErrorStatus(res.status);
-        setErrorMessage(data.error?.message || "Failed to load assignment details.");
-        setAssignment(null);
+        if (isInitial) {
+          setErrorStatus(res.status);
+          setErrorMessage(data.error?.message || "Failed to load assignment details.");
+          setAssignment(null);
+        }
         return;
       }
       setAssignment(data.data);
     } catch (err: any) {
       console.error(err);
-      setErrorStatus(500);
-      setErrorMessage(err.message || "Network error. Please check your connection.");
-      setAssignment(null);
+      if (isInitial) {
+        setErrorStatus(500);
+        setErrorMessage(err.message || "Network error. Please check your connection.");
+        setAssignment(null);
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   }, [id, token]);
 
+  // Initial fetch
   useEffect(() => {
-    fetchAssignment();
+    fetchAssignment(true);
   }, [fetchAssignment]);
+
+  // Automatic state synchronization: Window Focus and Tab Visibility Revalidation
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchAssignment(false);
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchAssignment(false);
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchAssignment]);
+
+  // Bounded smart polling while counterpart status transitions are active
+  useEffect(() => {
+    if (!assignment) return;
+    const isTerminal = ["CLOSED", "CANCELLED", "NO_SHOW"].includes(assignment.status);
+    const isCompletedAndPaid = assignment.status === "COMPLETED" && assignment.paymentStatus === "CONFIRMED";
+    if (isTerminal || isCompletedAndPaid) return;
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchAssignment(false);
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [assignment?.status, assignment?.paymentStatus, fetchAssignment]);
 
   const handleCopyPin = async () => {
     if (!assignment?.jobPin) return;
@@ -119,7 +162,7 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
         throw new Error(data.error?.message || "Failed to confirm completion.");
       }
       setActionFeedback({ type: "success", message: "🎉 Shift completion confirmed! You may now settle payment with worker." });
-      await fetchAssignment();
+      await fetchAssignment(false);
     } catch (err: any) {
       setActionFeedback({ type: "error", message: err.message || "Failed to confirm completion." });
     } finally {
@@ -174,7 +217,7 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
           </p>
           <div className="flex items-center justify-center space-x-3 pt-2">
             <button
-              onClick={fetchAssignment}
+              onClick={() => fetchAssignment(true)}
               className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
@@ -556,7 +599,7 @@ export const ProviderAssignmentDetailPage: React.FC = () => {
                 <ReviewForm
                   assignmentId={assignment.id}
                   onSuccess={async () => {
-                    await fetchAssignment();
+                    await fetchAssignment(false);
                   }}
                 />
               </div>

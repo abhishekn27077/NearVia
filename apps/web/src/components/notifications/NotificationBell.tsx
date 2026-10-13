@@ -188,9 +188,11 @@ export const NotificationBell: React.FC = () => {
 
     if (n.data?.assignmentId) {
       if (user?.role === "PROVIDER") {
-        navigate(`/provider/shifts/${n.data.assignmentId}`);
+        navigate(`/provider/assignments/${n.data.assignmentId}`);
+      } else if (user?.role === "AGENT") {
+        navigate(n.data?.workerId ? `/agent/workers/${n.data.workerId}` : `/agent/dashboard`);
       } else {
-        navigate(`/worker/shifts/${n.data.assignmentId}`);
+        navigate(`/worker/assignments/${n.data.assignmentId}`);
       }
       return;
     }
@@ -198,9 +200,9 @@ export const NotificationBell: React.FC = () => {
     if (n.data?.workOpportunityId) {
       if (user?.role === "PROVIDER") {
         if (n.type === "NEW_APPLICATION") {
-          navigate(`/provider/jobs/${n.data.workOpportunityId}/applicants`);
+          navigate(`/provider/work/${n.data.workOpportunityId}/applicants`);
         } else {
-          navigate(`/provider/jobs/${n.data.workOpportunityId}`);
+          navigate(`/provider/work/${n.data.workOpportunityId}`);
         }
       } else {
         navigate("/worker/applications");

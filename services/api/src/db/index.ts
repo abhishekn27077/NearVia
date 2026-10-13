@@ -13,7 +13,9 @@ export function getPoolConfig(): PoolConfig {
     return {
       connectionString: env.DATABASE_URL,
       ssl:
-        env.DATABASE_URL.includes("supabase.co") || env.NODE_ENV === "production"
+        env.DATABASE_URL.includes("supabase.co") ||
+        env.DATABASE_URL.includes("supabase.com") ||
+        env.NODE_ENV === "production"
           ? { rejectUnauthorized: false }
           : false,
       max: 20,
