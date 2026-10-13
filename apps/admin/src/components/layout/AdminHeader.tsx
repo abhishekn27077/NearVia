@@ -43,7 +43,7 @@ export const AdminHeader: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 font-mono">
                   <Lock className="w-3 h-3 text-emerald-400" />
-                  <span>Port 5174 • Isolated App</span>
+                  <span>Platform Enclave • SSL Protected</span>
                 </div>
               </div>
             </Link>

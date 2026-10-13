@@ -13,7 +13,7 @@ export const AdminLayout: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>© {new Date().getFullYear()} NEARVIA Operations & Platform Governance Console</p>
           <div className="flex items-center space-x-3 text-[11px] text-slate-400 font-mono">
-            <span>ISOLATED PORT: 5174</span>
+            <span>ISOLATED ADMIN ENCLAVE</span>
             <span>•</span>
             <span>SUPABASE AUTH RBAC</span>
             <span>•</span>

@@ -44,7 +44,7 @@ export const AdminLoginPage: React.FC = () => {
         </div>
         <div className="text-[11px] font-mono text-slate-400 flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>PORT 5174</span>
+          <span>SECURE CONSOLE</span>
         </div>
       </header>
 
