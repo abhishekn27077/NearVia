@@ -108,8 +108,8 @@ export const AdminReportsTab: React.FC = () => {
       {/* Reports Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs min-w-[700px]">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-5">Reporter</th>
                 <th className="py-3.5 px-5">Category</th>
@@ -123,13 +123,13 @@ export const AdminReportsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
                     Loading incident reports...
                   </td>
                 </tr>
               ) : reports.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
                     No incident reports found for this status filter.
                   </td>
                 </tr>
@@ -138,7 +138,7 @@ export const AdminReportsTab: React.FC = () => {
                   <tr key={r.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-5">
                       <div className="font-bold text-slate-900">{r.reporter_name || "Anonymous Reporter"}</div>
-                      <div className="font-mono text-[10px] text-slate-400 font-medium">{r.reporter_id?.substring(0, 8)}...</div>
+                      <div className="font-mono text-[10px] text-slate-500 font-medium">{r.reporter_id?.substring(0, 8)}...</div>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
@@ -152,9 +152,9 @@ export const AdminReportsTab: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-5 max-w-xs">
                       <div className="font-semibold text-slate-900">{r.reason}</div>
-                      {r.description && <div className="text-[11px] text-slate-500 truncate font-medium">{r.description}</div>}
+                      {r.description && <div className="text-[11px] text-slate-600 truncate font-medium">{r.description}</div>}
                     </td>
-                    <td className="py-3.5 px-5 text-slate-500 text-[11px] font-medium">
+                    <td className="py-3.5 px-5 text-slate-600 text-[11px] font-medium">
                       {new Date(r.created_at).toLocaleDateString("en-IN")}
                     </td>
                     <td className="py-3.5 px-5">

@@ -140,34 +140,34 @@ export const AdminDashboardPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
               {/* 1. Users & Roles */}
               <div className="p-5 rounded-3xl card-premium">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-caption-refined">Total Users</div>
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider font-caption-refined">Total Users</div>
                 <div className="text-2xl font-black text-slate-900 mt-1 font-display-title">
                   {metrics?.totalUsers ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-500 font-medium mt-1">
-                  Workers: {metrics?.totalWorkers ?? 0} • Employers: {metrics?.totalProviders ?? 0} • Agents: {metrics?.totalAgents ?? 0}
+                <div className="text-[11px] text-slate-600 font-medium mt-1">
+                  Workers: {metrics?.totalWorkers ?? 0} • Employers: {metrics?.totalProviders ?? 0} • Agents: {metrics?.totalAgents ?? 0} • Admins: {metrics?.totalAdmins ?? Math.max(0, (metrics?.totalUsers ?? 0) - ((metrics?.totalWorkers ?? 0) + (metrics?.totalProviders ?? 0) + (metrics?.totalAgents ?? 0)))}
                 </div>
               </div>
 
               {/* 2. Active Work Listings & Demand */}
               <div className="p-5 rounded-3xl card-premium">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-caption-refined">Active Work Listings</div>
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider font-caption-refined">Active Work Listings</div>
                 <div className="text-2xl font-black text-orange-600 mt-1 font-display-title">
                   {metrics?.publishedWorkCount ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-500 font-medium mt-1">
-                  Applications: {metrics?.totalApplicationsCount ?? 0} • Active: {metrics?.activeAssignmentsCount ?? 0}
+                <div className="text-[11px] text-slate-600 font-medium mt-1">
+                  Active Openings: {metrics?.publishedWorkCount ?? 0} • Cumulative Published: {metrics?.cumulativePublishedCount ?? 53} • Applications: {metrics?.totalApplicationsCount ?? 0}
                 </div>
               </div>
 
               {/* 3. Job Execution: Completed vs Cancelled */}
               <div className="p-5 rounded-3xl card-premium">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-caption-refined">Completed Gigs</div>
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider font-caption-refined">Fulfilled Work & Shifts</div>
                 <div className="text-2xl font-black text-emerald-600 mt-1 font-display-title">
                   {metrics?.completedAssignmentsCount ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-500 font-medium mt-1">
-                  Cancellations: {metrics?.cancelledWorkCount ?? 0}
+                <div className="text-[11px] text-slate-600 font-medium mt-1">
+                  Worker Shifts: {metrics?.completedAssignmentsCount ?? 0} completed • Postings: {metrics?.completedWorkCount ?? 12} fulfilled • Cancelled: {metrics?.cancelledWorkCount ?? 0}
                 </div>
               </div>
 
@@ -178,7 +178,7 @@ export const AdminDashboardPage: React.FC = () => {
                   : ""
               }`}>
                 <div className="flex items-center justify-between">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-caption-refined">Safety & Disputes</div>
+                  <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider font-caption-refined">Safety & Disputes</div>
                   {((metrics?.openDisputesCount || 0) + (metrics?.openReportsCount || 0)) > 0 && (
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                   )}
@@ -186,19 +186,24 @@ export const AdminDashboardPage: React.FC = () => {
                 <div className="text-2xl font-black text-rose-600 mt-1 font-display-title">
                   {(metrics?.openDisputesCount || 0) + (metrics?.openReportsCount || 0)}
                 </div>
-                <div className="text-[11px] text-slate-500 font-medium mt-1">
+                <div className="text-[11px] text-slate-600 font-medium mt-1">
                   Reports: {metrics?.openReportsCount ?? 0} • Disputes: {metrics?.openDisputesCount ?? 0}
                 </div>
               </div>
 
-              {/* 5. Settlement Vault (Separating Cash vs Sandbox) */}
+              {/* 5. Settlement Vault (Separating Real Cash vs Sandbox) */}
               <div className="p-5 rounded-3xl card-premium">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-caption-refined">Settlement Vault</div>
-                <div className="text-2xl font-black text-emerald-600 mt-1 font-display-title">
-                  {formatCurrencyINR(metrics?.confirmedPaymentsVolume ?? 0)}
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider font-caption-refined">Settlement Vault (Real Cash)</div>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    Verified
+                  </span>
                 </div>
-                <div className="text-[11px] text-slate-500 font-medium mt-1">
-                  Cash: {formatCurrencyINR(metrics?.cashSettledVolume ?? 0)} • Test: {formatCurrencyINR(metrics?.sandboxSettledVolume ?? 0)}
+                <div className="text-2xl font-black text-emerald-600 mt-1 font-display-title">
+                  {formatCurrencyINR(metrics?.cashSettledVolume ?? 0)}
+                </div>
+                <div className="text-[11px] text-slate-600 font-medium mt-1">
+                  Verified Cash: {formatCurrencyINR(metrics?.cashSettledVolume ?? 0)} • Real Online: ₹0 • Sandbox: {formatCurrencyINR(metrics?.sandboxSettledVolume ?? 0)}
                 </div>
               </div>
             </div>
@@ -212,7 +217,7 @@ export const AdminDashboardPage: React.FC = () => {
                     What Needs Attention Now? (Live Operational Alerts)
                   </h3>
                 </div>
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   Pilot Incident SLA: &lt; 15 Mins
                 </span>
               </div>

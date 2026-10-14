@@ -100,8 +100,8 @@ export const AdminUsersTab: React.FC = () => {
       {/* Users Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs min-w-[700px]">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-5">User</th>
                 <th className="py-3.5 px-5">Role</th>
@@ -114,13 +114,13 @@ export const AdminUsersTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
                     Loading user accounts...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
                     No users found matching criteria.
                   </td>
                 </tr>
@@ -134,7 +134,7 @@ export const AdminUsersTab: React.FC = () => {
                         </div>
                         <div>
                           <div className="font-extrabold text-slate-900">{u.fullName}</div>
-                          <div className="font-mono text-[10px] text-slate-400">{u.id.substring(0, 8)}...</div>
+                          <div className="font-mono text-[10px] text-slate-500">{u.id.substring(0, 8)}...</div>
                         </div>
                       </div>
                     </td>
@@ -145,7 +145,7 @@ export const AdminUsersTab: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-5">
                       <div className="text-slate-800 font-medium">{u.phone}</div>
-                      <div className="text-[10px] text-slate-400">{u.email || "No email"}</div>
+                      <div className="text-[10px] text-slate-500">{u.email || "No email"}</div>
                     </td>
                     <td className="py-3.5 px-5">
                       <span
@@ -158,7 +158,7 @@ export const AdminUsersTab: React.FC = () => {
                         {u.isActive ? "ACTIVE" : "SUSPENDED"}
                       </span>
                     </td>
-                    <td className="py-3.5 px-5 text-slate-500 font-medium">
+                    <td className="py-3.5 px-5 text-slate-600 font-medium">
                       {new Date(u.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                     </td>
                     <td className="py-3.5 px-5 text-right">

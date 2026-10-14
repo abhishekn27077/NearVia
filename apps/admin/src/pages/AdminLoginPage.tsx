@@ -59,7 +59,7 @@ export const AdminLoginPage: React.FC = () => {
               Sign In to Command Center
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 font-medium">
-              Authorized operators only. Multi-factor administrative tokens and audit trails are active.
+              Authorized operators only. Cryptographic session verification and immutable security audit trails are active.
             </p>
           </div>
 

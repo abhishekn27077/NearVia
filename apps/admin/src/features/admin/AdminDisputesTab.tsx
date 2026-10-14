@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { AlertCircle, ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import { adminConfig } from "../../config";
+import { formatCurrencyINR } from "../../utils/formatters";
+
+function formatDisputeDate(dateVal?: string | Date | null): string {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
 
 export const AdminDisputesTab: React.FC = () => {
   const [disputes, setDisputes] = useState<any[]>([]);
@@ -108,8 +124,8 @@ export const AdminDisputesTab: React.FC = () => {
       {/* Disputes Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs min-w-[700px]">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-5">Opportunity</th>
                 <th className="py-3.5 px-5">Parties</th>
@@ -123,13 +139,13 @@ export const AdminDisputesTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
                     Loading dispute cases...
                   </td>
                 </tr>
               ) : disputes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
                     No disputes found for this status.
                   </td>
                 </tr>
@@ -137,12 +153,12 @@ export const AdminDisputesTab: React.FC = () => {
                 disputes.map((d) => (
                   <tr key={d.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-5">
-                      <div className="font-bold text-slate-900">{d.opportunity_title || "Work Assignment"}</div>
-                      <div className="font-mono text-[10px] text-slate-400 font-medium">{d.assignment_id?.substring(0, 8)}...</div>
+                      <div className="font-bold text-slate-900">{d.opportunityTitle || d.opportunity_title || "Work Assignment"}</div>
+                      <div className="font-mono text-[10px] text-slate-500 font-medium">{(d.assignmentId || d.assignment_id)?.substring(0, 8)}...</div>
                     </td>
                     <td className="py-3.5 px-5">
-                      <div className="text-slate-800">Initiator: <span className="font-bold text-slate-900">{d.initiator_name}</span></div>
-                      <div className="text-slate-400 text-[11px] font-medium">Respondent: {d.respondent_name}</div>
+                      <div className="text-slate-800">Initiator: <span className="font-bold text-slate-900">{d.initiatorName || d.initiator_name || "Initiator"}</span></div>
+                      <div className="text-slate-600 text-[11px] font-medium">Respondent: {d.respondentName || d.respondent_name || "Respondent"}</div>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
@@ -150,10 +166,10 @@ export const AdminDisputesTab: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3.5 px-5 font-bold text-emerald-600">
-                      ₹{d.agreed_wage}
+                      {formatCurrencyINR(d.agreedWage ?? d.agreed_wage)}
                     </td>
-                    <td className="py-3.5 px-5 text-slate-500 text-[11px] font-medium">
-                      {new Date(d.created_at).toLocaleDateString("en-IN")}
+                    <td className="py-3.5 px-5 text-slate-600 text-[11px] font-medium">
+                      {formatDisputeDate(d.createdAt || d.created_at)}
                     </td>
                     <td className="py-3.5 px-5">
                       <span
@@ -173,7 +189,7 @@ export const AdminDisputesTab: React.FC = () => {
                         onClick={() => {
                           setActiveDispute(d);
                           setNextStatus("RESOLVED");
-                          setResolutionNotes(d.resolution_notes || "");
+                          setResolutionNotes(d.resolutionNotes || d.resolution_notes || "");
                         }}
                         className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold transition shadow-xs cursor-pointer"
                       >
@@ -227,15 +243,15 @@ export const AdminDisputesTab: React.FC = () => {
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
-              <div className="text-slate-500 font-medium"><strong className="text-slate-900 font-bold">Opportunity:</strong> {activeDispute.opportunity_title}</div>
-              <div className="text-slate-500 font-medium"><strong className="text-slate-900 font-bold">Agreed Wage:</strong> ₹{activeDispute.agreed_wage}</div>
-              <div className="text-slate-500 font-medium"><strong className="text-slate-900 font-bold">Reason:</strong> {activeDispute.reason}</div>
-              <div className="text-slate-500 font-medium"><strong className="text-slate-900 font-bold">Statement:</strong> {activeDispute.description}</div>
-              {activeDispute.evidence_urls && activeDispute.evidence_urls.length > 0 && (
+              <div className="text-slate-600 font-medium"><strong className="text-slate-900 font-bold">Opportunity:</strong> {activeDispute.opportunityTitle || activeDispute.opportunity_title || "Work Assignment"}</div>
+              <div className="text-slate-600 font-medium"><strong className="text-slate-900 font-bold">Agreed Wage:</strong> {formatCurrencyINR(activeDispute.agreedWage ?? activeDispute.agreed_wage)}</div>
+              <div className="text-slate-600 font-medium"><strong className="text-slate-900 font-bold">Reason:</strong> {activeDispute.reason}</div>
+              <div className="text-slate-600 font-medium"><strong className="text-slate-900 font-bold">Statement:</strong> {activeDispute.description}</div>
+              {((activeDispute.evidenceUrls || activeDispute.evidence_urls) && (activeDispute.evidenceUrls || activeDispute.evidence_urls).length > 0) && (
                 <div className="pt-2">
-                  <div className="text-slate-600 font-bold mb-1">Attached Evidence:</div>
+                  <div className="text-slate-700 font-bold mb-1">Attached Evidence:</div>
                   <div className="flex flex-wrap gap-1.5">
-                    {activeDispute.evidence_urls.map((url: string, idx: number) => (
+                    {(activeDispute.evidenceUrls || activeDispute.evidence_urls).map((url: string, idx: number) => (
                       <a
                         key={idx}
                         href={url}

@@ -15,6 +15,18 @@ import { query } from "./db";
 export function createApp(): Express {
   const app = express();
 
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // Configure trusted reverse proxy hops safely for deployment (Render sits behind 1 front-facing proxy hop)
+  // Setting a bounded hop count (1) prevents attackers from spoofing arbitrary X-Forwarded-For headers
+  const trustProxyEnv = process.env.TRUST_PROXY;
+  if (trustProxyEnv !== undefined) {
+    const parsedHops = parseInt(trustProxyEnv, 10);
+    app.set("trust proxy", isNaN(parsedHops) ? trustProxyEnv === "true" : parsedHops);
+  } else {
+    app.set("trust proxy", isProduction ? 1 : false);
+  }
+
   // Request Correlation Middleware
   app.use(requestCorrelation);
 
@@ -25,7 +37,6 @@ export function createApp(): Express {
       crossOriginEmbedderPolicy: false,
     }),
   );
-  const isProduction = process.env.NODE_ENV === "production";
   const defaultOrigins = isProduction
     ? [
         "https://nearvia.in",

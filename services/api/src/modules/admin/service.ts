@@ -50,13 +50,16 @@ export class AdminService {
           COUNT(*) AS total_users,
           COUNT(*) FILTER (WHERE role = 'WORKER') AS total_workers,
           COUNT(*) FILTER (WHERE role = 'PROVIDER') AS total_providers,
-          COUNT(*) FILTER (WHERE role = 'AGENT') AS total_agents
+          COUNT(*) FILTER (WHERE role = 'AGENT') AS total_agents,
+          COUNT(*) FILTER (WHERE role = 'ADMIN') AS total_admins
         FROM users
       `),
       // Work opportunities summary
       query(`
         SELECT 
           COUNT(*) FILTER (WHERE status = 'PUBLISHED') AS published_work,
+          COUNT(*) FILTER (WHERE status != 'DRAFT') AS cumulative_published,
+          COUNT(*) FILTER (WHERE status = 'COMPLETED') AS completed_work,
           COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled_work,
           (SELECT COUNT(*) FROM applications) AS total_applications
         FROM work_opportunities
@@ -122,7 +125,10 @@ export class AdminService {
       totalWorkers: parseInt(uRow.total_workers || "0", 10),
       totalProviders: parseInt(uRow.total_providers || "0", 10),
       totalAgents: parseInt(uRow.total_agents || "0", 10),
+      totalAdmins: parseInt(uRow.total_admins || "0", 10),
       publishedWorkCount: parseInt(wRow.published_work || "0", 10),
+      cumulativePublishedCount: parseInt(wRow.cumulative_published || "0", 10),
+      completedWorkCount: parseInt(wRow.completed_work || "0", 10),
       cancelledWorkCount: parseInt(wRow.cancelled_work || "0", 10),
       totalApplicationsCount: parseInt(wRow.total_applications || "0", 10),
       activeAssignmentsCount: parseInt(aRow.active_assignments || "0", 10),
@@ -558,6 +564,7 @@ export class AdminService {
         v.*,
         u.full_name AS user_name,
         u.phone AS user_phone,
+        u.email AS user_email,
         u.role AS user_role,
         ua.full_name AS reviewer_name
        FROM verifications v

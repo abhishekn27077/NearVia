@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { adminConfig } from "../../config";
+import { formatCurrencyINR } from "../../utils/formatters";
 
 export const AdminPaymentsTab: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([]);
@@ -186,6 +187,42 @@ export const AdminPaymentsTab: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* 4-Bucket Authoritative Settlement Breakdown */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-4 rounded-2xl bg-white border border-emerald-200/80 shadow-xs">
+          <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Verified Cash Settled</div>
+          <div className="text-xl font-black text-emerald-700 mt-1 font-display-title">
+            {formatCurrencyINR(payments.filter((p) => p.paymentMethod === "CASH" && p.status === "CONFIRMED").reduce((sum, p) => sum + (Number(p.amount) || 0), 0))}
+          </div>
+          <div className="text-[10px] text-slate-600 mt-0.5 font-medium">Real on-site cash settlements</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+          <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Real Online Settled</div>
+          <div className="text-xl font-black text-slate-900 mt-1 font-display-title">
+            ₹0
+          </div>
+          <div className="text-[10px] text-slate-600 mt-0.5 font-medium">Authoritative (No live gateway)</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-purple-200/80 shadow-xs">
+          <div className="text-[10px] font-bold text-purple-800 uppercase tracking-wider">Sandbox / Test Volume</div>
+          <div className="text-xl font-black text-purple-700 mt-1 font-display-title">
+            {formatCurrencyINR(payments.filter((p) => p.paymentMethod !== "CASH" && p.status === "CONFIRMED").reduce((sum, p) => sum + (Number(p.amount) || 0), 0))}
+          </div>
+          <div className="text-[10px] text-slate-600 mt-0.5 font-medium">Simulated test transactions</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-amber-200/80 shadow-xs">
+          <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Pending Settlements</div>
+          <div className="text-xl font-black text-amber-700 mt-1 font-display-title">
+            {payments.filter((p) => p.status === "PENDING").length}
+          </div>
+          <div className="text-[10px] text-slate-600 mt-0.5 font-medium">Awaiting completion sign-off</div>
+        </div>
+      </div>
+
       {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -221,8 +258,8 @@ export const AdminPaymentsTab: React.FC = () => {
       {/* Payments Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs min-w-[760px]">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-5">Opportunity</th>
                 <th className="py-3.5 px-5">Payer / Employer</th>
@@ -236,13 +273,13 @@ export const AdminPaymentsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
                     Loading payment logs...
                   </td>
                 </tr>
               ) : payments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
                     No payment records found.
                   </td>
                 </tr>
@@ -251,19 +288,30 @@ export const AdminPaymentsTab: React.FC = () => {
                   <tr key={p.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-5">
                       <div className="font-bold text-slate-900">{p.opportunityTitle}</div>
-                      <div className="font-mono text-[10px] text-slate-400 font-medium">{p.assignmentId?.substring(0, 8)}...</div>
+                      <div className="font-mono text-[10px] text-slate-500 font-medium">{p.assignmentId?.substring(0, 8)}...</div>
                     </td>
                     <td className="py-3.5 px-5 text-slate-800 font-medium">{p.payerName}</td>
                     <td className="py-3.5 px-5 text-slate-800 font-semibold">{p.payeeName}</td>
                     <td className="py-3.5 px-5 font-bold text-emerald-600">
-                      ₹{p.amount}
+                      {formatCurrencyINR(p.amount)}
                     </td>
                     <td className="py-3.5 px-5">
-                      <div className="font-bold text-slate-800">{p.paymentMethod}</div>
-                      <div className="font-mono text-[10px] text-slate-400">{p.transactionRef || p.gatewayOrderId || "Internal Ledger"}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-800">{p.paymentMethod || "CASH"}</span>
+                        {p.paymentMethod === "CASH" ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            VERIFIED CASH
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-purple-50 text-purple-800 border border-purple-200">
+                            SANDBOX / TEST
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-500">{p.transactionRef || p.gatewayOrderId || "Internal Ledger PIN"}</div>
                     </td>
-                    <td className="py-3.5 px-5 text-slate-500 text-[11px] font-medium">
-                      {new Date(p.createdAt).toLocaleString("en-IN")}
+                    <td className="py-3.5 px-5 text-slate-600 text-[11px] font-medium">
+                      {p.createdAt ? new Date(p.createdAt).toLocaleString("en-IN") : "—"}
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <span

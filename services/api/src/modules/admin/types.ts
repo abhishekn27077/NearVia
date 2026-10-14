@@ -42,7 +42,10 @@ export interface AdminDashboardMetrics {
   totalWorkers: number;
   totalProviders: number;
   totalAgents: number;
+  totalAdmins: number;
   publishedWorkCount: number;
+  cumulativePublishedCount: number;
+  completedWorkCount: number;
   cancelledWorkCount: number;
   totalApplicationsCount: number;
   activeAssignmentsCount: number;

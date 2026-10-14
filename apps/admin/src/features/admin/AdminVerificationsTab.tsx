@@ -8,11 +8,26 @@ export const AdminVerificationsTab: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [excludeTestAccounts, setExcludeTestAccounts] = useState(false);
 
   // Rejection Modal
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  const isTestFixture = useCallback((v: any) => {
+    const email = (v.user_email || v.email || "").toLowerCase();
+    const phone = (v.user_phone || v.phone || "");
+    const docRef = (v.document_ref || "");
+    const name = (v.user_name || "").toLowerCase();
+    return (
+      email.endsWith("@nearvia.test") ||
+      email.includes("test.worker") ||
+      docRef === "DOC_HASH_AADHAAR_9812" ||
+      phone.startsWith("+919999") ||
+      name.includes("test worker")
+    );
+  }, []);
 
   const fetchVerifications = useCallback(async () => {
     try {
@@ -46,6 +61,11 @@ export const AdminVerificationsTab: React.FC = () => {
   useEffect(() => {
     fetchVerifications();
   }, [fetchVerifications]);
+
+  const displayedVerifications = excludeTestAccounts
+    ? verifications.filter((v) => !isTestFixture(v))
+    : verifications;
+  const testFixtureCount = verifications.filter(isTestFixture).length;
 
   const handleApprove = async (id: string) => {
     if (actionLoading) return;
@@ -109,8 +129,8 @@ export const AdminVerificationsTab: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Filter Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
           {["PENDING", "VERIFIED", "REJECTED", ""].map((st) => (
             <button
               key={st || "ALL"}
@@ -128,13 +148,29 @@ export const AdminVerificationsTab: React.FC = () => {
             </button>
           ))}
         </div>
+
+        {/* Exclude Test Accounts Filter */}
+        <label className="inline-flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer select-none bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-xs hover:bg-slate-50 transition">
+          <input
+            type="checkbox"
+            checked={excludeTestAccounts}
+            onChange={(e) => setExcludeTestAccounts(e.target.checked)}
+            className="rounded border-slate-300 text-orange-600 focus:ring-orange-500 w-4 h-4 cursor-pointer"
+          />
+          <span>Exclude Test Accounts</span>
+          {testFixtureCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800">
+              {testFixtureCount} test
+            </span>
+          )}
+        </label>
       </div>
 
       {/* Verifications Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs min-w-[700px]">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-5">Applicant</th>
                 <th className="py-3.5 px-5">Type</th>
@@ -147,22 +183,32 @@ export const AdminVerificationsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
                     Loading verification queue...
                   </td>
                 </tr>
-              ) : verifications.length === 0 ? (
+              ) : displayedVerifications.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
                     No verification submissions found for this status.
                   </td>
                 </tr>
               ) : (
-                verifications.map((v) => (
+                displayedVerifications.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-5">
-                      <div className="font-bold text-slate-900">{v.user_name || "Applicant"}</div>
-                      <div className="text-[11px] text-slate-500 font-medium">{v.user_phone} • {v.user_role}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">{v.user_name || "Applicant"}</span>
+                        {isTestFixture(v) && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
+                            TEST FIXTURE
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-600 font-medium">
+                        {v.user_phone} • {v.user_role}
+                        {v.user_email && <span className="text-slate-500 font-mono text-[10px]"> ({v.user_email})</span>}
+                      </div>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700">
@@ -174,7 +220,7 @@ export const AdminVerificationsTab: React.FC = () => {
                         {v.document_ref || "None provided"}
                       </div>
                     </td>
-                    <td className="py-3.5 px-5 text-slate-500 text-[11px] font-medium">
+                    <td className="py-3.5 px-5 text-slate-600 text-[11px] font-medium">
                       {new Date(v.submitted_at).toLocaleDateString("en-IN")}
                     </td>
                     <td className="py-3.5 px-5">
@@ -209,7 +255,7 @@ export const AdminVerificationsTab: React.FC = () => {
                           </button>
                         </div>
                       ) : (
-                        <div className="text-[11px] text-slate-400 font-medium">
+                        <div className="text-[11px] text-slate-500 font-medium">
                           {v.reviewer_name ? `Reviewed by ${v.reviewer_name}` : "Completed"}
                         </div>
                       )}
@@ -225,7 +271,7 @@ export const AdminVerificationsTab: React.FC = () => {
       {/* Pagination */}
       <div className="flex items-center justify-between text-xs text-slate-500 px-2">
         <div>
-          Showing {verifications.length} of {total} verification records
+          Showing {displayedVerifications.length} of {excludeTestAccounts ? Math.max(0, total - testFixtureCount) : total} verification records
         </div>
         <div className="flex items-center gap-2">
           <button

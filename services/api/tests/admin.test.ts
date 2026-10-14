@@ -27,16 +27,28 @@ describe("Phase 16: Admin Dashboard & Platform Operations Suite", () => {
             rowCount: 1,
             rows: [
               {
-                total_users: "150",
+                total_users: "156",
                 total_workers: "100",
                 total_providers: "40",
                 total_agents: "10",
+                total_admins: "6",
               },
             ],
           } as any;
         }
         if (sql.includes("published_work")) {
-          return { rowCount: 1, rows: [{ published_work: "25" }] } as any;
+          return {
+            rowCount: 1,
+            rows: [
+              {
+                published_work: "25",
+                cumulative_published: "53",
+                completed_work: "12",
+                cancelled_work: "3",
+                total_applications: "78",
+              },
+            ],
+          } as any;
         }
         if (sql.includes("active_assignments")) {
           return {
@@ -56,7 +68,14 @@ describe("Phase 16: Admin Dashboard & Platform Operations Suite", () => {
         if (sql.includes("confirmed_paise")) {
           return {
             rowCount: 1,
-            rows: [{ confirmed_paise: "12500000", pending_payments: "4" }],
+            rows: [
+              {
+                confirmed_paise: "12500000",
+                cash_paise: "7500000",
+                sandbox_paise: "5000000",
+                pending_payments: "4",
+              },
+            ],
           } as any;
         }
         if (sql.includes("FROM audit_logs")) {
@@ -67,10 +86,14 @@ describe("Phase 16: Admin Dashboard & Platform Operations Suite", () => {
 
       const metrics = await adminService.getDashboardMetrics();
 
-      expect(metrics.totalUsers).toBe(150);
+      expect(metrics.totalUsers).toBe(156);
       expect(metrics.totalWorkers).toBe(100);
       expect(metrics.totalProviders).toBe(40);
+      expect(metrics.totalAgents).toBe(10);
+      expect(metrics.totalAdmins).toBe(6);
       expect(metrics.publishedWorkCount).toBe(25);
+      expect(metrics.cumulativePublishedCount).toBe(53);
+      expect(metrics.completedWorkCount).toBe(12);
       expect(metrics.activeAssignmentsCount).toBe(12);
       expect(metrics.completedAssignmentsCount).toBe(85);
       expect(metrics.pendingVerificationsCount).toBe(8);
@@ -78,6 +101,8 @@ describe("Phase 16: Admin Dashboard & Platform Operations Suite", () => {
       expect(metrics.openDisputesCount).toBe(2);
       expect(metrics.confirmedPaymentsVolumePaise).toBe(12500000);
       expect(metrics.confirmedPaymentsVolume).toBe(125000);
+      expect(metrics.cashSettledVolume).toBe(75000);
+      expect(metrics.sandboxSettledVolume).toBe(50000);
     });
   });
 

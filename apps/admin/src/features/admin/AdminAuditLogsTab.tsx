@@ -70,8 +70,8 @@ export const AdminAuditLogsTab: React.FC = () => {
       {/* Logs Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs min-w-[720px]">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-5">Timestamp</th>
                 <th className="py-3.5 px-5">Actor</th>
@@ -84,39 +84,39 @@ export const AdminAuditLogsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-sans font-medium">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 font-sans font-medium">
                     Loading immutable audit records...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-sans font-medium">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 font-sans font-medium">
                     No audit logs recorded for this action.
                   </td>
                 </tr>
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3.5 px-5 text-slate-500 font-medium">
+                    <td className="py-3.5 px-5 text-slate-600 font-medium">
                       {new Date(log.createdAt).toLocaleString("en-IN")}
                     </td>
                     <td className="py-3.5 px-5 text-slate-800 font-sans">
                       <span className="font-bold text-slate-900">{log.actorName}</span>
-                      <div className="text-[10px] text-slate-400 font-mono">{log.actorId?.substring(0, 8)}...</div>
+                      <div className="text-[10px] text-slate-500 font-mono">{log.actorId?.substring(0, 8)}...</div>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-200 font-sans">
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-3.5 px-5 text-slate-600 font-sans font-medium">
-                      {log.targetEntity}: <span className="font-mono text-slate-400">{log.targetId?.substring(0, 8)}...</span>
+                    <td className="py-3.5 px-5 text-slate-700 font-sans font-medium">
+                      {log.targetEntity}: <span className="font-mono text-slate-500">{log.targetId?.substring(0, 8)}...</span>
                     </td>
-                    <td className="py-3.5 px-5 text-slate-500 max-w-xs truncate" title={JSON.stringify(log.payload)}>
+                    <td className="py-3.5 px-5 text-slate-600 max-w-xs truncate" title={JSON.stringify(log.payload)}>
                       {JSON.stringify(log.payload)}
                     </td>
-                    <td className="py-3.5 px-5 text-right text-slate-400 font-mono">
-                      {log.ipAddress || "127.0.0.1"}
+                    <td className="py-3.5 px-5 text-right text-slate-600 font-mono">
+                      {log.ipAddress || "Internal / System"}
                     </td>
                   </tr>
                 ))
