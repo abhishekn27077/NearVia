@@ -64,6 +64,12 @@ adminRouter.post("/verifications/:id/approve", (req, res, next) =>
 adminRouter.post("/verifications/:id/reject", (req, res, next) =>
   adminController.rejectVerification(req, res, next),
 );
+adminRouter.post("/verifications/:id/resubmission", (req, res, next) =>
+  adminController.requestResubmission(req, res, next),
+);
+adminRouter.get("/verifications/:id/preview", (req, res, next) =>
+  adminController.getDocumentPreview(req, res, next),
+);
 
 // Settlements / Payments
 adminRouter.get("/payments", (req, res, next) =>

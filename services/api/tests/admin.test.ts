@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { adminService } from "../src/modules/admin/service";
+import { storageService } from "../src/services/storage.service";
 import * as db from "../src/db";
 import { AppError } from "../src/middleware/errorHandler";
 
@@ -278,6 +279,7 @@ describe("Phase 16: Admin Dashboard & Platform Operations Suite", () => {
 
   describe("4. Verification Queue Review", () => {
     it("should approve verification and update target provider profile", async () => {
+      vi.spyOn(storageService, "verifyObjectExists").mockResolvedValue(true);
       vi.mocked(db.withTransaction).mockImplementation(async (cb: any) => {
         const client = {
           query: vi.fn().mockImplementation(async (sql: string) => {
@@ -289,6 +291,8 @@ describe("Phase 16: Admin Dashboard & Platform Operations Suite", () => {
                     id: verificationId,
                     target_type: "PROVIDER",
                     target_id: providerUserId,
+                    storage_path: `kyc/${providerUserId}/gstin_certificate.pdf`,
+                    document_ref: `kyc/${providerUserId}/gstin_certificate.pdf`,
                     status: "PENDING",
                   },
                 ],

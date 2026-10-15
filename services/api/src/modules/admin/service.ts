@@ -16,9 +16,11 @@ import {
   UpdateUserRoleInput,
   ApproveVerificationInput,
   RejectVerificationInput,
+  RequestResubmissionInput,
   ModerateWorkInput,
   IAdminState,
 } from "./types";
+import { storageService } from "../../services/storage.service";
 
 export class AdminService {
   public async getStatus(): Promise<IAdminState> {
@@ -576,8 +578,24 @@ export class AdminService {
       params
     );
 
+    const formatted = res.rows.map((row: any) => {
+      const isTestFixture = Boolean(
+        (row.user_email && row.user_email.endsWith("@nearvia.test")) ||
+        (row.document_ref && (
+          row.document_ref.startsWith("DOC_HASH_") ||
+          row.document_ref.startsWith("TEST_") ||
+          row.document_ref.startsWith("FIXTURE_")
+        )) ||
+        (!row.storage_path && (!row.document_ref || row.document_ref === "DOC_HASH_AADHAAR_9812"))
+      );
+      return {
+        ...row,
+        isTestFixture,
+      };
+    });
+
     return {
-      verifications: res.rows,
+      verifications: formatted,
       total,
       page,
       limit,
@@ -585,7 +603,7 @@ export class AdminService {
   }
 
   /**
-   * 9. Approve Verification
+   * 9. Approve Verification (Hardened against fixtures and synchronizes identity & role badges)
    */
   public async approveVerification(
     adminId: string,
@@ -608,44 +626,135 @@ export class AdminService {
         return oldRow;
       }
 
-      const updateRes = await client.query(
-        `UPDATE verifications 
-         SET status = 'VERIFIED', reviewed_by = $1, reviewed_at = NOW(), notes = $2, updated_at = NOW()
-         WHERE id = $3
-         RETURNING *`,
-        [adminId, input.notes || null, verificationId]
-      );
-      const updated = updateRes.rows[0];
-
-      // Update target profile verified flag if applicable
-      if (oldRow.target_type === "WORKER") {
-        await client.query(
-          `UPDATE worker_profiles SET updated_at = NOW() WHERE user_id = $1`,
+      let userEmail = oldRow.user_email;
+      if (!userEmail && oldRow.target_id) {
+        const uRes = await client.query(
+          `SELECT email, phone FROM users WHERE id = $1`,
           [oldRow.target_id]
         );
-      } else if (oldRow.target_type === "PROVIDER") {
-        await client.query(
-          `UPDATE provider_profiles SET verified_business = TRUE, updated_at = NOW() WHERE user_id = $1`,
-          [oldRow.target_id]
+        userEmail = uRes.rows?.[0]?.email;
+      }
+
+      // Safeguard: Test fixtures and placeholder hashes cannot be approved as real verification
+      const isTestFixture = Boolean(
+        (userEmail && userEmail.endsWith("@nearvia.test")) ||
+        (oldRow.document_ref && (
+          oldRow.document_ref.startsWith("DOC_HASH_") ||
+          oldRow.document_ref.startsWith("TEST_") ||
+          oldRow.document_ref.startsWith("FIXTURE_")
+        ))
+      );
+
+      if (isTestFixture) {
+        throw new AppError(
+          "Test fixtures and synthetic references (such as @nearvia.test or legacy DOC_HASH placeholders) cannot be approved as real identity verification.",
+          400,
+          ErrorCode.VALIDATION_ERROR
         );
       }
 
-      // Log Audit Event
-      await logAuditEvent({
-        actorId: adminId,
-        action: "VERIFICATION_APPROVED",
-        targetEntity: "verifications",
-        targetId: verificationId,
-        oldValues: { status: oldRow.status },
-        newValues: { status: "VERIFIED", notes: input.notes },
-        ipAddress,
-        userAgent,
-      });
+      // Enforce document ownership: require storage_path to be scoped to kyc/${oldRow.target_id}/
+      const expectedPrefix = `kyc/${oldRow.target_id}/`;
+      const docPath = (oldRow.storage_path && oldRow.storage_path.startsWith(expectedPrefix))
+        ? oldRow.storage_path
+        : (oldRow.document_ref && oldRow.document_ref.startsWith(expectedPrefix))
+          ? oldRow.document_ref
+          : null;
+
+      // Weak heuristic (document_ref.includes(".")) removed:
+      // DOC_HASH_*, synthetic filenames (e.g. "doc.jpg"), test fixtures, arbitrary references, or another user's storage path are strictly rejected.
+      if (!docPath || docPath.includes("..")) {
+        throw new AppError(
+          "Cannot approve verification: No genuine document has been uploaded for review. A valid document storage path scoped to the user is required.",
+          400,
+          ErrorCode.VALIDATION_ERROR
+        );
+      }
+
+      // Verify that the document object actually exists in secure storage
+      const objectExists = await storageService.verifyObjectExists(docPath);
+      if (!objectExists) {
+        throw new AppError(
+          "Cannot approve verification: Document file could not be verified in secure storage.",
+          400,
+          ErrorCode.VALIDATION_ERROR
+        );
+      }
+
+      // Safe update handling schema with or without 'notes' column
+      let updated: any;
+      try {
+        const updateRes = await client.query(
+          `UPDATE verifications
+           SET status = 'VERIFIED', reviewed_by = $1, reviewed_at = NOW(), notes = $2, updated_at = NOW()
+           WHERE id = $3
+           RETURNING *`,
+          [adminId, input.notes || null, verificationId]
+        );
+        updated = updateRes.rows[0];
+      } catch (err: any) {
+        if (err.code === "42703" || err.message?.includes("notes")) {
+          const updateRes = await client.query(
+            `UPDATE verifications
+             SET status = 'VERIFIED', reviewed_by = $1, reviewed_at = NOW(), updated_at = NOW()
+             WHERE id = $2
+             RETURNING *`,
+            [adminId, verificationId]
+          );
+          updated = updateRes.rows[0];
+        } else {
+          throw err;
+        }
+      }
+
+      // Synchronize Core Identity Status on users table
+      await client.query(
+        `UPDATE users
+         SET identity_verified = TRUE, identity_verified_at = NOW(), updated_at = NOW()
+         WHERE id = $1`,
+        [oldRow.target_id]
+      );
+
+      // Synchronize Role-Specific Verification Flags
+      if (oldRow.target_type === "WORKER") {
+        await client.query(
+          `UPDATE worker_profiles
+           SET verified_badge = TRUE, is_verified = TRUE, updated_at = NOW()
+           WHERE user_id = $1`,
+          [oldRow.target_id]
+        );
+      } else if (oldRow.target_type === "PROVIDER") {
+        if (oldRow.verification_type === "BUSINESS_REGISTRATION" || oldRow.verification_type === "GSTIN") {
+          await client.query(
+            `UPDATE provider_profiles
+             SET verified_business = TRUE, updated_at = NOW()
+             WHERE user_id = $1`,
+            [oldRow.target_id]
+          );
+        }
+      }
+
+      // Log Audit Event (Transactional - failure to write audit record rolls back the approval)
+      await client.query(
+        `INSERT INTO audit_logs (
+          actor_id, action, target_entity, target_id, old_values, new_values, ip_address, user_agent
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          adminId,
+          "VERIFICATION_APPROVED",
+          "verifications",
+          verificationId,
+          JSON.stringify({ status: oldRow.status }),
+          JSON.stringify({ status: "VERIFIED", notes: input.notes }),
+          ipAddress || null,
+          userAgent || null,
+        ]
+      );
 
       // Notify User
       await client.query(
         `INSERT INTO notifications (recipient_id, type, title, message, data)
-         VALUES ($1, 'VERIFICATION_APPROVED', 'Profile Verification Approved', 'Your profile and identity credentials have been verified by platform administrators.', $2)`,
+         VALUES ($1, 'VERIFICATION_APPROVED', 'Identity Verification Approved', 'Your identity credentials have been reviewed and verified by platform administrators.', $2)`,
         [oldRow.target_id, JSON.stringify({ verificationId, status: "VERIFIED" })]
       );
 
@@ -673,14 +782,47 @@ export class AdminService {
       return oldRow;
     }
 
-    const res = await query(
-      `UPDATE verifications 
-       SET status = 'REJECTED', rejection_reason = $1, reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
-       WHERE id = $3
-       RETURNING *`,
-      [input.rejectionReason, adminId, verificationId]
+    let updated: any;
+    try {
+      const res = await query(
+        `UPDATE verifications
+         SET status = 'REJECTED', rejection_reason = $1, reviewed_by = $2, reviewed_at = NOW(), notes = $3, updated_at = NOW()
+         WHERE id = $4
+         RETURNING *`,
+        [input.rejectionReason, adminId, input.notes || null, verificationId]
+      );
+      updated = res.rows[0];
+    } catch (err: any) {
+      if (err.code === "42703" || err.message?.includes("notes")) {
+        const res = await query(
+          `UPDATE verifications
+           SET status = 'REJECTED', rejection_reason = $1, reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
+           WHERE id = $3
+           RETURNING *`,
+          [input.rejectionReason, adminId, verificationId]
+        );
+        updated = res.rows[0];
+      } else {
+        throw err;
+      }
+    }
+
+    // If previously marked identity verified, reset
+    await query(
+      `UPDATE users SET identity_verified = FALSE WHERE id = $1`,
+      [oldRow.target_id]
     );
-    const updated = res.rows[0];
+    if (oldRow.target_type === "WORKER") {
+      await query(
+        `UPDATE worker_profiles SET verified_badge = FALSE, is_verified = FALSE WHERE user_id = $1`,
+        [oldRow.target_id]
+      );
+    } else if (oldRow.target_type === "PROVIDER" && (oldRow.verification_type === "BUSINESS_REGISTRATION" || oldRow.verification_type === "GSTIN")) {
+      await query(
+        `UPDATE provider_profiles SET verified_business = FALSE WHERE user_id = $1`,
+        [oldRow.target_id]
+      );
+    }
 
     // Log Audit Event
     await logAuditEvent({
@@ -689,7 +831,7 @@ export class AdminService {
       targetEntity: "verifications",
       targetId: verificationId,
       oldValues: { status: oldRow.status },
-      newValues: { status: "REJECTED", reason: input.rejectionReason },
+      newValues: { status: "REJECTED", reason: input.rejectionReason, notes: input.notes },
       ipAddress,
       userAgent,
     });
@@ -706,6 +848,170 @@ export class AdminService {
     );
 
     return updated;
+  }
+
+  /**
+   * 10b. Request Resubmission
+   */
+  public async requestResubmission(
+    adminId: string,
+    verificationId: string,
+    input: RequestResubmissionInput,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<any> {
+    return await withTransaction(async (client) => {
+      const existing = await client.query(`SELECT * FROM verifications WHERE id = $1 FOR UPDATE`, [verificationId]);
+      const oldRow = existing.rows[0];
+      if (!oldRow) {
+        throw new AppError("Verification record not found", 404, ErrorCode.NOT_FOUND);
+      }
+
+      if (oldRow.status === "RESUBMISSION_REQUIRED") {
+        return oldRow;
+      }
+
+      const instructionsText = input.instructions || input.reason || "Please provide a clearer document.";
+
+      let updated: any;
+      try {
+        const res = await client.query(
+          `UPDATE verifications
+           SET status = 'RESUBMISSION_REQUIRED', rejection_reason = $1, reviewed_by = $2, reviewed_at = NOW(), notes = $3, updated_at = NOW()
+           WHERE id = $4
+           RETURNING *`,
+          [instructionsText, adminId, input.notes || null, verificationId]
+        );
+        updated = res.rows[0];
+      } catch (err: any) {
+        if (err.code === "42703" || err.message?.includes("notes")) {
+          const res = await client.query(
+            `UPDATE verifications
+             SET status = 'RESUBMISSION_REQUIRED', rejection_reason = $1, reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
+             WHERE id = $3
+             RETURNING *`,
+            [instructionsText, adminId, verificationId]
+          );
+          updated = res.rows[0];
+        } else {
+          throw err;
+        }
+      }
+
+      // Revoke any existing verified status immediately upon requesting resubmission
+      await client.query(
+        `UPDATE users SET identity_verified = FALSE WHERE id = $1`,
+        [oldRow.target_id]
+      );
+      if (oldRow.target_type === "WORKER") {
+        await client.query(
+          `UPDATE worker_profiles SET verified_badge = FALSE, is_verified = FALSE WHERE user_id = $1`,
+          [oldRow.target_id]
+        );
+      } else if (oldRow.target_type === "PROVIDER") {
+        await client.query(
+          `UPDATE provider_profiles SET verified_business = FALSE WHERE user_id = $1`,
+          [oldRow.target_id]
+        );
+      }
+
+      // Log Audit Event (Transactional - writes via transaction client)
+      await client.query(
+        `INSERT INTO audit_logs (
+          actor_id, action, target_entity, target_id, old_values, new_values, ip_address, user_agent
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          adminId,
+          "VERIFICATION_RESUBMISSION_REQUESTED",
+          "verifications",
+          verificationId,
+          JSON.stringify({ status: oldRow.status }),
+          JSON.stringify({ status: "RESUBMISSION_REQUIRED", instructions: instructionsText, notes: input.notes }),
+          ipAddress || null,
+          userAgent || null,
+        ]
+      );
+
+      // Notify User
+      await client.query(
+        `INSERT INTO notifications (recipient_id, type, title, message, data)
+         VALUES ($1, 'VERIFICATION_RESUBMISSION_REQUIRED', 'Action Required: Resubmit Verification Document', $2, $3)`,
+        [
+          oldRow.target_id,
+          `Please resubmit your verification document: ${instructionsText}`,
+          JSON.stringify({ verificationId, status: "RESUBMISSION_REQUIRED", instructions: instructionsText }),
+        ]
+      );
+
+      return updated;
+    });
+  }
+
+  /**
+   * 10c. Get Document Preview (60-second signed private storage URL)
+   */
+  public async getDocumentPreview(
+    _adminId: string,
+    verificationId: string
+  ): Promise<{
+    previewUrl: string | null;
+    isFixture: boolean;
+    isMissing?: boolean;
+    storagePath: string | null;
+    documentRef: string;
+    message?: string;
+  }> {
+    const res = await query(
+      `SELECT v.*, u.email as user_email FROM verifications v LEFT JOIN users u ON v.target_id = u.id WHERE v.id = $1`,
+      [verificationId]
+    );
+    const row = res.rows[0];
+    if (!row) {
+      throw new AppError("Verification record not found", 404, ErrorCode.NOT_FOUND);
+    }
+
+    const isTestFixture = Boolean(
+      (row.user_email && row.user_email.endsWith("@nearvia.test")) ||
+      (row.document_ref && (
+        row.document_ref.startsWith("DOC_HASH_") ||
+        row.document_ref.startsWith("TEST_") ||
+        row.document_ref.startsWith("FIXTURE_")
+      )) ||
+      (!row.storage_path && (!row.document_ref || row.document_ref === "DOC_HASH_AADHAAR_9812"))
+    );
+
+    const userScopedPrefix = `kyc/${row.target_id}/`;
+    const docPath = (row.storage_path && row.storage_path.startsWith(userScopedPrefix))
+      ? row.storage_path
+      : (row.document_ref && row.document_ref.startsWith(userScopedPrefix))
+        ? row.document_ref
+        : null;
+
+    if (isTestFixture || !docPath) {
+      return {
+        previewUrl: null,
+        isFixture: Boolean(isTestFixture),
+        isMissing: true,
+        storagePath: row.storage_path || null,
+        documentRef: row.document_ref,
+        message: isTestFixture
+          ? "This submission is a test fixture or placeholder hash. No genuine document file exists in storage."
+          : "No genuine user-scoped document path exists for this verification."
+      };
+    }
+
+    const previewRes = await storageService.createKycPreviewUrl(docPath, row.document_ref, 60);
+
+    return {
+      previewUrl: previewRes.previewUrl,
+      isFixture: false,
+      isMissing: Boolean(previewRes.isMissing || !previewRes.previewUrl),
+      storagePath: docPath,
+      documentRef: row.document_ref,
+      message: previewRes.isMissing || !previewRes.previewUrl
+        ? (previewRes.error || "Document file could not be retrieved from storage or does not exist.")
+        : undefined,
+    };
   }
 
   /**

@@ -10,6 +10,9 @@ import {
   Sparkles,
   X,
   Lock,
+  AlertTriangle,
+  Upload,
+  FileCheck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { UserRole } from "@nearvia/types";
@@ -18,12 +21,11 @@ import { webConfig } from "../../config";
 export const VerificationCenterPage: React.FC = () => {
   const { user, token, refreshProfile } = useAuth();
 
-
-
   const [idModalOpen, setIdModalOpen] = useState(false);
   const [idType, setIdType] = useState("AADHAAR");
-  const [idRef, setIdRef] = useState("");
+  const [idFile, setIdFile] = useState<File | null>(null);
   const [idLoading, setIdLoading] = useState(false);
+  const [idLoadingStep, setIdLoadingStep] = useState<string>("");
   const [idError, setIdError] = useState<string | null>(null);
   const [idSuccess, setIdSuccess] = useState(false);
 
@@ -54,11 +56,21 @@ export const VerificationCenterPage: React.FC = () => {
   const emailVerified = Boolean(user?.emailVerified);
   const phoneVerified = Boolean(user?.mobileVerified);
   
-  const pendingIdReq = verifications.find(
-    (v) => (v.verificationType === "IDENTITY" || v.verificationType === "AADHAAR" || v.verificationType === "GOVERNMENT_ID") && v.status === "PENDING"
+  const latestIdReq = verifications.find(
+    (v) => (v.verificationType === "IDENTITY" || v.verificationType === "AADHAAR" || v.verificationType === "GOVERNMENT_ID")
   );
   const identityVerified = Boolean(user?.identityVerified);
-  const idStatus = identityVerified ? "VERIFIED" : pendingIdReq ? "PENDING" : "NOT_VERIFIED";
+
+  let idStatus: "VERIFIED" | "PENDING" | "RESUBMISSION_REQUIRED" | "REJECTED" | "NOT_VERIFIED" = "NOT_VERIFIED";
+  if (identityVerified) {
+    idStatus = "VERIFIED";
+  } else if (latestIdReq?.status === "PENDING") {
+    idStatus = "PENDING";
+  } else if (latestIdReq?.status === "RESUBMISSION_REQUIRED") {
+    idStatus = "RESUBMISSION_REQUIRED";
+  } else if (latestIdReq?.status === "REJECTED") {
+    idStatus = "REJECTED";
+  }
 
   const pendingBizReq = verifications.find(
     (v) => (v.verificationType === "BUSINESS" || v.targetType === "BUSINESS") && v.status === "PENDING"
@@ -76,16 +88,61 @@ export const VerificationCenterPage: React.FC = () => {
 
   const completionPercent = Math.round((completedSteps / totalSteps) * 100);
 
-
-
   const handleSubmitIdentity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (idLoading) return;
+    if (!idFile) {
+      setIdError("Please select a document file to upload (JPEG, PNG, or PDF).");
+      return;
+    }
+
+    if (idFile.size > 5 * 1024 * 1024) {
+      setIdError("Document file exceeds the 5MB maximum file size limit.");
+      return;
+    }
+
     setIdLoading(true);
     setIdError(null);
     try {
+      // Step 1: Request signed upload URL from API
+      setIdLoadingStep("Preparing secure upload channel...");
+      const urlRes = await fetch(`${webConfig.apiBaseUrl}/verification/upload-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fileName: idFile.name,
+          fileType: idFile.type,
+          fileSize: idFile.size,
+        }),
+      });
+      const urlData = await urlRes.json();
+      if (!urlRes.ok || !urlData.success) {
+        throw new Error(urlData.error?.message || "Failed to generate secure upload URL.");
+      }
+
+      const { uploadUrl, storagePath } = urlData.data;
+
+      // Step 2: Upload file directly to Supabase private storage via PUT
+      setIdLoadingStep("Uploading document to private vault...");
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": idFile.type,
+        },
+        body: idFile,
+      });
+
+      if (!putRes.ok) {
+        throw new Error("Failed to upload document file to secure storage. Please try again.");
+      }
+
+      // Step 3: Submit verification record to backend
+      setIdLoadingStep("Submitting for administrator review...");
       const targetType = user?.role === UserRole.WORKER ? "WORKER" : "PROVIDER";
-      const res = await fetch(`${webConfig.apiBaseUrl}/verification/submit`, {
+      const submitRes = await fetch(`${webConfig.apiBaseUrl}/verification/submit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -94,20 +151,25 @@ export const VerificationCenterPage: React.FC = () => {
         body: JSON.stringify({
           targetType,
           verificationType: "GOVERNMENT_ID",
-          documentRef: `DOC_HASH_${idType}_${idRef.slice(-4) || "REF"}`,
+          storagePath,
+          documentRef: `${idType}:${storagePath}`,
         }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to submit verification request.");
+
+      const submitData = await submitRes.json();
+      if (!submitRes.ok || !submitData.success) {
+        throw new Error(submitData.error?.message || "Failed to submit verification request.");
       }
+
       setIdSuccess(true);
       setIdModalOpen(false);
+      setIdFile(null);
       if (refreshProfile) await refreshProfile();
     } catch (err: any) {
-      setIdError(err.message);
+      setIdError(err.message || "An error occurred during submission.");
     } finally {
       setIdLoading(false);
+      setIdLoadingStep("");
     }
   };
 
@@ -262,7 +324,17 @@ export const VerificationCenterPage: React.FC = () => {
               ) : idStatus === "PENDING" ? (
                 <span className="px-3 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center space-x-1">
                   <Clock className="w-3.5 h-3.5" />
-                  <span>VERIFICATION SUBMITTED</span>
+                  <span>IN REVIEW</span>
+                </span>
+              ) : idStatus === "RESUBMISSION_REQUIRED" ? (
+                <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-300 flex items-center space-x-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>RESUBMISSION REQUIRED</span>
+                </span>
+              ) : idStatus === "REJECTED" ? (
+                <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 flex items-center space-x-1">
+                  <X className="w-3.5 h-3.5" />
+                  <span>NOT APPROVED</span>
                 </span>
               ) : (
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
@@ -271,21 +343,56 @@ export const VerificationCenterPage: React.FC = () => {
               )}
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900">Manual ID Verification (Admin Review)</h3>
+              <h3 className="text-base font-black text-slate-900">Government ID Verification</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Voter ID, PAN, Driving License, or ID Reference
+                Aadhaar, PAN, Voter ID, Driving License, or Passport
               </p>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Manual verification by platform administrators. Raw identity documents are never stored; only privacy-preserving cryptographic hashes are reviewed.
+              Verified by platform administrators via encrypted private storage. Never exposed publicly.
             </p>
+
+            {idStatus === "RESUBMISSION_REQUIRED" && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Administrator Feedback:</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-900 font-medium">
+                  {latestIdReq?.rejectionReason || "Please upload a clearer, uncropped photo of your document."}
+                </p>
+              </div>
+            )}
+
+            {idStatus === "REJECTED" && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                  <X className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Application Not Approved:</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-rose-900 font-medium">
+                  {latestIdReq?.rejectionReason || "Your document could not be verified."}
+                </p>
+              </div>
+            )}
+
             {idStatus === "NOT_VERIFIED" && (
               <button
                 type="button"
                 onClick={() => setIdModalOpen(true)}
                 className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors"
               >
-                Submit ID Reference for Manual Review
+                Submit ID Document for Review
+              </button>
+            )}
+
+            {(idStatus === "RESUBMISSION_REQUIRED" || idStatus === "REJECTED") && (
+              <button
+                type="button"
+                onClick={() => setIdModalOpen(true)}
+                className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                {idStatus === "RESUBMISSION_REQUIRED" ? "Upload Corrected Document" : "Re-apply with New Document"}
               </button>
             )}
           </div>
@@ -346,16 +453,21 @@ export const VerificationCenterPage: React.FC = () => {
 
         {/* ── MODALS ── */}
 
-
-
         {/* Identity / KYC Modal */}
         {idModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-2xl space-y-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-slate-900 font-display">
-                  Submit ID Reference for Manual Review
-                </h3>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 font-display">
+                    {idStatus === "RESUBMISSION_REQUIRED"
+                      ? "Resubmit Identity Document"
+                      : "Upload Identity Document"}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Encrypted Supabase private storage. Never exposed publicly.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIdModalOpen(false)}
@@ -364,6 +476,18 @@ export const VerificationCenterPage: React.FC = () => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {idStatus === "RESUBMISSION_REQUIRED" && latestIdReq?.rejectionReason && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Resubmission Instructions from Admin:</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-900 font-medium">
+                    {latestIdReq.rejectionReason}
+                  </p>
+                </div>
+              )}
 
               {idError && (
                 <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
@@ -381,40 +505,73 @@ export const VerificationCenterPage: React.FC = () => {
                     onChange={(e) => setIdType(e.target.value)}
                     className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium text-sm focus:bg-white"
                   >
-                    <option value="AADHAAR">Aadhaar Card (Last 4 Digits Reference)</option>
+                    <option value="AADHAAR">Aadhaar Card (Front & Back)</option>
                     <option value="PAN">PAN Card</option>
                     <option value="VOTER_ID">Voter Identity Card</option>
                     <option value="DRIVING_LICENSE">Driving License</option>
+                    <option value="PASSPORT">Passport</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    Reference ID / Last 4 Digits
+                    Upload Document Image or PDF (Max 5MB)
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={idRef}
-                    onChange={(e) => setIdRef(e.target.value)}
-                    placeholder="e.g. 5678"
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium text-sm focus:bg-white"
-                  />
+                  <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:border-slate-400 transition bg-slate-50/50">
+                    <input
+                      type="file"
+                      id="kyc-file-upload"
+                      accept="image/jpeg,image/png,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setIdFile(file);
+                        if (file && file.size > 5 * 1024 * 1024) {
+                          setIdError("File exceeds 5MB size limit.");
+                        } else {
+                          setIdError(null);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <label htmlFor="kyc-file-upload" className="cursor-pointer block space-y-2">
+                      {idFile ? (
+                        <div className="flex items-center justify-center space-x-2 text-emerald-600 font-bold text-xs">
+                          <FileCheck className="w-5 h-5" />
+                          <span className="truncate max-w-[220px] text-slate-800">{idFile.name}</span>
+                          <span className="text-slate-400 text-[10px]">
+                            ({(idFile.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex justify-center text-slate-400">
+                            <Upload className="w-6 h-6" />
+                          </div>
+                          <div className="text-xs font-bold text-slate-700">Click to select document file</div>
+                          <p className="text-[10px] text-slate-400">JPEG, PNG, or PDF up to 5MB</p>
+                        </div>
+                      )}
+                    </label>
+                  </div>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100 text-[11px] text-blue-800 flex items-start space-x-2">
                   <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <span>
-                    Manual Verification: NEARVIA stores a privacy-preserving cryptographic hash reference. Platform administrators manually review the reference before approval. No government UIDAI or Aadhaar database connection is used.
+                    Direct Secure Storage: Files upload directly to an encrypted private Supabase storage bucket via temporary signed URL. Platform administrators review genuine documents before approval.
                   </span>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={idLoading || !idRef}
-                  className="w-full py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-colors"
+                  disabled={idLoading || !idFile}
+                  className="w-full py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-colors disabled:opacity-50"
                 >
-                  {idLoading ? "Submitting..." : "Submit Reference for Manual Review"}
+                  {idLoading
+                    ? idLoadingStep || "Uploading..."
+                    : idStatus === "RESUBMISSION_REQUIRED"
+                    ? "Resubmit Corrected Document"
+                    : "Upload Document for Verification"}
                 </button>
               </form>
             </div>

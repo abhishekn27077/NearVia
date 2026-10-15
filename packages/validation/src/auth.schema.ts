@@ -140,6 +140,53 @@ export const resendVerificationEmailSchema = z
   })
   .strict();
 
+export const kycUploadUrlSchema = z
+  .object({
+    targetType: z.enum(["WORKER", "PROVIDER", "BUSINESS", "AGENT", "SKILL"]).optional().default("WORKER"),
+    fileType: z.string().min(1),
+    fileName: z.string().min(1).max(255),
+    fileSizeBytes: z
+      .number()
+      .positive("File size must be positive")
+      .max(5 * 1024 * 1024, "File size must not exceed 5MB")
+      .optional(),
+    fileSize: z
+      .number()
+      .positive("File size must be positive")
+      .max(5 * 1024 * 1024, "File size must not exceed 5MB")
+      .optional(),
+  })
+  .refine((data) => data.fileSizeBytes !== undefined || data.fileSize !== undefined, {
+    message: "File size is required",
+    path: ["fileSizeBytes"],
+  });
+
+export const kycSubmitSchema = z
+  .object({
+    targetType: z.enum(["WORKER", "PROVIDER", "BUSINESS", "AGENT", "SKILL"]),
+    verificationType: z.string().min(1).max(50),
+    storagePath: z
+      .string()
+      .min(5)
+      .max(500)
+      .regex(/^kyc\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/, "Invalid KYC storage path structure")
+      .optional(),
+    documentRef: z.string().max(255).optional(),
+  })
+  .refine((data) => Boolean(data.storagePath || data.documentRef), {
+    message: "Either a document storage path or reference is required",
+    path: ["storagePath"],
+  });
+
+export const requestResubmissionSchema = z
+  .object({
+    reason: z
+      .string()
+      .min(5, "Resubmission instructions must be at least 5 characters")
+      .max(500),
+  })
+  .strict();
+
 export type UserRoleInput = z.infer<typeof userRoleSchema>;
 export type PublicUserRoleInput = z.infer<typeof publicUserRoleSchema>;
 export type PhoneVerificationInput = z.infer<typeof phoneVerificationSchema>;
@@ -152,3 +199,6 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type VerifyIdentityInput = z.infer<typeof verifyIdentitySchema>;
 export type ConfirmEmailInput = z.infer<typeof confirmEmailSchema>;
 export type ResendVerificationEmailInput = z.infer<typeof resendVerificationEmailSchema>;
+export type KycUploadUrlInput = z.infer<typeof kycUploadUrlSchema>;
+export type KycSubmitInput = z.infer<typeof kycSubmitSchema>;
+export type RequestResubmissionInput = z.infer<typeof requestResubmissionSchema>;

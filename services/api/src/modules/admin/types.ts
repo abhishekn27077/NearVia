@@ -27,9 +27,18 @@ export type ApproveVerificationInput = z.infer<typeof approveVerificationSchema>
 
 export const rejectVerificationSchema = z.object({
   rejectionReason: z.string().min(5, "Rejection reason must be at least 5 characters").max(500),
+  notes: z.string().max(500).optional(),
 });
 
 export type RejectVerificationInput = z.infer<typeof rejectVerificationSchema>;
+
+export const requestResubmissionSchema = z.object({
+  reason: z.string().min(5, "Resubmission instructions must be at least 5 characters").max(500),
+  instructions: z.string().max(500).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export type RequestResubmissionInput = z.infer<typeof requestResubmissionSchema>;
 
 export const moderateWorkSchema = z.object({
   reason: z.string().min(5, "Moderation reason must be at least 5 characters").max(500),

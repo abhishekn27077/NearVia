@@ -10,6 +10,9 @@ router.use(authenticateUser);
 // Get my verifications
 router.get("/me", verificationController.getMyVerifications);
 
+// Request pre-signed upload URL for KYC document image
+router.post("/upload-url", verificationController.createUploadUrl);
+
 // Submit a new verification
 router.post("/submit", verificationController.submitVerification);
 

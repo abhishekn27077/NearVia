@@ -1,8 +1,20 @@
 import { Request, Response, NextFunction } from "express";
-import { verificationSubmitSchema } from "./types";
+import { verificationSubmitSchema, kycUploadUrlSchema } from "./types";
 import { verificationService } from "./service";
 
 export class VerificationController {
+  public async createUploadUrl(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const validatedData = kycUploadUrlSchema.parse(req.body);
+
+      const result = await verificationService.createUploadUrl(userId, validatedData);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public async submitVerification(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id; // from auth middleware

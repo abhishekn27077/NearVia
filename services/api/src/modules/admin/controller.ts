@@ -10,6 +10,7 @@ import {
   updateUserRoleSchema,
   approveVerificationSchema,
   rejectVerificationSchema,
+  requestResubmissionSchema,
   moderateWorkSchema,
 } from "./types";
 import { validateUuid, clampPagination } from "../../utils/security";
@@ -175,6 +176,39 @@ export class AdminController {
         ua
       );
       res.json({ success: true, data: result, message: "Verification rejected" });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async requestResubmission(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const parsed = requestResubmissionSchema.parse(req.body);
+      const adminId = (req as any).user.id;
+      const verificationId = validateUuid(req.params.id, "Verification ID");
+      const ip = req.ip;
+      const ua = req.get("user-agent");
+
+      const result = await adminService.requestResubmission(
+        adminId,
+        verificationId,
+        parsed,
+        ip,
+        ua
+      );
+      res.json({ success: true, data: result, message: "Resubmission requested successfully" });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async getDocumentPreview(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = (req as any).user.id;
+      const verificationId = validateUuid(req.params.id, "Verification ID");
+
+      const result = await adminService.getDocumentPreview(adminId, verificationId);
+      res.json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
