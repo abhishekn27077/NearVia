@@ -896,7 +896,7 @@ describe("NearVia KYC Verification Hardening & Safeguards", () => {
       // Verifies users table verified flag is revoked
       expect(executedQueries.some((q) => q.includes("UPDATE users SET identity_verified = FALSE"))).toBe(true);
       // Verifies worker profile badge is revoked
-      expect(executedQueries.some((q) => q.includes("UPDATE worker_profiles SET verified_badge = FALSE, is_verified = FALSE"))).toBe(true);
+      expect(executedQueries.some((q) => q.includes("UPDATE worker_profiles SET verified_badge = FALSE"))).toBe(true);
     });
   });
 

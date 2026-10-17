@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ShieldCheck,
   Users,
@@ -36,10 +37,49 @@ type TabKey =
   | "PAYMENTS"
   | "AUDIT";
 
+const VALID_TABS: Record<string, TabKey> = {
+  overview: "OVERVIEW",
+  analytics: "ANALYTICS",
+  "live-pulse": "ANALYTICS",
+  pulse: "ANALYTICS",
+  users: "USERS",
+  work: "WORK",
+  marketplace: "WORK",
+  verifications: "VERIFICATIONS",
+  kyc: "VERIFICATIONS",
+  reports: "REPORTS",
+  safety: "REPORTS",
+  disputes: "DISPUTES",
+  escalations: "DISPUTES",
+  payments: "PAYMENTS",
+  settlement: "PAYMENTS",
+  audit: "AUDIT",
+};
+
 export const AdminDashboardPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>("OVERVIEW");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = (searchParams.get("tab") || "").toLowerCase();
+  const initialTab: TabKey = VALID_TABS[rawTab] || "OVERVIEW";
+
+  const [activeTab, setActiveTabState] = useState<TabKey>(initialTab);
   const [metrics, setMetrics] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const setActiveTab = (tab: TabKey) => {
+    setActiveTabState(tab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", tab.toLowerCase());
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const matched = VALID_TABS[rawTab];
+    if (matched && matched !== activeTab) {
+      setActiveTabState(matched);
+    }
+  }, [rawTab, activeTab]);
 
   const fetchMetrics = useCallback(async () => {
     try {

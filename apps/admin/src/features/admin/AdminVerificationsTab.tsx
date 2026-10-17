@@ -175,13 +175,17 @@ export const AdminVerificationsTab: React.FC = () => {
       const token =
         localStorage.getItem("nearvia_admin_auth_token") ||
         localStorage.getItem("nearvia_auth_token");
+      const instructionsText = resubmitInstructions.trim();
       const res = await fetch(`${adminConfig.apiBaseUrl}/admin/verifications/${resubmitId}/resubmission`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-        body: JSON.stringify({ instructions: resubmitInstructions.trim() }),
+        body: JSON.stringify({
+          reason: instructionsText,
+          instructions: instructionsText,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {

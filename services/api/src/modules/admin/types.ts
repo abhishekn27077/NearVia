@@ -33,10 +33,17 @@ export const rejectVerificationSchema = z.object({
 export type RejectVerificationInput = z.infer<typeof rejectVerificationSchema>;
 
 export const requestResubmissionSchema = z.object({
-  reason: z.string().min(5, "Resubmission instructions must be at least 5 characters").max(500),
-  instructions: z.string().max(500).optional(),
+  reason: z.string().min(5, "Resubmission instructions must be at least 5 characters").max(500).optional(),
+  instructions: z.string().min(5, "Resubmission instructions must be at least 5 characters").max(500).optional(),
   notes: z.string().max(500).optional(),
-});
+}).refine((data) => Boolean((data.reason && data.reason.trim().length >= 5) || (data.instructions && data.instructions.trim().length >= 5)), {
+  message: "Resubmission instructions/reason must be at least 5 characters",
+  path: ["reason"],
+}).transform((data) => ({
+  reason: (data.reason || data.instructions)!.trim(),
+  instructions: (data.instructions || data.reason)!.trim(),
+  notes: data.notes,
+}));
 
 export type RequestResubmissionInput = z.infer<typeof requestResubmissionSchema>;
 

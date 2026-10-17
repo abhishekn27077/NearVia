@@ -7,6 +7,8 @@ import {
 import { AppError } from "../../middleware/errorHandler";
 import { ErrorCode } from "@nearvia/config";
 import { storageService, KycUploadUrlResult } from "../../services/storage.service";
+import { workersService } from "../workers/service";
+import { providersService } from "../providers/service";
 
 export class VerificationService {
   /**
@@ -16,13 +18,11 @@ export class VerificationService {
     userId: string,
     input: KycUploadUrlInput
   ): Promise<KycUploadUrlResult> {
-    // Validate target role
+    // Ensure the user actually has the corresponding profile, initializing if needed (idempotent, never duplicates)
     if (input.targetType === "WORKER") {
-      const w = await query(`SELECT id FROM worker_profiles WHERE user_id = $1`, [userId]);
-      if (w.rowCount === 0) throw new AppError("No worker profile found", 400);
+      await workersService.getOrCreateWorkerProfile(userId);
     } else if (input.targetType === "PROVIDER" || input.targetType === "BUSINESS") {
-      const p = await query(`SELECT id FROM provider_profiles WHERE user_id = $1`, [userId]);
-      if (p.rowCount === 0) throw new AppError("No provider profile found", 400);
+      await providersService.getOrCreateProviderProfile(userId);
     }
 
     const fileSizeBytes = input.fileSizeBytes ?? input.fileSize ?? 0;
@@ -59,13 +59,11 @@ export class VerificationService {
       }
     }
 
-    // Ensure the user actually has the profile they are trying to verify
+    // Ensure the user actually has the profile they are trying to verify (idempotent, never duplicates)
     if (data.targetType === "WORKER") {
-      const w = await query(`SELECT id FROM worker_profiles WHERE user_id = $1`, [userId]);
-      if (w.rowCount === 0) throw new AppError("No worker profile found", 400);
+      await workersService.getOrCreateWorkerProfile(userId);
     } else if (data.targetType === "PROVIDER" || data.targetType === "BUSINESS") {
-      const p = await query(`SELECT id FROM provider_profiles WHERE user_id = $1`, [userId]);
-      if (p.rowCount === 0) throw new AppError("No provider profile found", 400);
+      await providersService.getOrCreateProviderProfile(userId);
     }
 
     // Check for existing pending or resubmission-required request

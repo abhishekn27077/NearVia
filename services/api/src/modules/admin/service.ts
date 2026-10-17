@@ -580,13 +580,12 @@ export class AdminService {
 
     const formatted = res.rows.map((row: any) => {
       const isTestFixture = Boolean(
-        (row.user_email && row.user_email.endsWith("@nearvia.test")) ||
-        (row.document_ref && (
+        !row.storage_path &&
+        (!row.document_ref ||
           row.document_ref.startsWith("DOC_HASH_") ||
           row.document_ref.startsWith("TEST_") ||
-          row.document_ref.startsWith("FIXTURE_")
-        )) ||
-        (!row.storage_path && (!row.document_ref || row.document_ref === "DOC_HASH_AADHAAR_9812"))
+          row.document_ref.startsWith("FIXTURE_") ||
+          (row.user_email && row.user_email.endsWith("@nearvia.test") && !row.document_ref.startsWith("kyc/")))
       );
       return {
         ...row,
@@ -635,19 +634,18 @@ export class AdminService {
         userEmail = uRes.rows?.[0]?.email;
       }
 
-      // Safeguard: Test fixtures and placeholder hashes cannot be approved as real verification
-      const isTestFixture = Boolean(
-        (userEmail && userEmail.endsWith("@nearvia.test")) ||
-        (oldRow.document_ref && (
-          oldRow.document_ref.startsWith("DOC_HASH_") ||
+      // Safeguard: Test fixtures and placeholder hashes without real storage cannot be approved as real verification
+      const isPlaceholder = Boolean(
+        !oldRow.storage_path &&
+        oldRow.document_ref &&
+        (oldRow.document_ref.startsWith("DOC_HASH_") ||
           oldRow.document_ref.startsWith("TEST_") ||
-          oldRow.document_ref.startsWith("FIXTURE_")
-        ))
+          oldRow.document_ref.startsWith("FIXTURE_"))
       );
 
-      if (isTestFixture) {
+      if (isPlaceholder) {
         throw new AppError(
-          "Test fixtures and synthetic references (such as @nearvia.test or legacy DOC_HASH placeholders) cannot be approved as real identity verification.",
+          "Test fixtures and synthetic references (such as legacy DOC_HASH placeholders) cannot be approved as real identity verification.",
           400,
           ErrorCode.VALIDATION_ERROR
         );
@@ -719,11 +717,12 @@ export class AdminService {
       if (oldRow.target_type === "WORKER") {
         await client.query(
           `UPDATE worker_profiles
-           SET verified_badge = TRUE, is_verified = TRUE, updated_at = NOW()
+           SET verified_badge = TRUE, updated_at = NOW()
            WHERE user_id = $1`,
           [oldRow.target_id]
         );
-      } else if (oldRow.target_type === "PROVIDER") {
+      }
+ else if (oldRow.target_type === "PROVIDER") {
         if (oldRow.verification_type === "BUSINESS_REGISTRATION" || oldRow.verification_type === "GSTIN") {
           await client.query(
             `UPDATE provider_profiles
@@ -814,7 +813,7 @@ export class AdminService {
     );
     if (oldRow.target_type === "WORKER") {
       await query(
-        `UPDATE worker_profiles SET verified_badge = FALSE, is_verified = FALSE WHERE user_id = $1`,
+        `UPDATE worker_profiles SET verified_badge = FALSE, updated_at = NOW() WHERE user_id = $1`,
         [oldRow.target_id]
       );
     } else if (oldRow.target_type === "PROVIDER" && (oldRow.verification_type === "BUSINESS_REGISTRATION" || oldRow.verification_type === "GSTIN")) {
@@ -905,7 +904,7 @@ export class AdminService {
       );
       if (oldRow.target_type === "WORKER") {
         await client.query(
-          `UPDATE worker_profiles SET verified_badge = FALSE, is_verified = FALSE WHERE user_id = $1`,
+          `UPDATE worker_profiles SET verified_badge = FALSE, updated_at = NOW() WHERE user_id = $1`,
           [oldRow.target_id]
         );
       } else if (oldRow.target_type === "PROVIDER") {
@@ -970,22 +969,24 @@ export class AdminService {
       throw new AppError("Verification record not found", 404, ErrorCode.NOT_FOUND);
     }
 
-    const isTestFixture = Boolean(
-      (row.user_email && row.user_email.endsWith("@nearvia.test")) ||
-      (row.document_ref && (
-        row.document_ref.startsWith("DOC_HASH_") ||
-        row.document_ref.startsWith("TEST_") ||
-        row.document_ref.startsWith("FIXTURE_")
-      )) ||
-      (!row.storage_path && (!row.document_ref || row.document_ref === "DOC_HASH_AADHAAR_9812"))
-    );
-
     const userScopedPrefix = `kyc/${row.target_id}/`;
     const docPath = (row.storage_path && row.storage_path.startsWith(userScopedPrefix))
       ? row.storage_path
       : (row.document_ref && row.document_ref.startsWith(userScopedPrefix))
         ? row.document_ref
         : null;
+
+    const isTestFixture = Boolean(
+      !docPath && (
+        (row.user_email && row.user_email.endsWith("@nearvia.test")) ||
+        (row.document_ref && (
+          row.document_ref.startsWith("DOC_HASH_") ||
+          row.document_ref.startsWith("TEST_") ||
+          row.document_ref.startsWith("FIXTURE_")
+        )) ||
+        row.document_ref === "DOC_HASH_AADHAAR_9812"
+      )
+    );
 
     if (isTestFixture || !docPath) {
       return {

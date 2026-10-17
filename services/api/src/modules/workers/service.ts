@@ -966,6 +966,19 @@ export class WorkersService {
     const workerLng = Number(worker.longitude) || 77.5946;
     const radiusKm = Number(worker.service_radius_km) || 5.0;
 
+    // 0. Canonical KYC Status Lookup
+    const kycRes = await query<{ status: string; rejection_reason: string | null }>(
+      `SELECT status, rejection_reason FROM verifications
+       WHERE target_id = $1 AND target_type = 'WORKER'
+       ORDER BY submitted_at DESC
+       LIMIT 1`,
+      [userId],
+    );
+    const latestKyc = kycRes.rows[0];
+    const canonicalKycStatus = Boolean(worker.identity_verified)
+      ? "VERIFIED"
+      : latestKyc?.status || "NOT_SUBMITTED";
+
     // 1. Earnings Aggregation
     const earningsRes = await query<{
       today_earnings: string;
@@ -1144,6 +1157,8 @@ export class WorkersService {
         emailVerified: Boolean(worker.email),
         phoneVerified: Boolean(worker.mobile_verified),
         identityVerified: Boolean(worker.identity_verified),
+        kycStatus: canonicalKycStatus,
+        rejectionReason: latestKyc?.rejection_reason || null,
       },
     };
   }

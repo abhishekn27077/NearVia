@@ -41,6 +41,16 @@ router.patch(
 );
 
 /**
+ * @route PUT /api/v1/providers/me
+ * @desc Full update / save provider profile info
+ */
+router.put(
+  "/me",
+  validateRequest(updateProviderProfileSchema),
+  (req, res, next) => providersController.updateMe(req, res, next),
+);
+
+/**
  * @route PATCH /api/v1/providers/me/location
  * @desc Update provider spatial location
  */

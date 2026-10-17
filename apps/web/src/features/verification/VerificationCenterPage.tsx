@@ -113,6 +113,7 @@ export const VerificationCenterPage: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          targetType: user?.role === UserRole.PROVIDER ? "PROVIDER" : "WORKER",
           fileName: idFile.name,
           fileType: idFile.type,
           fileSize: idFile.size,

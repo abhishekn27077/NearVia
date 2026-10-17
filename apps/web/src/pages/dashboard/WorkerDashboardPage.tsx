@@ -16,6 +16,7 @@ import {
   Navigation,
   Award,
   Star,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -85,6 +86,8 @@ interface DashboardStats {
     emailVerified: boolean;
     phoneVerified: boolean;
     identityVerified: boolean;
+    kycStatus?: string;
+    rejectionReason?: string | null;
   };
 }
 
@@ -646,15 +649,42 @@ export const WorkerDashboardPage: React.FC = () => {
               <div>
                 <div className="text-xs font-bold text-slate-900">Identity Status</div>
                 <div className="text-[11px] text-slate-500">
-                  {stats?.verification?.identityVerified ? "Verified" : "Pending Review"}
+                  {stats?.verification?.identityVerified || stats?.verification?.kycStatus === "VERIFIED"
+                    ? "Verified via Government ID"
+                    : stats?.verification?.kycStatus === "PENDING"
+                    ? "Pending Admin Review"
+                    : stats?.verification?.kycStatus === "RESUBMISSION_REQUIRED"
+                    ? "Resubmission Requested"
+                    : stats?.verification?.kycStatus === "REJECTED"
+                    ? "Verification Rejected"
+                    : "Not Verified"}
                 </div>
               </div>
             </div>
-            {stats?.verification?.identityVerified ? (
+            {stats?.verification?.identityVerified || stats?.verification?.kycStatus === "VERIFIED" ? (
               <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 <span>Verified</span>
               </span>
+            ) : stats?.verification?.kycStatus === "PENDING" ? (
+              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-[11px] font-bold border border-amber-200">
+                <Clock className="w-3 h-3 text-amber-600" />
+                <span>Under Review</span>
+              </span>
+            ) : stats?.verification?.kycStatus === "RESUBMISSION_REQUIRED" ? (
+              <Link
+                to="/verification"
+                className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold transition-all shadow-xs"
+              >
+                Resubmit ID
+              </Link>
+            ) : stats?.verification?.kycStatus === "REJECTED" ? (
+              <Link
+                to="/verification"
+                className="px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition-all shadow-xs"
+              >
+                Reapply
+              </Link>
             ) : (
               <Link
                 to="/verification"

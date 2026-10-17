@@ -522,6 +522,7 @@ export class ProvidersService {
       const talentSql = `
         SELECT 
           wp.id AS worker_profile_id,
+          wp.user_id AS worker_user_id,
           COALESCE(
             (SELECT c.name FROM worker_skills ws 
              JOIN skills s ON s.id = ws.skill_id 
@@ -532,6 +533,8 @@ export class ProvidersService {
           COALESCE(wp.average_rating, 4.8) AS rating,
           COALESCE(wp.total_ratings_count, 0) AS total_ratings,
           COALESCE(wp.completed_tasks_count, 0) AS completed_tasks,
+          COALESCE(wp.experience_years, 1.0) AS experience_years,
+          COALESCE(wp.reliability_score, 98.0) AS reliability_score,
           COALESCE(wp.verified_badge, false) AS verified_badge,
           (u.phone IS NOT NULL) AS phone_verified,
           ROUND((ST_Distance(
@@ -628,10 +631,13 @@ export class ProvidersService {
         availableTalent: talentRes.rows.map((r, idx) => ({
           // Synthetic sequential ID: NEVER leaks real worker UUID or substring!
           id: `talent_${idx + 1}`,
+          workerUserId: r.worker_user_id,
           primarySkill: r.primary_skill,
           rating: Number(r.rating) || 4.8,
           totalRatings: parseInt(r.total_ratings || "0", 10),
           completedTasks: parseInt(r.completed_tasks || "0", 10),
+          experienceYears: Number(r.experience_years) || 1,
+          reliabilityScore: Number(r.reliability_score) || 98,
           verifiedBadge: Boolean(r.verified_badge),
           phoneVerified: Boolean(r.phone_verified),
           // Coarsened distance (0.5 km increments) to protect against triangulation
@@ -737,7 +743,7 @@ export class ProvidersService {
 
     // Verify worker exists and check user_id to prevent self-preference
     const wCheck = await query<{ id: string; user_id: string }>(
-      "SELECT id, user_id FROM worker_profiles WHERE id = $1",
+      "SELECT id, user_id FROM worker_profiles WHERE id = $1 OR user_id = $1",
       [workerId]
     );
     const workerRow = wCheck.rows[0];
@@ -754,7 +760,7 @@ export class ProvidersService {
        VALUES ($1, $2, $3)
        ON CONFLICT (provider_id, worker_id) DO UPDATE SET notes = COALESCE(EXCLUDED.notes, preferred_workers.notes)
        RETURNING id`,
-      [providerId, workerId, notes || null],
+      [providerId, workerRow.id, notes || null],
     );
 
     return { success: true, preferredId: res.rows[0]?.id || "pref_created" };

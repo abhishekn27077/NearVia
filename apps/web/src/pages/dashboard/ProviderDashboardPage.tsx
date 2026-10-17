@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Building,
   PlusCircle,
@@ -18,6 +18,10 @@ import {
   Clock,
   UserCheck,
   Compass,
+  MessageSquare,
+  BookmarkPlus,
+  Send,
+  X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { webConfig } from "../../config";
@@ -40,10 +44,13 @@ interface LocalityCluster {
 
 export interface AvailableTalent {
   id: string;
+  workerUserId?: string;
   primarySkill: string;
   rating: number;
   totalRatings: number;
   completedTasks: number;
+  experienceYears?: number;
+  reliabilityScore?: number;
   verifiedBadge: boolean;
   phoneVerified: boolean;
   distanceKm: number;
@@ -91,12 +98,21 @@ interface ProviderReputation {
 }
 
 export const ProviderDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [radar, setRadar] = useState<WorkforceRadarData | null>(null);
   const [preferredWorkers, setPreferredWorkers] = useState<PreferredWorker[]>([]);
   const [reputation, setReputation] = useState<ProviderReputation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRadius, setSelectedRadius] = useState<number>(5.0);
+
+  // Available Talent Action / Modal State
+  const [selectedTalent, setSelectedTalent] = useState<AvailableTalent | null>(null);
+  const [talentActionLoading, setTalentActionLoading] = useState(false);
+  const [talentActionSuccess, setTalentActionSuccess] = useState<string | null>(null);
+  const [talentActionError, setTalentActionError] = useState<string | null>(null);
+  const [urgentMessageNote, setUrgentMessageNote] = useState("");
+  const [showDirectInviteBox, setShowDirectInviteBox] = useState(false);
 
   // Instant Job Modal State
   const [showInstantJobModal, setShowInstantJobModal] = useState(false);
@@ -111,6 +127,70 @@ export const ProviderDashboardPage: React.FC = () => {
 
   // Categories list for instant job dropdown
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+
+  const handleOpenTalentModal = (talent: AvailableTalent) => {
+    setSelectedTalent(talent);
+    setTalentActionLoading(false);
+    setTalentActionSuccess(null);
+    setTalentActionError(null);
+    setShowDirectInviteBox(false);
+    setUrgentMessageNote("");
+  };
+
+  const handleMessageWorker = async (talent: AvailableTalent, initialMessage?: string) => {
+    if (!talent.workerUserId) {
+      setTalentActionError("Worker communication channel unavailable.");
+      return;
+    }
+    setTalentActionLoading(true);
+    setTalentActionError(null);
+    try {
+      const res = await apiFetch("/messages/conversations", {
+        method: "POST",
+        body: JSON.stringify({ workerUserId: talent.workerUserId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to start conversation with worker.");
+      }
+      const conversationId = data.data.id;
+
+      if (initialMessage && initialMessage.trim()) {
+        await apiFetch(`/messages/conversations/${conversationId}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ content: initialMessage.trim() }),
+        });
+      }
+
+      navigate(`/messages/${conversationId}`);
+    } catch (err: any) {
+      console.error("Failed to message worker:", err);
+      setTalentActionError(err.message || "Failed to start chat.");
+      setTalentActionLoading(false);
+    }
+  };
+
+  const handleAddPreferredFromTalent = async (talent: AvailableTalent) => {
+    if (!talent.workerUserId) return;
+    setTalentActionLoading(true);
+    setTalentActionError(null);
+    try {
+      const res = await apiFetch(`/providers/me/preferred-workers/${talent.workerUserId}`, {
+        method: "POST",
+        body: JSON.stringify({ notes: `Added from Live Radar (${talent.primarySkill})` }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to save preferred worker.");
+      }
+      setTalentActionSuccess("Added to Preferred Workers list!");
+      fetchDashboardData();
+    } catch (err: any) {
+      setTalentActionError(err.message || "Failed to add preferred worker.");
+    } finally {
+      setTalentActionLoading(false);
+    }
+  };
 
   const fetchDashboardData = useCallback(() => {
     setIsLoading(true);
@@ -381,11 +461,12 @@ export const ProviderDashboardPage: React.FC = () => {
               {radar.availableTalent.map((talent) => (
                 <div
                   key={talent.id}
-                  className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-2 hover:border-orange-300 transition-all card-premium"
+                  onClick={() => handleOpenTalentModal(talent)}
+                  className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-2 hover:border-orange-500 hover:shadow-md transition-all card-premium cursor-pointer group"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="text-xs font-black text-slate-900 line-clamp-1 font-display-title">
+                      <div className="text-xs font-black text-slate-900 line-clamp-1 font-display-title group-hover:text-orange-600 transition-colors">
                         {talent.primarySkill}
                       </div>
                       <div className="text-[11px] text-slate-500 flex items-center space-x-1 mt-0.5">
@@ -415,6 +496,11 @@ export const ProviderDashboardPage: React.FC = () => {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       <span>Online</span>
                     </span>
+                  </div>
+
+                  <div className="pt-1.5 flex items-center justify-between text-[10px] font-bold text-orange-600 group-hover:text-orange-700">
+                    <span>View Profile & Contact</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
               ))}
@@ -885,6 +971,187 @@ export const ProviderDashboardPage: React.FC = () => {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 7. Available Worker Talent Action & Contact Modal */}
+      {selectedTalent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Available Online Now
+                  </span>
+                </div>
+                <h3 className="font-black text-slate-900 text-lg font-display-title">
+                  {selectedTalent.primarySkill}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTalent(null)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Notifications / Errors */}
+            {talentActionError && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center space-x-2">
+                <span>⚠️ {talentActionError}</span>
+              </div>
+            )}
+            {talentActionSuccess && (
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{talentActionSuccess}</span>
+              </div>
+            )}
+
+            {/* 4 Key Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-center space-y-0.5">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Rating</div>
+                <div className="text-sm font-black text-slate-900 flex items-center justify-center space-x-1">
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  <span>{Number(selectedTalent.rating).toFixed(1)}</span>
+                </div>
+                <div className="text-[9px] text-slate-400">({selectedTalent.totalRatings} reviews)</div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-center space-y-0.5">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Reliability</div>
+                <div className="text-sm font-black text-emerald-600">
+                  {selectedTalent.reliabilityScore || 98}%
+                </div>
+                <div className="text-[9px] text-slate-400">Attendance</div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-center space-y-0.5">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Experience</div>
+                <div className="text-sm font-black text-slate-900">
+                  {selectedTalent.experienceYears || 1} Yrs
+                </div>
+                <div className="text-[9px] text-slate-400">Trade practice</div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-center space-y-0.5">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Jobs Done</div>
+                <div className="text-sm font-black text-slate-900">
+                  {selectedTalent.completedTasks}
+                </div>
+                <div className="text-[9px] text-slate-400">Completed</div>
+              </div>
+            </div>
+
+            {/* Location & Privacy Banner */}
+            <div className="p-3.5 rounded-2xl bg-orange-50/70 border border-orange-200/80 space-y-1.5 text-xs">
+              <div className="flex items-center space-x-2 text-slate-800 font-bold">
+                <MapPin className="w-4 h-4 text-orange-600 shrink-0" />
+                <span>{selectedTalent.areaName}</span>
+                <span className="text-orange-700 font-black">· ~{selectedTalent.distanceKm} km away</span>
+              </div>
+              <div className="flex items-center space-x-1.5 text-[10px] text-slate-500 font-medium">
+                <Shield className="w-3 h-3 text-slate-400 shrink-0" />
+                <span>Privacy-Protected: Exact personal GPS tracking is kept strictly private.</span>
+              </div>
+            </div>
+
+            {/* Verification Badges */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {selectedTalent.verifiedBadge ? (
+                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 font-bold border border-blue-200 text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Government ID Verified</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-500 font-medium text-[11px]">
+                  <span>ID Pending Verification</span>
+                </span>
+              )}
+              {selectedTalent.phoneVerified && (
+                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[11px]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Phone Verified</span>
+                </span>
+              )}
+            </div>
+
+            {/* Direct Urgent Task Invite Box */}
+            {showDirectInviteBox ? (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-black text-slate-900 flex items-center space-x-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>Send Direct Urgent Offer</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDirectInviteBox(false)}
+                    className="text-[10px] text-slate-500 hover:text-slate-700 font-bold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <textarea
+                  value={urgentMessageNote}
+                  onChange={(e) => setUrgentMessageNote(e.target.value)}
+                  placeholder={`Hi, I have an urgent requirement for ${selectedTalent.primarySkill}. Can you assist today? Details: ...`}
+                  rows={3}
+                  className="w-full p-2.5 rounded-xl border border-amber-300 text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white text-slate-900"
+                />
+                <button
+                  type="button"
+                  disabled={talentActionLoading || !urgentMessageNote.trim()}
+                  onClick={() => handleMessageWorker(selectedTalent, urgentMessageNote)}
+                  className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 text-xs font-black transition-all flex items-center justify-center space-x-1.5 shadow-sm"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{talentActionLoading ? "Sending..." : "Dispatch Urgent Offer & Open Chat"}</span>
+                </button>
+              </div>
+            ) : null}
+
+            {/* Action Buttons */}
+            <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-2.5">
+              <button
+                type="button"
+                disabled={talentActionLoading}
+                onClick={() => handleMessageWorker(selectedTalent)}
+                className="w-full sm:flex-1 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-xs font-black transition-all shadow-md shadow-orange-600/20 flex items-center justify-center space-x-1.5 btn-tactile active:scale-95"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>{talentActionLoading ? "Connecting..." : "Message Worker"}</span>
+              </button>
+
+              {!showDirectInviteBox && (
+                <button
+                  type="button"
+                  onClick={() => setShowDirectInviteBox(true)}
+                  className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold transition-all flex items-center justify-center space-x-1.5"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  <span>Urgent Invite</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={talentActionLoading}
+                onClick={() => handleAddPreferredFromTalent(selectedTalent)}
+                className="w-full sm:w-auto px-3.5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center justify-center space-x-1.5"
+                title="Save as Preferred Worker"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5 text-slate-600" />
+                <span className="sm:hidden">Save as Preferred</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

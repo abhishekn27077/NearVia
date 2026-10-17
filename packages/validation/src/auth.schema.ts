@@ -183,9 +183,29 @@ export const requestResubmissionSchema = z
     reason: z
       .string()
       .min(5, "Resubmission instructions must be at least 5 characters")
-      .max(500),
+      .max(500)
+      .optional(),
+    instructions: z
+      .string()
+      .min(5, "Resubmission instructions must be at least 5 characters")
+      .max(500)
+      .optional(),
   })
-  .strict();
+  .refine(
+    (data) =>
+      Boolean(
+        (data.reason && data.reason.trim().length >= 5) ||
+        (data.instructions && data.instructions.trim().length >= 5),
+      ),
+    {
+      message: "Resubmission instructions/reason must be at least 5 characters",
+      path: ["reason"],
+    },
+  )
+  .transform((data) => ({
+    reason: (data.reason || data.instructions)!.trim(),
+    instructions: (data.instructions || data.reason)!.trim(),
+  }));
 
 export type UserRoleInput = z.infer<typeof userRoleSchema>;
 export type PublicUserRoleInput = z.infer<typeof publicUserRoleSchema>;
