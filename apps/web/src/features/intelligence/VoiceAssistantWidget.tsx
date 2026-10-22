@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { VoiceAssistanceResponse, LowLiteracyCard } from "@nearvia/types";
+import { apiFetch, parseApiResponse } from "../../utils/apiClient";
 
 interface VoiceAssistantWidgetProps {
   onNavigate?: (route: string) => void;
@@ -80,17 +81,12 @@ export const VoiceAssistantWidget: React.FC<VoiceAssistantWidgetProps> = ({
   const sendVoiceToServer = async (text: string) => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem("nearvia_auth_token") || localStorage.getItem("token");
-      const res = await fetch("/api/v1/intelligence/voice/process", {
+      const res = await apiFetch("/intelligence/voice/process", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ transcript: text }),
       });
 
-      const data = await res.json();
+      const data = await parseApiResponse<VoiceAssistanceResponse>(res);
       if (data.success && data.data) {
         setResponse(data.data);
         speakText(data.data.spokenResponse, data.data.languageCode);

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Sparkles, Mic, ArrowRight, CheckCircle, AlertCircle, RefreshCw, X, HelpCircle } from "lucide-react";
 import { NLJobParseResult } from "@nearvia/types";
+import { apiFetch, parseApiResponse } from "../../utils/apiClient";
 
 interface SmartJobDraftModalProps {
   isOpen: boolean;
@@ -39,15 +40,14 @@ export const SmartJobDraftModal: React.FC<SmartJobDraftModalProps> = ({
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/v1/intelligence/jobs/parse-nl", {
+      const res = await apiFetch("/intelligence/jobs/parse-nl", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Could not parse job description.");
+      const data = await parseApiResponse<NLJobParseResult>(res);
+      if (!data.success || !data.data) {
+        throw new Error(data.error?.message || "Could not parse job description.");
       }
 
       setParseResult(data.data);

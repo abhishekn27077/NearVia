@@ -18,7 +18,7 @@ export function getPoolConfig(): PoolConfig {
         env.NODE_ENV === "production"
           ? { rejectUnauthorized: false }
           : false,
-      max: 20,
+      max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
     };

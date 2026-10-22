@@ -305,4 +305,134 @@ describe("Phase 13: Agent-Assisted Job Access Module", () => {
       expect(auditRecorded).toBe(true);
     });
   });
+
+  describe("P0 Regression: Flexible Lookup & Consent Lifecycle Safeguards", () => {
+    it("should allow requesting access using a formatted phone number (+91 98765-43210)", async () => {
+      let lookupExecuted = false;
+      vi.mocked(db.query).mockImplementation(async (sql: string) => {
+        if (sql.includes("FROM agent_profiles WHERE user_id")) {
+          return { rowCount: 1, rows: [{ id: agentProfileId }] } as any;
+        }
+        if (sql.includes("FROM users") && !sql.includes("JOIN worker_profiles")) {
+          return { rowCount: 1, rows: [{ id: workerUserId }] } as any;
+        }
+        if (sql.includes("FROM users u") && sql.includes("JOIN worker_profiles")) {
+          lookupExecuted = true;
+          return {
+            rowCount: 1,
+            rows: [{ worker_id: workerProfileId, user_id: workerUserId, full_name: "Suresh Plumber", phone: workerPhone }],
+          } as any;
+        }
+        if (sql.includes("FROM agent_worker_relationships WHERE agent_id")) {
+          return { rowCount: 0, rows: [] } as any;
+        }
+        if (sql.includes("INSERT INTO agent_worker_relationships")) {
+          return { rowCount: 1, rows: [] } as any;
+        }
+        if (sql.includes("INSERT INTO notifications") || sql.includes("INSERT INTO audit_logs")) {
+          return { rowCount: 1, rows: [] } as any;
+        }
+        return {
+          rowCount: 1,
+          rows: [
+            {
+              id: "rel-101",
+              agent_id: agentProfileId,
+              worker_id: workerProfileId,
+              status: "PENDING",
+              requested_at: new Date().toISOString(),
+              accepted_at: null,
+              revoked_at: null,
+              worker_user_id: workerUserId,
+              worker_full_name: "Suresh Plumber",
+              worker_phone: workerPhone,
+            },
+          ],
+        } as any;
+      });
+
+      const rel = await agentsService.requestWorkerAccess(agentUserId, {
+        workerPhone: "+91 98765-43210",
+        consentConfirmed: true,
+      });
+
+      expect(lookupExecuted).toBe(true);
+      expect(rel.workerId).toBe(workerProfileId);
+      expect(rel.status).toBe("PENDING");
+    });
+
+    it("should allow requesting access using worker profile UUID or user UUID", async () => {
+      let lookupExecuted = false;
+      vi.mocked(db.query).mockImplementation(async (sql: string) => {
+        if (sql.includes("FROM agent_profiles WHERE user_id")) {
+          return { rowCount: 1, rows: [{ id: agentProfileId }] } as any;
+        }
+        if (sql.includes("SELECT user_id FROM worker_profiles")) {
+          return { rowCount: 1, rows: [{ user_id: workerUserId }] } as any;
+        }
+        if (sql.includes("FROM worker_profiles wp")) {
+          lookupExecuted = true;
+          return {
+            rowCount: 1,
+            rows: [{ worker_id: workerProfileId, user_id: workerUserId, full_name: "Suresh Plumber", phone: workerPhone }],
+          } as any;
+        }
+        if (sql.includes("FROM agent_worker_relationships WHERE agent_id")) {
+          return { rowCount: 0, rows: [] } as any;
+        }
+        if (sql.includes("INSERT INTO agent_worker_relationships")) {
+          return { rowCount: 1, rows: [] } as any;
+        }
+        if (sql.includes("INSERT INTO notifications") || sql.includes("INSERT INTO audit_logs")) {
+          return { rowCount: 1, rows: [] } as any;
+        }
+        return {
+          rowCount: 1,
+          rows: [
+            {
+              id: "rel-101",
+              agent_id: agentProfileId,
+              worker_id: workerProfileId,
+              status: "PENDING",
+              requested_at: new Date().toISOString(),
+              accepted_at: null,
+              revoked_at: null,
+              worker_user_id: workerUserId,
+              worker_full_name: "Suresh Plumber",
+              worker_phone: workerPhone,
+            },
+          ],
+        } as any;
+      });
+
+      const rel = await agentsService.requestWorkerAccess(agentUserId, {
+        workerId: workerProfileId,
+        consentConfirmed: true,
+      });
+
+      expect(lookupExecuted).toBe(true);
+      expect(rel.workerId).toBe(workerProfileId);
+      expect(rel.status).toBe("PENDING");
+    });
+
+    it("should strictly reject agent attempting self-relationship", async () => {
+      vi.mocked(db.query).mockImplementation(async (sql: string) => {
+        if (sql.includes("FROM agent_profiles WHERE user_id")) {
+          return { rowCount: 1, rows: [{ id: agentProfileId }] } as any;
+        }
+        if (sql.includes("FROM users") && !sql.includes("JOIN worker_profiles")) {
+          return { rowCount: 1, rows: [{ id: agentUserId }] } as any;
+        }
+        return { rowCount: 0, rows: [] } as any;
+      });
+
+      await expect(
+        agentsService.requestWorkerAccess(agentUserId, {
+          workerPhone: "+919999900000",
+          consentConfirmed: true,
+        })
+      ).rejects.toThrow("You cannot establish an agent-worker relationship with yourself");
+    });
+  });
 });
+

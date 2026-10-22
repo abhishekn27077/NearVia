@@ -13,6 +13,7 @@ import {
   X,
   Info,
 } from "lucide-react";
+import { apiFetch, parseApiResponse } from "../../utils/apiClient";
 
 interface DiscoveredJob {
   id: string;
@@ -63,15 +64,12 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
 
   const handleExplainJob = async (jobId: string) => {
     try {
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/agents/workers/${workerId}/work/${jobId}`, {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to load job details");
+      const res = await apiFetch(`/agents/workers/${workerId}/work/${jobId}`);
+      const result = await parseApiResponse(res);
+      if (!result.success || !result.data) {
+        throw new Error(result.error?.message || "Failed to load job details");
       }
-      setExplainJob(data.data);
+      setExplainJob(result.data);
     } catch (err: any) {
       alert(err.message || "Failed to load job details");
     }
@@ -83,15 +81,13 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const headers = { Authorization: token ? `Bearer ${token}` : "" };
 
       // Fetch worker name if not set
       if (!workerName) {
-        const workerRes = await fetch(`/api/v1/agents/workers/${workerId}`, { headers });
-        const workerJson = await workerRes.json();
-        if (workerRes.ok && workerJson.success) {
-          setWorkerName(workerJson.data.fullName);
+        const workerRes = await apiFetch(`/agents/workers/${workerId}`);
+        const workerResult = await parseApiResponse<any>(workerRes);
+        if (workerResult.success && workerResult.data?.fullName) {
+          setWorkerName(workerResult.data.fullName);
         }
       }
 
@@ -101,14 +97,12 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
       if (workType) queryParams.set("workType", workType);
       if (sort) queryParams.set("sort", sort);
 
-      const res = await fetch(`/api/v1/agents/workers/${workerId}/work?${queryParams.toString()}`, {
-        headers,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to discover nearby work for worker");
+      const res = await apiFetch(`/agents/workers/${workerId}/work?${queryParams.toString()}`);
+      const result = await parseApiResponse<any>(res);
+      if (!result.success || !result.data) {
+        throw new Error(result.error?.message || "Failed to discover nearby work for worker");
       }
-      setOpportunities(data.data.opportunities || []);
+      setOpportunities(result.data.opportunities || []);
     } catch (err: any) {
       setError(err.message || "Failed to discover work");
     } finally {
@@ -143,7 +137,7 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
 
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedJob || !workerId) return;
+    if (!selectedJob || !workerId || submitting) return;
     if (!consentConfirmed) {
       setSubmitError("You must confirm worker consent before submitting.");
       return;
@@ -152,13 +146,8 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
     try {
       setSubmitting(true);
       setSubmitError(null);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/agents/workers/${workerId}/apply`, {
+      const res = await apiFetch(`/agents/workers/${workerId}/apply`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
         body: JSON.stringify({
           workOpportunityId: selectedJob.id,
           proposedWage: proposedWage ? parseFloat(proposedWage) : undefined,
@@ -167,9 +156,9 @@ export const AgentWorkDiscoveryPage: React.FC = () => {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to submit assisted application");
+      const result = await parseApiResponse(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to submit assisted application");
       }
 
       setSubmitSuccess("Application successfully submitted on behalf of the worker!");

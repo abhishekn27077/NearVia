@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { CandidateRecommendation } from "@nearvia/types";
 import { RecommendationFeedback } from "./RecommendationFeedback";
+import { apiFetch, parseApiResponse } from "../../utils/apiClient";
 
 interface RecommendedCandidatesTabProps {
   workOpportunityId: string;
@@ -31,16 +32,10 @@ export const RecommendedCandidatesTab: React.FC<RecommendedCandidatesTabProps> =
   const fetchCandidates = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("nearvia_auth_token") || localStorage.getItem("token") || "";
-      const res = await fetch(`/api/v1/intelligence/jobs/${workOpportunityId}/candidates`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      if (data.success && data.data?.candidates) {
-        setCandidates(data.data.candidates);
+      const res = await apiFetch(`/intelligence/jobs/${workOpportunityId}/candidates`);
+      const result = await parseApiResponse<{ candidates: CandidateRecommendation[] }>(res);
+      if (result.success && result.data?.candidates) {
+        setCandidates(result.data.candidates);
       }
     } catch (err) {
       console.error("Failed to load recommended candidates", err);

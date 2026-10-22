@@ -21,6 +21,34 @@ import {
 } from "./types";
 
 export class AgentsService {
+  /**
+   * Retrieves or initializes agent_profiles record for the authenticated user.
+   */
+  public async getOrCreateAgentProfile(userId: string): Promise<string> {
+    try {
+      const existing = await query<{ id: string }>(
+        "SELECT id FROM agent_profiles WHERE user_id = $1",
+        [userId],
+      );
+
+      if (existing?.rows && existing.rows.length > 0 && existing.rows[0]) {
+        return existing.rows[0].id;
+      }
+
+      const result = await query<{ id: string }>(
+        `INSERT INTO agent_profiles (user_id, assigned_area, active_status, location, address_approximate)
+         VALUES ($1, 'Central Bangalore', TRUE, ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326)::geography, 'Bangalore Urban, Karnataka')
+         ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+         RETURNING id`,
+        [userId],
+      );
+
+      return result?.rows?.[0]?.id || "";
+    } catch {
+      return "";
+    }
+  }
+
   // ──────────────────────────────────────────────────
   // AGENT PROFILE
   // ──────────────────────────────────────────────────
@@ -36,7 +64,21 @@ export class AgentsService {
        WHERE ap.user_id = $1`,
       [agentUserId]
     );
-    const row = res.rows[0];
+    let row = res?.rows?.[0];
+    if (!row) {
+      await this.getOrCreateAgentProfile(agentUserId);
+      const retryRes = await query(
+        `SELECT ap.id, ap.user_id, u.full_name, u.phone,
+                ap.assigned_area, ap.description, ap.languages,
+                ap.address_approximate, ap.verified_workers_count,
+                ap.active_status, ap.created_at
+         FROM agent_profiles ap
+         JOIN users u ON ap.user_id = u.id
+         WHERE ap.user_id = $1`,
+        [agentUserId]
+      );
+      row = retryRes?.rows?.[0];
+    }
     if (!row) throw new AppError("Agent profile not found. Ensure your account has the AGENT role.", 404);
 
     return {
@@ -105,8 +147,12 @@ export class AgentsService {
     agentUserId: string,
     params: string | { workerPhone?: string; workerId?: string; consentConfirmed?: boolean }
   ): Promise<AgentWorkerRelationshipResponse> {
-    // 1. Resolve agent profile
-    const agentRes = await query(`SELECT id FROM agent_profiles WHERE user_id = $1`, [agentUserId]);
+    // 1. Resolve agent profile (idempotent fallback if missing)
+    let agentRes = await query(`SELECT id FROM agent_profiles WHERE user_id = $1`, [agentUserId]);
+    if (!agentRes.rows[0]) {
+      const agentProfileId = await this.getOrCreateAgentProfile(agentUserId);
+      agentRes = await query(`SELECT id FROM agent_profiles WHERE id = $1`, [agentProfileId]);
+    }
     const agent = agentRes.rows[0];
     if (!agent) throw new AppError("Agent profile not found", 404);
 
@@ -116,8 +162,22 @@ export class AgentsService {
     const consentConfirmed = typeof params === "object" ? params.consentConfirmed : undefined;
 
     // 2. Find worker by phone or ID
-    if (workerPhone) {
-      const userRes = await query<{ id: string }>(`SELECT id FROM users WHERE phone = $1`, [workerPhone]);
+    if (workerPhone && workerPhone.trim().length > 0) {
+      const trimmedPhone = workerPhone.trim();
+      const cleanDigits = trimmedPhone.replace(/[\s\-()]/g, "");
+      const normalizedWithPlus = cleanDigits.startsWith("+")
+        ? cleanDigits
+        : cleanDigits.startsWith("91")
+        ? `+${cleanDigits}`
+        : `+91${cleanDigits}`;
+      const rawTenDigit = cleanDigits.replace(/^\+?91/, "");
+
+      const userRes = await query<{ id: string }>(
+        `SELECT id FROM users 
+         WHERE phone = $1 OR phone = $2 OR phone = $3 
+            OR RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = $4`,
+        [trimmedPhone, cleanDigits, normalizedWithPlus, rawTenDigit]
+      );
       if (userRes.rows[0]?.id === agentUserId) {
         throw new AppError("You cannot establish an agent-worker relationship with yourself", 400, ErrorCode.VALIDATION_ERROR);
       }
@@ -126,13 +186,18 @@ export class AgentsService {
         `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
          FROM users u
          JOIN worker_profiles wp ON wp.user_id = u.id
-         WHERE u.phone = $1 AND u.role = 'WORKER'`,
-        [workerPhone]
+         WHERE (u.phone = $1 OR u.phone = $2 OR u.phone = $3 OR RIGHT(REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g'), 10) = $4)
+           AND u.role = 'WORKER'`,
+        [trimmedPhone, cleanDigits, normalizedWithPlus, rawTenDigit]
       );
       worker = workerRes.rows[0];
       if (!worker) throw new AppError("No worker found with this phone number", 404);
-    } else if (workerId) {
-      const wpUserRes = await query<{ user_id: string }>(`SELECT user_id FROM worker_profiles WHERE id = $1`, [workerId]);
+    } else if (workerId && workerId.trim().length > 0) {
+      const trimmedId = workerId.trim();
+      const wpUserRes = await query<{ user_id: string }>(
+        `SELECT user_id FROM worker_profiles WHERE id::text = $1 OR user_id::text = $1`,
+        [trimmedId]
+      );
       if (wpUserRes.rows[0]?.user_id === agentUserId) {
         throw new AppError("You cannot establish an agent-worker relationship with yourself", 400, ErrorCode.VALIDATION_ERROR);
       }
@@ -141,8 +206,9 @@ export class AgentsService {
         `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
          FROM worker_profiles wp
          JOIN users u ON wp.user_id = u.id
-         WHERE wp.id = $1 AND u.role = 'WORKER'`,
-        [workerId]
+         WHERE (wp.id::text = $1 OR wp.user_id::text = $1)
+           AND u.role = 'WORKER'`,
+        [trimmedId]
       );
       worker = workerRes.rows[0];
       if (!worker) throw new AppError("No worker found with this ID", 404);
@@ -202,7 +268,11 @@ export class AgentsService {
   }
 
   async getMyWorkers(agentUserId: string): Promise<AgentWorkerRelationshipResponse[]> {
-    const agentRes = await query(`SELECT id FROM agent_profiles WHERE user_id = $1`, [agentUserId]);
+    let agentRes = await query(`SELECT id FROM agent_profiles WHERE user_id = $1`, [agentUserId]);
+    if (!agentRes.rows[0]) {
+      const agentProfileId = await this.getOrCreateAgentProfile(agentUserId);
+      agentRes = await query(`SELECT id FROM agent_profiles WHERE id = $1`, [agentProfileId]);
+    }
     const agent = agentRes.rows[0];
     if (!agent) throw new AppError("Agent profile not found", 404);
 
@@ -632,10 +702,7 @@ export class AgentsService {
 
   /** Resolves agent_profiles.id from users.id */
   private async getAgentProfileId(agentUserId: string): Promise<string> {
-    const res = await query(`SELECT id FROM agent_profiles WHERE user_id = $1`, [agentUserId]);
-    const row = res.rows[0];
-    if (!row) throw new AppError("Agent profile not found", 404);
-    return row.id;
+    return this.getOrCreateAgentProfile(agentUserId);
   }
 
   /** Records an audit entry in audit_logs */

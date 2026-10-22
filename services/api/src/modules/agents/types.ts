@@ -41,10 +41,10 @@ export interface AgentWorkerRelationshipResponse {
 }
 
 export const requestWorkerAccessSchema = z.object({
-  workerPhone: z.string().min(10).max(20).optional(),
-  workerId: z.string().uuid().optional(),
+  workerPhone: z.string().min(8).max(30).optional(),
+  workerId: z.string().min(1).max(64).optional(),
   consentConfirmed: z.boolean().optional(),
-}).refine((data) => data.workerPhone || data.workerId, {
+}).refine((data) => (data.workerPhone && data.workerPhone.trim().length > 0) || (data.workerId && data.workerId.trim().length > 0), {
   message: "Either workerPhone or workerId must be provided",
 });
 

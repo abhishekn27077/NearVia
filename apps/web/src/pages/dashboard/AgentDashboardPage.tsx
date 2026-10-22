@@ -12,6 +12,7 @@ import {
   Info,
   Compass,
 } from "lucide-react";
+import { apiFetch, parseApiResponse } from "../../utils/apiClient";
 
 interface WorkerRelationship {
   id: string;
@@ -29,6 +30,7 @@ interface WorkerRelationship {
 export const AgentDashboardPage: React.FC = () => {
   const [workers, setWorkers] = useState<WorkerRelationship[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "PENDING" | "REVOKED">("ALL");
 
   // Connect worker state
@@ -43,17 +45,16 @@ export const AgentDashboardPage: React.FC = () => {
   const fetchWorkers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch("/api/v1/agents/workers", {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to load assisted workers");
+      setLoadingError(null);
+      const res = await apiFetch("/agents/workers");
+      const result = await parseApiResponse<WorkerRelationship[]>(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to load assisted workers");
       }
-      setWorkers(data.data || []);
+      setWorkers(result.data || []);
     } catch (err: any) {
-      console.error(err);
+      console.error("[AgentDashboard] fetchWorkers error:", err);
+      setLoadingError(err.message || "Failed to load assisted workers. Please retry.");
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,7 @@ export const AgentDashboardPage: React.FC = () => {
 
   const handleRequestAccess = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputVal.trim()) return;
+    if (!inputVal.trim() || requesting) return;
     if (!consentConfirmed) {
       setRequestError("You must confirm that the worker has given verbal or written consent.");
       return;
@@ -76,24 +77,19 @@ export const AgentDashboardPage: React.FC = () => {
       setRequestError(null);
       setRequestSuccess(null);
 
-      const token = localStorage.getItem("nearvia_auth_token");
       const body =
         identifierType === "phone"
           ? { workerPhone: inputVal.trim(), consentConfirmed: true }
           : { workerId: inputVal.trim(), consentConfirmed: true };
 
-      const res = await fetch("/api/v1/agents/workers/request", {
+      const res = await apiFetch("/agents/workers/request", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to request worker access");
+      const result = await parseApiResponse(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to request worker access");
       }
 
       setRequestSuccess("Assistance request sent to worker. They will see it in their portal.");
@@ -111,14 +107,12 @@ export const AgentDashboardPage: React.FC = () => {
     if (!window.confirm("Are you sure you want to revoke assistance for this worker?")) return;
     try {
       setActionLoadingId(workerId);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/agents/workers/${workerId}`, {
+      const res = await apiFetch(`/agents/workers/${workerId}`, {
         method: "DELETE",
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to revoke worker access");
+      const result = await parseApiResponse(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to revoke worker access");
       }
       fetchWorkers();
     } catch (err: any) {
@@ -127,6 +121,7 @@ export const AgentDashboardPage: React.FC = () => {
       setActionLoadingId(null);
     }
   };
+
 
   const activeCount = workers.filter((w) => w.status === "ACTIVE").length;
   const pendingCount = workers.filter((w) => w.status === "PENDING").length;
@@ -295,8 +290,24 @@ export const AgentDashboardPage: React.FC = () => {
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-xs font-bold text-slate-500">
-              Loading worker portfolio...
+            <div className="py-12 text-center text-xs font-bold text-slate-500 flex items-center justify-center space-x-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-orange-600" />
+              <span>Loading worker portfolio...</span>
+            </div>
+          ) : loadingError ? (
+            <div className="py-8 text-center space-y-3">
+              <div className="p-4 max-w-md mx-auto rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{loadingError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchWorkers()}
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs inline-flex items-center space-x-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry Loading</span>
+              </button>
             </div>
           ) : filteredWorkers.length === 0 ? (
             <div className="text-center py-12 text-xs text-slate-400 font-medium">

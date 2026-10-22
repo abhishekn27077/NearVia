@@ -12,6 +12,7 @@ import {
   AlertCircle,
   ArrowLeft,
 } from "lucide-react";
+import { apiFetch, parseApiResponse } from "../../utils/apiClient";
 
 interface AgentRelationship {
   id: string;
@@ -38,16 +39,14 @@ export const WorkerAgentsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch("/api/v1/workers/me/agents", {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to load agent relationships");
+      const res = await apiFetch("/workers/me/agents");
+      const result = await parseApiResponse<AgentRelationship[]>(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to load agent relationships");
       }
-      setAgents(data.data || []);
+      setAgents(result.data || []);
     } catch (err: any) {
+      console.error("[WorkerAgentsPage] fetchAgents error:", err);
       setError(err.message || "Failed to load agents");
     } finally {
       setLoading(false);
@@ -61,14 +60,12 @@ export const WorkerAgentsPage: React.FC = () => {
   const handleAccept = async (relId: string) => {
     try {
       setActionLoading(relId);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/workers/me/agents/${relId}/accept`, {
+      const res = await apiFetch(`/workers/me/agents/${relId}/accept`, {
         method: "POST",
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to accept request");
+      const result = await parseApiResponse(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to accept request");
       }
       fetchAgents();
     } catch (err: any) {
@@ -82,14 +79,12 @@ export const WorkerAgentsPage: React.FC = () => {
     if (!confirm("Are you sure you want to revoke this agent's assistance access?")) return;
     try {
       setActionLoading(relId);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/workers/me/agents/${relId}/revoke`, {
+      const res = await apiFetch(`/workers/me/agents/${relId}/revoke`, {
         method: "POST",
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to revoke agent");
+      const result = await parseApiResponse(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to revoke agent");
       }
       fetchAgents();
     } catch (err: any) {

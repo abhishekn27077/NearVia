@@ -124,3 +124,65 @@ export async function apiFetch(
 
   return response;
 }
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code?: string;
+    message: string;
+    details?: any;
+  };
+  message?: string;
+}
+
+/**
+ * Safely parses any HTTP response without throwing "Unexpected end of JSON input".
+ * Handles JSON, empty bodies, non-JSON text, and HTTP error statuses consistently.
+ */
+export async function parseApiResponse<T = any>(
+  response: Response,
+): Promise<ApiResponse<T>> {
+  const contentType = response.headers.get("content-type") || "";
+  let payload: any = null;
+
+  try {
+    const text = await response.text();
+    if (text && text.trim().length > 0) {
+      if (contentType.includes("application/json")) {
+        payload = JSON.parse(text);
+      } else {
+        payload = { message: text };
+      }
+    }
+  } catch (err: any) {
+    console.warn("[apiClient] Failed to parse response body text:", err);
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const errorMsg =
+      payload?.error?.message ||
+      payload?.message ||
+      (response.status === 404
+        ? "Requested resource was not found."
+        : response.status === 403
+        ? "You do not have permission to perform this action."
+        : response.status === 401
+        ? "Session expired. Please sign in again."
+        : response.status === 405
+        ? "Operation not allowed."
+        : `Request failed with HTTP ${response.status}`);
+
+    return {
+      success: false,
+      error: { message: errorMsg },
+    };
+  }
+
+  if (payload && typeof payload === "object") {
+    return payload;
+  }
+
+  return { success: true, data: payload as T };
+}

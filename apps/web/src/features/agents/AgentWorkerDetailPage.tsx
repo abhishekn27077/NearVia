@@ -13,6 +13,7 @@ import {
   Layers,
   X,
 } from "lucide-react";
+import { apiFetch, parseApiResponse } from "../../utils/apiClient";
 
 interface WorkerDetail {
   workerId: string;
@@ -79,13 +80,10 @@ export const AgentWorkerDetailPage: React.FC = () => {
 
   const handleCoordinate = async (assignmentId: string) => {
     try {
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/agents/workers/${workerId}/assignments/${assignmentId}`, {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSelectedCoordination(data.data);
+      const res = await apiFetch(`/agents/workers/${workerId}/assignments/${assignmentId}`);
+      const result = await parseApiResponse(res);
+      if (result.success && result.data) {
+        setSelectedCoordination(result.data);
       }
     } catch (err: any) {
       console.error(err);
@@ -99,29 +97,27 @@ export const AgentWorkerDetailPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const token = localStorage.getItem("nearvia_auth_token");
-        const headers = { Authorization: token ? `Bearer ${token}` : "" };
 
         // 1. Worker Detail
-        const workerRes = await fetch(`/api/v1/agents/workers/${workerId}`, { headers });
-        const workerJson = await workerRes.json();
-        if (!workerRes.ok || !workerJson.success) {
-          throw new Error(workerJson.error?.message || "Failed to load worker details");
+        const workerRes = await apiFetch(`/agents/workers/${workerId}`);
+        const workerResult = await parseApiResponse<WorkerDetail>(workerRes);
+        if (!workerResult.success || !workerResult.data) {
+          throw new Error(workerResult.error?.message || "Failed to load worker details");
         }
-        setWorker(workerJson.data);
+        setWorker(workerResult.data);
 
         // 2. Worker Applications
-        const appRes = await fetch(`/api/v1/agents/workers/${workerId}/applications`, { headers });
-        const appJson = await appRes.json();
-        if (appRes.ok && appJson.success) {
-          setApplications(appJson.data);
+        const appRes = await apiFetch(`/agents/workers/${workerId}/applications`);
+        const appResult = await parseApiResponse<any[]>(appRes);
+        if (appResult.success && appResult.data) {
+          setApplications(appResult.data);
         }
 
         // 3. Worker Assignments
-        const assignRes = await fetch(`/api/v1/agents/workers/${workerId}/assignments`, { headers });
-        const assignJson = await assignRes.json();
-        if (assignRes.ok && assignJson.success) {
-          setAssignments(assignJson.data);
+        const assignRes = await apiFetch(`/agents/workers/${workerId}/assignments`);
+        const assignResult = await parseApiResponse<any[]>(assignRes);
+        if (assignResult.success && assignResult.data) {
+          setAssignments(assignResult.data);
         }
       } catch (err: any) {
         setError(err.message || "Failed to load assisted worker");
@@ -137,14 +133,12 @@ export const AgentWorkerDetailPage: React.FC = () => {
     if (!workerId || !confirm("Are you sure you want to stop assisting this worker?")) return;
     try {
       setRevoking(true);
-      const token = localStorage.getItem("nearvia_auth_token");
-      const res = await fetch(`/api/v1/agents/workers/${workerId}/revoke`, {
+      const res = await apiFetch(`/agents/workers/${workerId}/revoke`, {
         method: "POST",
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error?.message || "Failed to revoke access");
+      const result = await parseApiResponse(res);
+      if (!result.success) {
+        throw new Error(result.error?.message || "Failed to revoke access");
       }
       navigate("/agent/dashboard");
     } catch (err: any) {

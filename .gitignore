@@ -37,6 +37,7 @@ service-account*.json
 .qa-worker-token
 .qa-inspect.py
 .qa-screenshots/
+tests/qa-artifacts/
 gitleaks*
 gitleaks-report.json
 
