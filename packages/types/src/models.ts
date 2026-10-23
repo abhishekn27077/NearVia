@@ -145,6 +145,7 @@ export interface WorkerSkillDetail {
 export interface WorkerProfileDetail extends WorkerProfile {
   fullName: string;
   phone: string;
+  email?: string;
   avatarUrl?: string;
   skills: WorkerSkillDetail[];
   profileCompletion: ProfileCompletionStatus;

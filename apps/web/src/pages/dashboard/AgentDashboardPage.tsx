@@ -4,6 +4,7 @@ import {
   Users,
   UserPlus,
   Phone,
+  Mail,
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
@@ -34,7 +35,7 @@ export const AgentDashboardPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "PENDING" | "REVOKED">("ALL");
 
   // Connect worker state
-  const [identifierType, setIdentifierType] = useState<"phone" | "id">("phone");
+  const [identifierType, setIdentifierType] = useState<"email" | "phone" | "id">("email");
   const [inputVal, setInputVal] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -77,10 +78,19 @@ export const AgentDashboardPage: React.FC = () => {
       setRequestError(null);
       setRequestSuccess(null);
 
-      const body =
-        identifierType === "phone"
-          ? { workerPhone: inputVal.trim(), consentConfirmed: true }
-          : { workerId: inputVal.trim(), consentConfirmed: true };
+      let body: Record<string, any>;
+      if (identifierType === "email") {
+        const trimmedEmail = inputVal.trim().toLowerCase();
+        if (!trimmedEmail.includes("@") || !trimmedEmail.includes(".")) {
+          setRequestError("Please enter a valid worker email address (e.g. suresh.worker@nearvia.in).");
+          return;
+        }
+        body = { workerEmail: trimmedEmail, consentConfirmed: true };
+      } else if (identifierType === "phone") {
+        body = { workerPhone: inputVal.trim(), consentConfirmed: true };
+      } else {
+        body = { workerId: inputVal.trim(), consentConfirmed: true };
+      }
 
       const res = await apiFetch("/agents/workers/request", {
         method: "POST",
@@ -182,10 +192,25 @@ export const AgentDashboardPage: React.FC = () => {
               <UserPlus className="w-4 h-4 text-orange-600" />
               <span>Connect & Support a Worker</span>
             </h2>
-            <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
               <button
                 type="button"
-                onClick={() => setIdentifierType("phone")}
+                onClick={() => {
+                  setIdentifierType("email");
+                  setInputVal("");
+                }}
+                className={`px-3 py-1 rounded-lg transition ${
+                  identifierType === "email" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500"
+                }`}
+              >
+                By Email (Default)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifierType("phone");
+                  setInputVal("");
+                }}
                 className={`px-3 py-1 rounded-lg transition ${
                   identifierType === "phone" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500"
                 }`}
@@ -194,7 +219,10 @@ export const AgentDashboardPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setIdentifierType("id")}
+                onClick={() => {
+                  setIdentifierType("id");
+                  setInputVal("");
+                }}
                 className={`px-3 py-1 rounded-lg transition ${
                   identifierType === "id" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500"
                 }`}
@@ -211,16 +239,24 @@ export const AgentDashboardPage: React.FC = () => {
           <form onSubmit={handleRequestAccess} className="space-y-3">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                {identifierType === "phone" ? (
+                {identifierType === "email" ? (
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                ) : identifierType === "phone" ? (
                   <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                 ) : (
                   <Users className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                 )}
                 <input
-                  type={identifierType === "phone" ? "tel" : "text"}
+                  type={identifierType === "email" ? "email" : identifierType === "phone" ? "tel" : "text"}
                   value={inputVal}
                   onChange={(e) => setInputVal(e.target.value)}
-                  placeholder={identifierType === "phone" ? "+91 98765 43210" : "worker-uuid-here"}
+                  placeholder={
+                    identifierType === "email"
+                      ? "worker.account@nearvia.in"
+                      : identifierType === "phone"
+                      ? "+91 98765 43210"
+                      : "e.g. 550e8400-e29b-41d4-a716-446655440000"
+                  }
                   className="w-full pl-11 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xs sm:text-sm font-medium focus:bg-white focus:border-orange-500"
                 />
               </div>

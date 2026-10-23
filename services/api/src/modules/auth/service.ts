@@ -785,20 +785,51 @@ export class AuthService {
       longitude?: number;
     },
   ): Promise<AuthUserContext> {
+    const hasPhoneUpdate = data.phone !== undefined;
+    let normalizedPhone: string | null = null;
+
+    if (hasPhoneUpdate) {
+      if (data.phone && data.phone.trim().length > 0) {
+        const clean = data.phone.trim().replace(/[\s\-()]/g, "");
+        normalizedPhone = clean.startsWith("+")
+          ? clean
+          : clean.startsWith("91")
+          ? `+${clean}`
+          : `+91${clean}`;
+
+        const dupCheck = await query<any>(
+          "SELECT id FROM users WHERE phone = $1 AND id != $2 LIMIT 1",
+          [normalizedPhone, userId],
+        );
+        if (dupCheck.rows.length > 0) {
+          throw new AppError(
+            "Phone number is already associated with another account.",
+            409,
+            ErrorCode.CONFLICT,
+          );
+        }
+      } else {
+        normalizedPhone = null;
+      }
+    }
+
     const result = await query<any>(
       `UPDATE users SET
         full_name = COALESCE($1, full_name),
-        phone = COALESCE($2, phone),
-        language = COALESCE($3, language),
-        location_text = COALESCE($4, location_text),
-        latitude = COALESCE($5, latitude),
-        longitude = COALESCE($6, longitude),
+        phone = CASE WHEN $2::boolean THEN $3 ELSE phone END,
+        mobile_verified = CASE WHEN $2::boolean AND ($3 IS DISTINCT FROM phone) THEN FALSE ELSE mobile_verified END,
+        mobile_verified_at = CASE WHEN $2::boolean AND ($3 IS DISTINCT FROM phone) THEN NULL ELSE mobile_verified_at END,
+        language = COALESCE($4, language),
+        location_text = COALESCE($5, location_text),
+        latitude = COALESCE($6, latitude),
+        longitude = COALESCE($7, longitude),
         updated_at = NOW()
-       WHERE id = $7
+       WHERE id = $8
        RETURNING *`,
       [
         data.fullName ?? null,
-        data.phone ?? null,
+        hasPhoneUpdate,
+        normalizedPhone,
         data.language ?? null,
         data.locationText ?? null,
         data.latitude ?? null,

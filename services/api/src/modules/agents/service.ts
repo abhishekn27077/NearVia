@@ -145,7 +145,7 @@ export class AgentsService {
 
   async requestWorkerAccess(
     agentUserId: string,
-    params: string | { workerPhone?: string; workerId?: string; consentConfirmed?: boolean }
+    params: string | { workerEmail?: string; workerPhone?: string; workerId?: string; consentConfirmed?: boolean }
   ): Promise<AgentWorkerRelationshipResponse> {
     // 1. Resolve agent profile (idempotent fallback if missing)
     let agentRes = await query(`SELECT id FROM agent_profiles WHERE user_id = $1`, [agentUserId]);
@@ -157,12 +157,34 @@ export class AgentsService {
     if (!agent) throw new AppError("Agent profile not found", 404);
 
     let worker: { worker_id: string; user_id: string; full_name: string; phone: string } | undefined;
+    const workerEmail = typeof params === "object" ? params.workerEmail : undefined;
     const workerPhone = typeof params === "string" ? params : params.workerPhone;
     const workerId = typeof params === "object" ? params.workerId : undefined;
     const consentConfirmed = typeof params === "object" ? params.consentConfirmed : undefined;
 
-    // 2. Find worker by phone or ID
-    if (workerPhone && workerPhone.trim().length > 0) {
+    // 2. Find worker by email, phone, or ID
+    if (workerEmail && workerEmail.trim().length > 0) {
+      const normalizedEmail = workerEmail.trim().toLowerCase();
+
+      const userRes = await query<{ id: string }>(
+        `SELECT id FROM users WHERE LOWER(email) = $1`,
+        [normalizedEmail]
+      );
+      if (userRes.rows[0]?.id === agentUserId) {
+        throw new AppError("You cannot establish an agent-worker relationship with yourself", 400, ErrorCode.VALIDATION_ERROR);
+      }
+
+      const workerRes = await query<{ worker_id: string; user_id: string; full_name: string; phone: string }>(
+        `SELECT wp.id AS worker_id, u.id AS user_id, u.full_name, u.phone
+         FROM users u
+         JOIN worker_profiles wp ON wp.user_id = u.id
+         WHERE LOWER(u.email) = $1
+           AND u.role = 'WORKER'`,
+        [normalizedEmail]
+      );
+      worker = workerRes.rows[0];
+      if (!worker) throw new AppError("No worker account found matching this email address", 404);
+    } else if (workerPhone && workerPhone.trim().length > 0) {
       const trimmedPhone = workerPhone.trim();
       const cleanDigits = trimmedPhone.replace(/[\s\-()]/g, "");
       const normalizedWithPlus = cleanDigits.startsWith("+")
@@ -213,7 +235,7 @@ export class AgentsService {
       worker = workerRes.rows[0];
       if (!worker) throw new AppError("No worker found with this ID", 404);
     } else {
-      throw new AppError("Either workerPhone or workerId must be provided", 400);
+      throw new AppError("Either workerEmail, workerPhone, or workerId must be provided", 400);
     }
 
     // 2.5 Prevent self-relationship

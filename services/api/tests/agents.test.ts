@@ -433,6 +433,97 @@ describe("Phase 13: Agent-Assisted Job Access Module", () => {
         })
       ).rejects.toThrow("You cannot establish an agent-worker relationship with yourself");
     });
+
+    it("should allow requesting access using worker registered email address (case-insensitive)", async () => {
+      let emailLookupExecuted = false;
+      const workerEmail = "suresh.worker@nearvia.in";
+
+      vi.mocked(db.query).mockImplementation(async (sql: string) => {
+        if (sql.includes("FROM agent_profiles WHERE user_id")) {
+          return { rowCount: 1, rows: [{ id: agentProfileId }] } as any;
+        }
+        if (sql.includes("FROM users WHERE LOWER(email)")) {
+          return { rowCount: 1, rows: [{ id: workerUserId }] } as any;
+        }
+        if (sql.includes("FROM users u") && sql.includes("JOIN worker_profiles wp")) {
+          emailLookupExecuted = true;
+          return {
+            rowCount: 1,
+            rows: [{ worker_id: workerProfileId, user_id: workerUserId, full_name: "Suresh Plumber", phone: workerPhone }],
+          } as any;
+        }
+        if (sql.includes("FROM agent_worker_relationships WHERE agent_id")) {
+          return { rowCount: 0, rows: [] } as any;
+        }
+        if (sql.includes("INSERT INTO agent_worker_relationships")) {
+          return { rowCount: 1, rows: [] } as any;
+        }
+        if (sql.includes("INSERT INTO notifications") || sql.includes("INSERT INTO audit_logs")) {
+          return { rowCount: 1, rows: [] } as any;
+        }
+        return {
+          rowCount: 1,
+          rows: [
+            {
+              id: "rel-102",
+              agent_id: agentProfileId,
+              worker_id: workerProfileId,
+              status: "PENDING",
+              requested_at: new Date().toISOString(),
+              accepted_at: null,
+              revoked_at: null,
+              worker_user_id: workerUserId,
+              worker_full_name: "Suresh Plumber",
+              worker_phone: workerPhone,
+            },
+          ],
+        } as any;
+      });
+
+      const rel = await agentsService.requestWorkerAccess(agentUserId, {
+        workerEmail: "SURESH.WORKER@nearvia.in",
+        consentConfirmed: true,
+      });
+
+      expect(emailLookupExecuted).toBe(true);
+      expect(rel.workerId).toBe(workerProfileId);
+      expect(rel.status).toBe("PENDING");
+    });
+
+    it("should reject agent attempting self-relationship via email", async () => {
+      vi.mocked(db.query).mockImplementation(async (sql: string) => {
+        if (sql.includes("FROM agent_profiles WHERE user_id")) {
+          return { rowCount: 1, rows: [{ id: agentProfileId }] } as any;
+        }
+        if (sql.includes("FROM users WHERE LOWER(email)")) {
+          return { rowCount: 1, rows: [{ id: agentUserId }] } as any;
+        }
+        return { rowCount: 0, rows: [] } as any;
+      });
+
+      await expect(
+        agentsService.requestWorkerAccess(agentUserId, {
+          workerEmail: "agent.self@nearvia.in",
+          consentConfirmed: true,
+        })
+      ).rejects.toThrow("You cannot establish an agent-worker relationship with yourself");
+    });
+
+    it("should throw 404 when worker email is not found", async () => {
+      vi.mocked(db.query).mockImplementation(async (sql: string) => {
+        if (sql.includes("FROM agent_profiles WHERE user_id")) {
+          return { rowCount: 1, rows: [{ id: agentProfileId }] } as any;
+        }
+        return { rowCount: 0, rows: [] } as any;
+      });
+
+      await expect(
+        agentsService.requestWorkerAccess(agentUserId, {
+          workerEmail: "nonexistent.worker@nearvia.in",
+          consentConfirmed: true,
+        })
+      ).rejects.toThrow("No worker account found matching this email address");
+    });
   });
 });
 

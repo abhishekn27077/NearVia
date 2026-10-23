@@ -45,6 +45,7 @@ interface DbWorkerRow {
   updated_at: string;
   full_name: string;
   phone: string;
+  email?: string | null;
   avatar_url: string | null;
 }
 
@@ -227,6 +228,7 @@ export class WorkersService {
           wp.updated_at,
           u.full_name,
           u.phone,
+          u.email,
           u.avatar_url
         FROM worker_profiles wp
         JOIN users u ON wp.user_id = u.id
@@ -295,6 +297,7 @@ export class WorkersService {
         userId: row.user_id,
         fullName: row.full_name,
         phone: row.phone,
+        email: row.email ?? undefined,
         avatarUrl: row.avatar_url ?? undefined,
         bio: row.bio ?? undefined,
         experienceYears: expYears,

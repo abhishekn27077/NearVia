@@ -41,12 +41,19 @@ export interface AgentWorkerRelationshipResponse {
 }
 
 export const requestWorkerAccessSchema = z.object({
+  workerEmail: z.string().email("Invalid email address format").max(255).optional(),
   workerPhone: z.string().min(8).max(30).optional(),
   workerId: z.string().min(1).max(64).optional(),
   consentConfirmed: z.boolean().optional(),
-}).refine((data) => (data.workerPhone && data.workerPhone.trim().length > 0) || (data.workerId && data.workerId.trim().length > 0), {
-  message: "Either workerPhone or workerId must be provided",
-});
+}).refine(
+  (data) =>
+    (data.workerEmail && data.workerEmail.trim().length > 0) ||
+    (data.workerPhone && data.workerPhone.trim().length > 0) ||
+    (data.workerId && data.workerId.trim().length > 0),
+  {
+    message: "Either workerEmail, workerPhone, or workerId must be provided",
+  }
+);
 
 export type RequestWorkerAccessInput = z.infer<typeof requestWorkerAccessSchema>;
 
