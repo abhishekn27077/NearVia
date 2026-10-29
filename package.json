@@ -4,7 +4,7 @@
   "private": true,
   "description": "NEARVIA - Work Within Reach | Hyperlocal Quick-Work Marketplace",
   "author": "NEARVIA Core Team",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "workspaces": [
     "packages/*",
     "services/*",

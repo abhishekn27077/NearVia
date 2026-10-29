@@ -15,7 +15,7 @@
 5. **No Premature Technology Sprawl**:
    - **DO NOT INTRODUCE**: Redis, Kafka, RabbitMQ, Kubernetes, Microservices, MongoDB, Elasticsearch, Prisma, TypeORM, GraphQL, or Blockchain unless explicitly required and approved in a future phase with an ADR.
    - **KEEP SIMPLE**: The core platform is a modular monolith backed by PostgreSQL + PostGIS.
-6. **Record Decisions**: Any addition of a significant runtime dependency must be accompanied by an ADR or documented update in `PROJECT_STATE.md`.
+6. **Record Decisions**: Any addition of a significant runtime dependency must be accompanied by an ADR or documented update in `docs/PROJECT_STATE.md`.
 
 ---
 

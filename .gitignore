@@ -41,6 +41,11 @@ tests/qa-artifacts/
 gitleaks*
 gitleaks-report.json
 
+# AI Agent & Prompt Artifacts
+.agents/
+skills-lock.json
+.prompts/
+
 # Local Database & Data Dumps
 *.db
 *.sqlite

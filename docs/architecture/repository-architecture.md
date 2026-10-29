@@ -23,8 +23,9 @@ NEARVIA/
 ├── .github/workflows/           # CI/CD pipelines
 ├── .gitignore                   # Version control exclusions
 ├── .env.example                 # Sanitized environment template
-├── README.md                    # Project overview
-└── PROJECT_STATE.md             # Project lifecycle tracking
+├── LICENSE                      # MIT Open Source License
+├── docs/PROJECT_STATE.md        # Project lifecycle tracking
+└── vercel.json                  # Production CDN and SPA rewrites
 ```
 
 ## 2. Dependency Rules & Encapsulation

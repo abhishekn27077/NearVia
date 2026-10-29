@@ -6,7 +6,7 @@ All future AI coding agents working on the NEARVIA codebase MUST strictly adhere
 
 ### The 20 Mandatory Rules
 
-1. **Read `PROJECT_STATE.md` first**: Always review `PROJECT_STATE.md` before starting any task to know current phase, status, and active boundaries.
+1. **Read `docs/PROJECT_STATE.md` first**: Always review `docs/PROJECT_STATE.md` before starting any task to know current phase, status, and active boundaries.
 2. **Read relevant ADRs**: Review all Architecture Decision Records in `docs/decisions/` before modifying or proposing architectural changes.
 3. **Inspect before creating**: Inspect existing module implementations, shared packages, and database migrations before adding new files.
 4. **Never recreate existing features**: Reuse existing services, types, and utility functions instead of re-implementing them.
@@ -22,7 +22,7 @@ All future AI coding agents working on the NEARVIA codebase MUST strictly adhere
 14. **Preserve backward compatibility**: Ensure all new changes do not break previous phases or active contracts.
 15. **Update test suites**: Write or update tests whenever domain logic, schemas, or endpoints are modified.
 16. **Execute tests before completing**: Run `npm test`, `npm run typecheck`, and `npm run lint` before claiming task completion.
-17. **Update `PROJECT_STATE.md`**: Update the status and phase logs in `PROJECT_STATE.md` upon completing each phase.
+17. **Update `docs/PROJECT_STATE.md`**: Update the status and phase logs in `docs/PROJECT_STATE.md` upon completing each phase.
 18. **Document decisions via ADRs**: Create an ADR in `docs/decisions/` for any significant architectural deviation or technical decision.
 19. **Clean up scratch files**: Remove temporary test files, debug logs, and scratch scripts before committing work.
 20. **Verify before claiming completion**: Never claim a feature or phase is complete without providing concrete test and build evidence.
