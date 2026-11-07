@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { ApiErrorResponse, ErrorCode } from "@nearvia/config";
 import { ZodError } from "zod";
+import { captureServerError } from "../config/sentry";
 
 export class AppError extends Error {
   public readonly statusCode: number;
@@ -112,6 +113,11 @@ export const errorHandler: ErrorRequestHandler = (
 
   // Handle Known Application Domain Errors
   if (err instanceof AppError) {
+    // Only capture 5xx server-side domain errors to avoid quota drain from routine 4xx client errors
+    if (err.statusCode >= 500) {
+      captureServerError(err, req);
+    }
+
     const safeDetails = isProduction ? sanitizeErrorDetails(err.details) : err.details;
     const safeMessage = sanitizeErrorMessage(err.message, isProduction);
 
@@ -130,6 +136,8 @@ export const errorHandler: ErrorRequestHandler = (
   }
 
   // Handle Unexpected Internal Server Errors
+  captureServerError(err, req);
+
   if (!isProduction) {
     console.error("❌ Unhandled Server Error:", err);
   } else {

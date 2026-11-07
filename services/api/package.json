@@ -23,6 +23,7 @@
     "@nearvia/shared": "*",
     "@nearvia/types": "*",
     "@nearvia/validation": "*",
+    "@sentry/node": "^8.55.2",
     "@supabase/supabase-js": "^2.49.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",

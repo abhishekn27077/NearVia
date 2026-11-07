@@ -1,3 +1,4 @@
+import "./config/sentry";
 import { createApp } from "./app";
 import { env } from "./config";
 import { NEARVIA_CONFIG } from "@nearvia/config";

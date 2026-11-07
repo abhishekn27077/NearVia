@@ -43,6 +43,9 @@ const envSchema = z
     GEMINI_API_KEY: z.string().optional(),
     REDIS_URL: z.string().optional(),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    SENTRY_DSN: z.string().optional(),
+    SENTRY_ENVIRONMENT: z.string().optional(),
+    SENTRY_RELEASE: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV === "production") {
