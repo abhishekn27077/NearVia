@@ -1,2 +1,20 @@
 User-agent: *
 Allow: /
+Allow: /find-work
+Allow: /terms
+Allow: /privacy
+
+# Disallow private application route namespaces
+Disallow: /admin
+Disallow: /admin/
+Disallow: /worker/
+Disallow: /provider/
+Disallow: /agent/
+Disallow: /api/
+Disallow: /messages/
+Disallow: /disputes/
+Disallow: /verification/
+Disallow: /radar
+Disallow: /workforce-radar
+
+Sitemap: https://www.nearvia.app/sitemap.xml
