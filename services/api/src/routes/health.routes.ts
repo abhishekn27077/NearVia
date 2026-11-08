@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express";
+import crypto from "crypto";
 import { query } from "../db";
+import { Sentry } from "../config/sentry";
 
 const router = Router();
 
@@ -131,6 +133,88 @@ router.get(["/health/deep", "/deep"], async (_req: Request, res: Response) => {
       },
     });
   }
+});
+
+let verificationDispatched = false;
+
+/**
+ * Temporary Protected Sentry Delivery Verification Endpoint
+ * Only active when ENABLE_SENTRY_VERIFICATION === "true" and authenticated via x-sentry-verify-token.
+ */
+router.post(["/health/sentry-verify", "/sentry-verify"], async (req: Request, res: Response) => {
+  // Lock 1: Feature enablement gate
+  if (process.env.ENABLE_SENTRY_VERIFICATION !== "true") {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  // Lock 2: Timing-safe secret verification
+  const secret = process.env.SENTRY_VERIFY_SECRET;
+  const rawAuth = req.headers.authorization;
+  const bearerToken = rawAuth?.startsWith("Bearer ") ? rawAuth.slice(7).trim() : undefined;
+  const token = (req.headers["x-sentry-verify-token"] as string | undefined) || bearerToken;
+
+  if (
+    !secret ||
+    typeof token !== "string" ||
+    token.length !== secret.length ||
+    !crypto.timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+  ) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  // Lock 3: Single-use memory latch
+  if (verificationDispatched) {
+    res.status(409).json({
+      success: false,
+      error: "Verification event already dispatched during this runtime instance",
+    });
+    return;
+  }
+
+  if (!Sentry.isInitialized()) {
+    res.status(503).json({
+      success: false,
+      error: "Sentry SDK is not initialized in this environment",
+    });
+    return;
+  }
+
+  verificationDispatched = true;
+
+  const eventId = Sentry.withScope((scope) => {
+    scope.setTag("runtime", "render-node-production");
+    scope.setTag("verificationSource", "render-diagnostic");
+    return Sentry.captureMessage(
+      "NEARVIA - Render Sentry Delivery Verification",
+      "info",
+    );
+  });
+
+  const isFlushed = await Sentry.flush(10000);
+
+  if (!isFlushed) {
+    res.status(504).json({
+      success: false,
+      delivered: false,
+      eventId,
+      error: "Sentry.flush(10000) timed out",
+      service: "nearvia-api",
+      runtime: "render",
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    delivered: true,
+    eventId,
+    service: "nearvia-api",
+    runtime: "render",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 export const healthRouter: Router = router;
